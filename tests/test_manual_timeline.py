@@ -203,7 +203,7 @@ def test_source_soundtrack_is_not_replayed_under_its_own_dialogue(editorial_proj
     assert 'timeline_music' in legacy.prompt
     document = {**payload['document'], 'dialogue': []}
     explicit, values = timeline.render_template(project, document, 'dialogue')
-    assert 'timeline_music' not in explicit.prompt and not values
+    assert 'timeline_music' not in explicit.prompt and values == {'project_id':project.name}
     assert timeline.music_file(project) == source.resolve()
     assert timeline.music_file(project, suppress_source_audio=True) is None
 
@@ -309,13 +309,16 @@ async def test_manual_export_lifecycle_checks_duration_and_keeps_old_export_on_f
         async def to_file(self, path):
             shutil.copy2(output, path)
     class Runner:
+        from backend.runner import ComfyRunner
+        _finish_edit = ComfyRunner._finish_edit
         edits = 0
         def projects(self): return project.parent
         def video_path(self, job):
             path = tmp_path / 'existing.mp4'
             return path
-        async def _run(self, client, job, template, values, stage):
+        async def _run(self, client, job, template, values, stage, *, result_context=None):
             assert stage == 'edit' and template.prompt['timeline_edit']
+            assert values['project_id']==project.name
             return SimpleNamespace(get_outputs=lambda node: [Output()] if node == 'timeline_save' else [])
     request = JobRequest(mode='text', settings={'duration': 2})
     job = Job(request)

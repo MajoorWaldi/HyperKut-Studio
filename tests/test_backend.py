@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from backend.config import Settings
 from backend.jobs import Job
 from backend.models import EditStyle, JobRequest, Shot
-from backend.runner import ComfyRunner, MockRunner
+from backend.runner import ComfyRunner, MockRunner, _failure_message, _validate_remote_project_music_input
 from backend.server import create_app
 from backend.templates import Template, TemplateError, load_templates
 
@@ -63,6 +63,58 @@ def test_a_job_runs_through_its_stages_and_the_events_end_with_the_result(tmp_pa
         _a_job_runs(client)
 
 
+def test_studio_status_exposes_nonsecret_identity_and_effective_limits(tmp_path):
+        settings = Settings(
+            "http://user:password@comfy.example:8188/",
+            "http://127.0.0.1:8189",
+            tmp_path / "out",
+            tmp_path / "workspace",
+            tmp_path / "workflows",
+            False,
+            storage_backend="remote_artifacts",
+        )
+        with TestClient(create_app(settings, MockRunner(pace=0))) as client:
+            response = client.get("/api/studio/status")
+        assert response.status_code == 200
+        data = response.json()
+        identity = data["config_identity"]
+        assert identity["version"] == 1
+        assert identity["storage_backend"] == "remote_artifacts"
+        assert identity["id"]
+        assert "password" not in response.text and str(tmp_path) not in response.text
+        limits = data["effective_limits"]
+        assert limits == {
+            "studio_upload_bytes": 1024**3,
+            "studio_upload_max_bytes": 1024**3,
+            "artifact_max_bytes": 2 * 1024**3,
+            "artifact_cache_max_bytes": 20 * 1024**3,
+            "snapshot_transfer_max_bytes": 20 * 1024**3 + 32 * 1024**2,
+            "proxy_upload_max_mb": 20512,
+        }
+
+
+def test_studio_upload_limit_cannot_exceed_one_gib(monkeypatch, tmp_path):
+        from backend.config import Settings
+
+        monkeypatch.setenv("HYPERKUT_MAX_UPLOAD_MB", "1025")
+        monkeypatch.setenv("HYPERKUT_OUTPUT_DIR", str(tmp_path / "out"))
+        with pytest.raises(ValueError, match="capped at 1 GiB"):
+            Settings.from_env()
+
+
+def test_proxy_and_artifact_ceilings_match_launcher_contract(tmp_path):
+        from backend.artifact_store import LocalArtifactStore
+        from backend.config import MAX_ARTIFACT_BYTES, MAX_ARTIFACT_CACHE_BYTES, PROXY_MAX_UPLOAD_MB
+
+        store = LocalArtifactStore(tmp_path / "artifacts")
+        assert store.max_artifact_bytes == MAX_ARTIFACT_BYTES == 2 * 1024**3
+        assert store.max_cache_bytes == MAX_ARTIFACT_CACHE_BYTES == 20 * 1024**3
+        assert PROXY_MAX_UPLOAD_MB == 20512
+        root = Path(__file__).resolve().parents[1]
+        assert "'20512'" in (root / "scripts" / "start_hyperkut.ps1").read_text(encoding="utf-8-sig")
+        assert "--max-upload-mb 20512" in (root / "scripts" / "run_studio.ps1").read_text(encoding="utf-8")
+
+
 def _a_job_runs(client):
     upload = client.post("/api/uploads", files={"file": ("clip.mp4", b"fake", "video/mp4")}).json()
     assert upload["kind"] == "video" and client.get(upload["url"]).content == b"fake"
@@ -93,10 +145,31 @@ async def test_a_job_can_be_cancelled(tmp_path):
     assert job.state.status == "cancelled" and app is not None
 
 
+def test_prompt_validation_errors_include_per_node_details():
+    class WorkflowValidationError(Exception):
+        details = {'node_errors': {'73': {'class_type': 'MajoorExample', 'errors': [{'message': 'missing prompt'}]}}}
+
+    message = _failure_message(WorkflowValidationError('Prompt outputs failed validation'))
+    assert 'Prompt outputs failed validation' in message
+    assert 'node_errors' in message
+    assert 'MajoorExample' in message
+    assert 'missing prompt' in message
+
+
+def test_remote_project_music_input_is_checked_against_loaded_worker_schema():
+    graph={'load_music':{'class_type':'MajoorLoadProjectMusic','inputs':{'project':['__hk_import',0]}}}
+    schemas={'MajoorLoadProjectMusic':{'input':{'required':{'project_id':['STRING',{}]},'optional':{}}}}
+    with pytest.raises(ValueError,match=r'MajoorLoadProjectMusic.project is missing'):
+        _validate_remote_project_music_input(graph,schemas)
+    schemas['MajoorLoadProjectMusic']['input']['optional']['project']=['MAJOOR_SHOT_LIST',{}]
+    _validate_remote_project_music_input(graph,schemas)
+
+
 # ---- the real runner against a fake client --------------------------------------------------------------------------
 
 class FakeHandle:
     id = "test-sdk-handle"
+    status = "running"
     def __init__(self, client, prompt):
         self.client, self.prompt = client, prompt
 
@@ -113,6 +186,7 @@ class FakeHandle:
 
     async def cancel(self):
         self.client.cancelled = True
+        self.status = "canceled"
 
     async def wait(self, timeout=None):
         return self

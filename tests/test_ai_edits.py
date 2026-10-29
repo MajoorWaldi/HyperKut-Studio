@@ -189,6 +189,7 @@ def test_stale_candidate_is_rejected_without_changing_the_manifest(project, tmp_
 
 
 class CandidateClient:
+    status = 'running'
     def __init__(self, path, fail=False, wait=False):
         self.path, self.fail, self.waiting = path, fail, wait
         self.closed = self.cancelled = False
@@ -217,6 +218,7 @@ class CandidateClient:
 
     async def cancel(self):
         self.cancelled = True
+        self.status = 'canceled'
 
     async def wait(self, timeout=None):
         pass

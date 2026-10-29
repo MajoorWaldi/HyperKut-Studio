@@ -472,6 +472,11 @@ html[data-w~="sm"] .player-art { aspect-ratio: auto; min-height: 320px; containe
 .example-media.remix { background: linear-gradient(135deg, #3a2a4a, #1a1320); } .example-media.text { background: linear-gradient(135deg, #2a3a4a, #1a1320); } .example-media.music { background: linear-gradient(135deg, #4a2a3a, #1a1320); }
 .example-media img, .example-media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .example-media .example-reference { inset: auto 8px 8px auto; width: 38px; height: 54px; border-radius: 7px; border: 1px solid #ffffff55; box-shadow: 0 4px 14px #000a; }
+.preset-wave + .preset-inputs { bottom: 40px; }
+.preset-inputs { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 4px; align-items: flex-end; }
+.example-media .preset-inputs img, .example-media .preset-inputs video, .lib-preview .preset-inputs img, .lib-preview .preset-inputs video { position: static; width: auto; height: 44px; aspect-ratio: 3 / 4; border-radius: 6px; border: 1px solid #ffffff66; box-shadow: 0 3px 10px #000a; }
+.example-media .preset-inputs video, .lib-preview .preset-inputs video { height: 62px; aspect-ratio: 9 / 16; border-color: var(--lime); }
+.example-media .preset-wave, .lib-preview .preset-wave { position: absolute; inset: auto 8px 8px 8px; width: calc(100% - 16px); height: 26px; color: var(--lime); opacity: .85; filter: drop-shadow(0 1px 3px #000); }
 .example-media .lib-mode { position: absolute; top: 7px; left: 7px; }
 .example-check { position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); color: #1b1520; }
 .example-card b { font-size: 13px; } .example-card small { font-size: 11px; color: var(--muted); line-height: 1.35; }

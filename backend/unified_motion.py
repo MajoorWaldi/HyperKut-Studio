@@ -3,6 +3,8 @@ import json
 import math
 import re
 
+from .snapshot_schema import motion_contract
+
 
 def validate_finishing(values, duration):
     """Reject invalid finishing instructions before submitting any generation."""
@@ -33,6 +35,7 @@ def validate_finishing(values, duration):
     rows = raw.get('layers', []) if isinstance(raw, dict) else raw
     if not isinstance(rows, list) or len(rows) > 120 or any(not isinstance(row, dict) for row in rows):
         raise ValueError('Motion layers must contain at most 120 objects')
+    motion_contract().validate_motion_rows(rows)
     for row in rows:
         if row.get('sound_palette') not in (None,'subtle','electronic','metallic'):
             raise ValueError('Unknown sound palette')
@@ -136,6 +139,7 @@ def finishing_layers(manifest, shots, configured, text_on=True, motion_on=True):
     rows=raw.get('layers',[]) if isinstance(raw,dict) else raw
     if not isinstance(rows,list):
         raise ValueError('Motion layers must be a JSON list')
+    motion_contract().validate_motion_rows(rows)
     rows=list(rows)
     by_id={row['shot_id']:row for row in manifest.get('shots',[])}
     for shot in shots:
@@ -160,6 +164,7 @@ def finishing_layers(manifest, shots, configured, text_on=True, motion_on=True):
     if motion_on and isinstance(raw,dict) and raw.get('pack'):
         from .motion_presets import pack_layers
         rows.extend(pack_layers(raw['pack'],shots,manifest,rows,raw.get('accent','#e4c081')))
+    motion_contract().validate_motion_rows(rows)
     if not text_on:
         referenced={(row.get('shot_id'),row.get('scene'),row.get('after')) for row in rows if row.get('after')}
         filtered=[]

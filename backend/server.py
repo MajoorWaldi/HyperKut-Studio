@@ -3,6 +3,7 @@ import asyncio
 import array
 import hashlib
 import json
+import logging
 import re as _re
 import mimetypes
 import os
@@ -35,10 +36,10 @@ from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
 from .take_trim import trim_bounds
-from .runner import ComfyRunner, MockRunner, Runner
+from .runner import ComfyRunner, MockRunner, Runner, _failure_message
 from .media import validate_media
 from .review import build_review_frames
-from .storage import edit_manifest, project_path, write_json
+from .storage import SharedProjectRepository, project_path, write_json
 from .templates import TemplateError, load_templates
 from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
@@ -46,6 +47,7 @@ from .brief_preview import prepare_brief
 from .unified_motion import validate_finishing
 
 KINDS = {"video": "video", "image": "image", "audio": "audio"}
+logger = logging.getLogger(__name__)
 MEDIA_SUFFIXES = {
     'image': {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tif', '.tiff', '.avif'},
     'video': {'.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.mpeg', '.mpg'},
@@ -76,20 +78,26 @@ class SameOriginMiddleware:
 def create_app(settings: Settings | None = None, runner: Runner | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     recovery_lock = asyncio.Lock()
-    async def recover_pending():
+    async def recover_pending(target=None, *, all_jobs=False):
         async with recovery_lock:
             if isinstance(runner, ComfyRunner):
                 for job in list(store.jobs.values()):
+                    if not all_jobs and (target is None or (
+                        job.id!=target.id and (not target.state.project_id or job.state.project_id!=target.state.project_id))):
+                        continue
                     if (job.pending_handle or job.submission_key) and job.state.status not in ('running', 'queued'):
                         try:
                             await asyncio.wait_for(runner.recover(job), timeout=10)
                         except Exception as error:
-                            raise HTTPException(503, 'A previous GPU request could not be reconciled. Check the local proxy and retry.') from error
+                            logger.exception('Could not reconcile GPU result for job %s',job.id)
+                            job.update(error=f'Recovery pending for this project: {_failure_message(error)}')
+                            if not all_jobs:
+                                raise HTTPException(503, f'This project has an unreconciled GPU result ({job.id}). Check the proxy and retry; other projects remain available.') from error
 
     @asynccontextmanager
     async def lifespan(app):
         try:
-            await recover_pending()
+            await recover_pending(all_jobs=True)
         except HTTPException:
             pass  # mutations retry reconciliation once the local proxy is available
         yield
@@ -100,12 +108,15 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     app.state.boot_id = uuid.uuid4().hex
     app.state.restarting = False
     app.state.mutations = 0
+    app.state.artifact_gc = False
 
     @app.middleware('http')
     async def restart_admission(request, call_next):
         mutation = request.method in ('POST', 'PUT', 'PATCH', 'DELETE')
         if mutation and app.state.restarting:
             return Response(json.dumps({'detail': 'Studio is restarting. Retry when it is ready.'}), status_code=503, media_type='application/json')
+        if mutation and app.state.artifact_gc:
+            return Response(json.dumps({'detail':'Artifact collection is in progress. Retry when it finishes.'}),status_code=409,media_type='application/json')
         if mutation:
             app.state.mutations += 1
         try:
@@ -116,7 +127,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     @app.get('/api/studio/status')
     async def studio_status():
-        return {'instance_id': app.state.boot_id, 'restarting': app.state.restarting}
+        return {
+            'instance_id': app.state.boot_id,
+            'restarting': app.state.restarting,
+            'config_identity': settings.config_identity(),
+            'effective_limits': settings.effective_limits(),
+        }
 
     @app.post('/api/studio/restart', status_code=202)
     async def restart_studio():
@@ -162,27 +178,40 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     runner = runner or (MockRunner() if settings.mock else ComfyRunner(settings, uploads))
 
     @app.get("/api/health")
-    async def health():
-        """What the interface shows next to the GPU chip: is ComfyUI there, with the nodes of the pack."""
+    async def health(mode: str = "remix", refs: int = 0, ref_video: bool = False, voice: bool = False):
+        """Readiness of the selected mode's required graph, not every exported node."""
+        from .templates import PHASES, graph_readiness
+
+        if mode not in ("remix", "text", "music"):
+            raise HTTPException(422, "Unknown mode")
+        if not 0 <= refs <= 5:
+            raise HTTPException(422, "refs must be between 0 and 5")
         out = {"mock": settings.mock, "comfyui": False, "proxy": False, "videotools": False, "output_dir": str(settings.output_dir) if settings.output_dir else None,
                'load_errors': store.load_errors, 'missing_nodes': [], 'missing_models': [], 'preset_inputs': True, 'music_rhythm_modes': True, 'adaptive_editing_modes': True}
         out['instance_id'] = app.state.boot_id
+        out['mode'] = mode
         async with httpx.AsyncClient(timeout=3) as client:
             try:
                 out["comfyui"] = (await client.get(f"{settings.comfyui_url}/system_stats")).status_code == 200
-                schemas = (await client.get(f'{settings.comfyui_url}/object_info')).json()
-                required = set()
-                for mode in ('remix','text','music'):
-                    for template in load_templates(settings.templates_dir,mode).values():
-                        required.update(n['class_type'] for n in template.prompt.values() if n['class_type'] != 'MajoorHyperFrames')
-                        for node in template.prompt.values():
-                            schema=schemas.get(node['class_type'],{}).get('input',{})
-                            fields={**schema.get('required',{}),**schema.get('optional',{})}
-                            for field,value in node['inputs'].items():
-                                options=fields.get(field,[None])[0]
-                                if field in ('unet_name','clip_name','vae_name','ckpt_name','lora_name','name') and isinstance(value,str) and isinstance(options,list) and value not in options:
-                                    out['missing_models'].append(f'{node["class_type"]}.{field}: {value}')
-                out['missing_nodes'] = sorted(required - set(schemas))
+                response = await client.get(f'{settings.comfyui_url}/object_info')
+                response.raise_for_status()
+                schemas = response.json()
+                if not isinstance(schemas, dict):
+                    raise ValueError("Invalid object_info response")
+                templates = load_templates(settings.templates_dir, mode)
+                absent = (*(f"ref{i + 1}" for i in range(refs, 5)),
+                          *(name for name, given in (("ref_video", ref_video), ("voice", voice), ("energy_reference", False)) if not given))
+                # Optional finishing is best-effort at execution time. Check a
+                # conservative baseline without requiring its mask/model branch.
+                defaults = {"subject_mask": False, "motion_design": False, "unified_layers": "[]"}
+                for phase in PHASES:
+                    template = templates[phase]
+                    graph = template.fill({key: value for key, value in defaults.items() if key in template.slots},
+                                          tuple(name for name in absent if name in template.slots))
+                    missing_nodes, missing_models = graph_readiness(graph, schemas)
+                    out['missing_nodes'].extend(missing_nodes)
+                    out['missing_models'].extend(missing_models)
+                out['missing_nodes'] = sorted(set(out['missing_nodes']))
                 out['missing_models'] = sorted(set(out['missing_models']))
                 out['videotools'] = not out['missing_nodes']
             except (httpx.HTTPError, ValueError, OSError, TemplateError):
@@ -330,7 +359,6 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs", response_model=JobState)
     async def create_job(request: JobRequest):
         validate_request(request)
-        await recover_pending()
         if sum(j.state.status in ('queued','running') for j in store.jobs.values()) >= settings.max_active_jobs:
             raise HTTPException(429,'The job queue is full; wait for a job to finish')
         job = store.create(request)
@@ -343,7 +371,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if not (settings.output_dir and job.state.project_id):
             raise HTTPException(404, "This job has no project on the disk")
         try:
-            project = project_path(settings.output_dir/'MajoorVideoTools',job.state.project_id)
+            project = SharedProjectRepository(settings.output_dir/'MajoorVideoTools').path(job.state.project_id)
         except ValueError as error:
             raise HTTPException(404,'Invalid project') from error
         if not (project / "manifest.json").is_file():
@@ -420,6 +448,56 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             return {job.id: (_size(_project_dir(job)) if _project_dir(job) else 0) + _size(settings.workspace / "jobs" / f"{job.id}.mp4") for job in list(store.jobs.values())}
         return await asyncio.to_thread(measure)
 
+    def cache_idle():
+        return app.state.mutations<=1 and not any(
+            j.state.status in ('running','queued') or (j.task and not j.task.done())
+            or j.pending_handle or j.submission_key or j.pending_remote or j.updating_project
+            for j in store.jobs.values())
+
+    @app.get('/api/storage')
+    async def storage_inventory():
+        remote=runner.remote if isinstance(runner,ComfyRunner) else None
+        out={'mirror_bytes':await asyncio.to_thread(_size,settings.output_dir/'MajoorVideoTools') if settings.output_dir else 0,
+             'cache':None,'worker_bytes':None}
+        if remote:
+            out['cache']=await asyncio.to_thread(remote.cache_inventory)
+            out['cache']['collection_available']=cache_idle()
+            out['worker_cleanup_pending']=len(list(remote.scratch.glob('*.cleanup.json')))
+        return out
+
+    @app.post('/api/storage/worker/cleanup')
+    async def retry_worker_cleanup():
+        if not isinstance(runner,ComfyRunner) or runner.remote is None:
+            raise HTTPException(409,'Worker cleanup requires remote_artifacts storage')
+        if not cache_idle():
+            raise HTTPException(409,'Wait for active operations and reconcile pending results before worker cleanup')
+        client=runner.client_factory()
+        try:
+            for path in runner.remote.scratch.glob('*.cleanup.json'):
+                cleanup=json.loads(path.read_text(encoding='utf-8'))
+                await runner._release_workspace(client,cleanup['token'],acknowledged=cleanup['acknowledged'])
+        finally:
+            await client.aclose()
+        return {'worker_cleanup_pending':len(list(runner.remote.scratch.glob('*.cleanup.json')))}
+
+    @app.post('/api/storage/cache/gc')
+    async def collect_artifacts(dry_run: bool = True):
+        remote=runner.remote if isinstance(runner,ComfyRunner) else None
+        if remote is None:
+            raise HTTPException(409,'Artifact cache collection requires remote_artifacts storage')
+        if not cache_idle():
+            raise HTTPException(409,'Wait for active operations and reconcile pending results before collecting artifacts')
+        app.state.artifact_gc=True
+        collection=asyncio.create_task(asyncio.to_thread(remote.cache_inventory,collect=True,dry_run=dry_run))
+        try:
+            return await asyncio.shield(collection)
+        except asyncio.CancelledError:
+            with anyio.CancelScope(shield=True):
+                await asyncio.gather(collection,return_exceptions=True)
+            raise
+        finally:
+            app.state.artifact_gc=False
+
     @app.patch("/api/jobs/{job_id}", response_model=JobState)
     async def patch_job(job_id: str, body: JobPatch):
         job = _job(job_id)
@@ -430,7 +508,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def delete_job(job_id: str, project: bool = False):
         """Forget a job and its video; with `project`, also the project folder that ComfyUI wrote (the takes)."""
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         if job.state.status in ("queued", "running"):
             raise HTTPException(409, "The job is still running")
         if project:
@@ -444,6 +522,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 except asyncio.CancelledError:
                     await asyncio.gather(removal, return_exceptions=True)
                     raise
+            if project and job.state.project_id and isinstance(runner,ComfyRunner) and runner.remote:
+                await asyncio.to_thread(runner.remote.forget_project,job.state.project_id)
             (settings.workspace / "jobs" / f"{job.id}.mp4").unlink(missing_ok=True)
             store.delete(job)
         finally:
@@ -454,7 +534,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def free_space(job_id: str):
         """Delete the takes that the edit does not use (the active take of every shot stays) and say how much room it made."""
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         if job.state.status in ("queued", "running"):
             raise HTTPException(409, "The job is still running")
         project, manifest = _manifest(job)
@@ -462,7 +542,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         def discard_unused():
             freed = 0
             discarded = []
-            with edit_manifest(project.parent,project.name) as manifest:
+            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
                 used = manual_timeline.referenced_takes(project)
                 protected = {r['media_ref'] for s in manifest['shots'] for r in s.get('revisions',[]) if r.get('media_range') is not None or r['revision_id']==s.get('active_revision_id')}
                 protected.update(r['media_ref'] for s in manifest['shots'] for r in s.get('revisions', [])
@@ -480,7 +560,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             for target in set(discarded):
                 freed += target.stat().st_size
                 target.unlink()
-            return {"freed": freed}
+            return {"freed": freed,'mirror_freed_bytes':freed,'cache_freed_bytes':0,'worker_freed_bytes':None}
         result = await update_project(job, discard_unused)
         refresh_shots(job)
         return result
@@ -532,7 +612,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs/{job_id}/cancel", response_model=JobState)
     async def cancel(job_id: str):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         if job.task and not job.task.done():
             job.task.cancel()
             await asyncio.gather(job.task, return_exceptions=True)
@@ -550,7 +630,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs/{job_id}/regenerate", response_model=JobState)
     async def regenerate(job_id: str, body: Regenerate):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         refresh_shots(job)
         _exclusive(job)
         if job.state.status in ("queued", "running"):
@@ -576,6 +656,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     def experimental():
         if not settings.experimental_ai_edit:
             raise HTTPException(403, 'Enable HYPERKUT_EXPERIMENTAL_AI_EDIT=1 to test AI edit candidates')
+        if settings.storage_backend=='remote_artifacts':
+            raise HTTPException(409,'AI edit candidates are not supported with remote_artifacts. Use shared_local; no candidate or GPU request was created.')
 
     def idle_experiment(job, shot_id):
         if job.deleting or job.updating_project or store.get(job.id) is not job:
@@ -594,7 +676,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.get('/api/jobs/{job_id}/shots/{shot_id}/ai-candidates')
     async def ai_candidates(job_id: str, shot_id: str):
         job = _job(job_id)
-        if not settings.experimental_ai_edit:
+        if not settings.experimental_ai_edit or settings.storage_backend=='remote_artifacts':
             return {'enabled': False, 'candidates': []}
         project, manifest = _manifest(job)
         _manifest_shot(manifest, shot_id)
@@ -614,7 +696,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def start_ai_candidate(job_id: str, shot_id: str, body: AICandidateRequest):
         experimental()
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         refresh_shots(job)
         idle_experiment(job, shot_id)
         candidate_runner = getattr(runner, 'ai_candidate', None)
@@ -653,7 +735,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def decide_ai_candidate(job_id: str, candidate_id: str, decision: str):
         experimental()
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         project, _ = _manifest(job)
         try:
             row = read_candidate(project, candidate_id)
@@ -684,7 +766,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs/{job_id}/re-edit", response_model=JobState)
     async def re_edit(job_id: str, style: EditStyle):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         refresh_shots(job)
         _exclusive(job)
         if job.state.status in ("queued", "running"):
@@ -756,7 +838,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs/{job_id}/shots/{shot_id}/trim", response_model=list[Take])
     async def trim_take(job_id: str, shot_id: str, body: TrimTake):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         _exclusive(job)
         if job.state.status in ('queued','running'):
             raise HTTPException(409,'The job is still running')
@@ -764,7 +846,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(409,'Unlock the shot before moving its source window')
         project, _ = _manifest(job)
         def select():
-            with edit_manifest(project.parent,project.name) as manifest:
+            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
                 shot = _manifest_shot(manifest,shot_id)
                 revision = next((r for r in shot.get('revisions',[]) if r['revision_id']==body.take and r.get('media_range') is None),None)
                 if revision is None:
@@ -794,7 +876,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def choose_take(job_id: str, shot_id: str, body: ActiveTake):
         """The take the edit uses for a shot. The edit itself is made again by re-edit."""
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         _exclusive(job)
         if job.state.status in ("queued", "running"):
             raise HTTPException(409, "The job is still running")
@@ -805,7 +887,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if not any(r["revision_id"] == body.take and r.get("media_range") is None for r in shot.get("revisions", [])):
             raise HTTPException(404, "Unknown take")
         def select():
-            with edit_manifest(project.parent,project.name) as manifest:
+            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
                 _manifest_shot(manifest,shot_id)['active_revision_id'] = body.take
         await update_project(job, select)
         refresh_shots(job)
@@ -840,7 +922,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.put('/api/jobs/{job_id}/manual-timeline')
     async def save_manual_timeline(job_id: str, body: TimelineSave):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         idle_timeline(job)
         project, _ = _manifest(job)
         try:
@@ -851,7 +933,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post('/api/jobs/{job_id}/manual-timeline/rebase')
     async def rebase_manual_timeline(job_id: str, body: TimelineVersion):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         idle_timeline(job)
         project, _ = _manifest(job)
         try:
@@ -862,7 +944,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post('/api/jobs/{job_id}/manual-timeline/render', response_model=JobState)
     async def render_manual_timeline(job_id: str, body: TimelineVersion):
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         idle_timeline(job)
         project, manifest = _manifest(job)
         record = manual_timeline.read_record(project)
@@ -967,7 +1049,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def export(job_id: str):
         """The project to keep: the video, how it was asked for, and the manifest with the takes."""
         job = _job(job_id)
-        await recover_pending()
+        await recover_pending(job)
         if job.state.status in ('running', 'queued'):
             raise HTTPException(409, 'Wait for the current operation before exporting the project')
         project, _ = _manifest(job)

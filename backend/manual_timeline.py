@@ -4,16 +4,14 @@ import hashlib
 import importlib
 import importlib.util
 import json
-import os
 import sys
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 
 from filelock import FileLock
 
 from .config import ROOT
-from .media import audio_waveform, media_info, validate_video
+from .media import audio_waveform, media_info
 from .storage import write_json
 from .templates import Template
 
@@ -201,7 +199,7 @@ def render_template(project, document, job_id):
             'format': 'mp4', 'codec': 'h264'}}
     }
     music = music_file(project, suppress_source_audio='dialogue' in document)
-    slots, values = {}, {}
+    slots, values = {}, {'project_id':project.name}
     if music:
         graph['timeline_music'] = {'class_type': 'LoadAudio', 'inputs': {'audio': ''}}
         graph['timeline_edit']['inputs']['music'] = ['timeline_music', 0]
@@ -213,36 +211,20 @@ def render_template(project, document, job_id):
 
 
 async def render_saved_timeline(runner, client, job):
-    from .ai_edits import media_task
     project = runner.projects() / job.state.project_id
     record = read_record(project)
     if not record or not record['enabled']:
         raise ValueError('Save and enable the manual montage before rendering')
-    manifest = json.loads((project / 'manifest.json').read_text(encoding='utf-8'))
+    manifest_bytes=(project/'manifest.json').read_bytes()
+    manifest = json.loads(manifest_bytes)
     document = checked_document(manifest, record['document'])
     template, values = render_template(project, document, job.id)
-    handle = await runner._run(client, job, template, values, 'edit')
-    outputs = handle.get_outputs('timeline_save')
-    if not outputs:
-        raise ValueError('The manual timeline returned no saved video')
-    destination = runner.video_path(job)
-    fd, filename = tempfile.mkstemp(dir=destination.parent, suffix='.mp4')
-    os.close(fd)
-    temporary = Path(filename)
-    try:
-        await outputs[0].to_file(temporary)
-        await media_task(validate_video, temporary)
-        info = await media_task(media_info, temporary)
-        frames = sum(c['out_frame'] - c['in_frame'] for c in document['clips'])
-        duration = frames * document['fps_den'] / document['fps_num']
-        if abs(info['video_duration'] - duration) > document['fps_den'] / document['fps_num'] / 2:
-            raise ValueError('Manual export duration does not match the saved edit')
-        os.replace(temporary, destination)
-    finally:
-        temporary.unlink(missing_ok=True)
-    job.edits += 1
-    job.update(status='succeeded', stage='done', progress=1.,
-               output_url=f'/api/jobs/{job.id}/video?v={job.edits}', energy=None,
-               manual_export={'duration': duration, 'clips': len(document['clips']), 'etag': record_token(record)},
-               warnings=list(dict.fromkeys([*job.state.warnings,
-                   'Manual raw-take montage: automatic plan effects, overlays and sub-cuts are not reapplied. Music starts at zero. Explicit dialogue excerpts replace cut-linked take audio; without a dialogue track, take audio is muted when music is present.'])))
+    values['expected_manifest']=hashlib.sha256(manifest_bytes).hexdigest()
+    frames = sum(c['out_frame'] - c['in_frame'] for c in document['clips'])
+    duration = frames * document['fps_den'] / document['fps_num']
+    warnings=[w for w in job.state.warnings if not w.startswith('optional:')]
+    warnings.append('Manual raw-take montage: automatic plan effects, overlays and sub-cuts are not reapplied. Music starts at zero. Explicit dialogue excerpts replace cut-linked take audio; without a dialogue track, take audio is muted when music is present.')
+    context={'output_node':'timeline_save','manual_export':{'duration':duration,'clips':len(document['clips']),'etag':record_token(record)},
+             'frame_seconds':document['fps_den']/document['fps_num'],'warnings':warnings,'edit_version':job.edits+1}
+    handle = await runner._run(client, job, template, values, 'edit',result_context=context)
+    await runner._finish_edit(job,handle,context)

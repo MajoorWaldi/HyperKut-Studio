@@ -44,7 +44,11 @@ Start ComfyUI first. From the Studio root:
 .\scripts\run_studio.ps1
 ```
 
-The existing launcher starts the SDK proxy on 8189 and Studio on 8090, using ComfyUI on 8188. Open http://127.0.0.1:8090/ . For a nonstandard output folder already present on disk:
+The launcher uses ComfyUI on 8188 and Studio on 8090. `start_hyperkut.ps1` prefers the configured proxy port (8189) and automatically picks a free local port if that port is occupied by another service. A healthy proxy is reused only when its reported ComfyUI target and process-configured upload ceiling can both be verified and match; a healthy Studio is reused only when its non-secret configuration identity (hashed target/proxy/workspace plus storage backend) matches. Older services that do not expose enough identity are refused, not stopped or replaced; select another proxy port or stop them intentionally yourself. `run_studio.ps1` automatically selects a free local proxy port unless `-ProxyPort` is specified and applies the same proxy checks.
+
+The Studio accepts browser media uploads up to **1 GiB**. Project transport permits **2 GiB per artifact blob** and **20 GiB total cached artifact bytes**; the bounded snapshot ZIP transfer limit is 20 GiB plus 32 MiB for descriptors and ZIP metadata. Both launchers therefore configure the SDK proxy to **20,512 MiB** per request. These are separate ceilings: the larger proxy allowance is for an already-preflighted snapshot bundle, not a way to bypass the Studio's 1 GiB media-upload limit. The current effective identity and limits are available at `GET /api/studio/status`.
+
+Open http://127.0.0.1:8090/ . To select ports explicitly and use a nonstandard output folder already present on disk:
 
 ```powershell
 .\scripts\run_studio.ps1 -ComfyUI http://127.0.0.1:8188 -ProxyPort 8189 -Port 8090 -OutputDir 'D:\ComfyOutputs'

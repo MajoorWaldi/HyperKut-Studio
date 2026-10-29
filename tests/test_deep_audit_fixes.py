@@ -128,8 +128,14 @@ async def test_recovery_cancels_only_the_persisted_sdk_job_and_clears_it(tmp_pat
     store = JobStore(config.workspace/'state'); job = store.create(JobRequest(mode='text'))
     job.record_handle('own-sdk-id')
     calls = []
-    async def cancel(): calls.append('cancelled')
-    async def get(id): calls.append(id); return SimpleNamespace(cancel=cancel, wait=lambda **kwargs:asyncio.sleep(0))
+    handle=SimpleNamespace(status='running')
+    async def cancel(): calls.append('cancelled'); handle.status='canceled'
+    async def get(id):
+        calls.append(id)
+        handle.cancel=cancel
+        handle.refresh=lambda:asyncio.sleep(0)
+        handle.wait=lambda **kwargs:asyncio.sleep(0)
+        return handle
     client = SimpleNamespace(jobs=SimpleNamespace(get=get), aclose=lambda:asyncio.sleep(0))
     await ComfyRunner(config, {}, client_factory=lambda:client).recover(job)
     assert calls == ['own-sdk-id','cancelled']

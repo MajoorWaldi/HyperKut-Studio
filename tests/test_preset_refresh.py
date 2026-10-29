@@ -14,13 +14,16 @@ def test_every_builtin_preset_has_current_defaults_and_valid_settings(path):
         data=json.loads(path.read_text(encoding='utf-8'))
         settings=Settings.model_validate({**data['settings'],'seed':42})
         assert settings.motion_design is False,path.name
-        # Original soundtrack presets can retain the saved source mix.
-        # Added/generated music keeps the zero default.
-        if settings.audio != 'original':
-            assert settings.music_volume == 0,path.name
-        direction=json.loads(settings.motion_direction)
-        assert direction['preset'] in ('minimal','editorial','energetic')
-        assert 0 <= direction['intensity'] <= 1
+        assert settings.music_volume == 1,path.name
+        # Named presets and structured JSON are both supported by the renderer.
+        if settings.motion_direction.lstrip().startswith('{'):
+            direction=json.loads(settings.motion_direction)
+            assert direction['preset'] in ('minimal','editorial','energetic')
+            assert 0 <= direction.get('intensity', .6) <= 1
+        else:
+            assert settings.motion_direction in ('minimal','editorial','energetic')
+        from backend.unified_motion import validate_finishing
+        validate_finishing(settings.model_dump(), settings.duration)
         assert set(data['translations']) == {'en','fr'}
         for lang in ('en','fr'):
             assert all(data['translations'][lang][key] for key in ('name','description','prompt'))
@@ -35,7 +38,7 @@ def test_new_job_and_reedit_preserve_the_right_layer_json_and_explicit_audio_mix
     job=Job(request)
     runner=ComfyRunner(_settings(tmp_path),{})
     values=runner._values(job)
-    assert values['motion_design'] is False and values['edit_music_volume']==0
+    assert values['motion_design'] is False and values['edit_music_volume']==1
     assert values['motion_layers']==layers and values['motion_cues']==cues
     assert job.state.style.motion_layers==layers and job.state.style.motion_cues==cues
     values=runner._values(job,EditStyle(music_volume=.7,motion_design=False,motion_cues='[]'))

@@ -8,7 +8,10 @@ async function json<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const health = () => fetch('/api/health').then(json<Health>)
+export const health = (mode: Mode = 'remix', inputs: { refs?: number; ref_video?: boolean; voice?: boolean } = {}) => {
+  const query = new URLSearchParams({ mode, refs: String(inputs.refs ?? 0), ref_video: String(inputs.ref_video ?? false), voice: String(inputs.voice ?? false) })
+  return fetch(`/api/health?${query}`, { cache: 'no-store' }).then(json<Health>)
+}
 
 export function upload(file: File): Promise<Upload> {
   const form = new FormData()
@@ -18,7 +21,7 @@ export function upload(file: File): Promise<Upload> {
 
 export async function createJob(mode: Mode, settings: Settings, inputs: Inputs): Promise<JobState> {
   if ((mode !== 'remix' || settings.audio === 'new') && settings.music_edit_mode !== 'legacy') {
-    const status = await health()
+    const status = await health(mode, { refs: inputs.refs.filter(Boolean).length, ref_video: !!inputs.refVideo, voice: !!inputs.voice })
     const supported = mode === 'music' ? status.music_rhythm_modes : status.adaptive_editing_modes
     if (!supported && !status.mock) {
       throw new Error('Restart Studio after current jobs finish to enable the music rhythm modes. No generation has been submitted.')

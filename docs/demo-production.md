@@ -2,7 +2,7 @@
 
 | Presentation | File | Scope |
 |---|---|---|
-| Official demo | [Portrait video](media/hyperkut-demo-official.mp4) | Author-selected presentation, 111.3 seconds, 540×960, with audio; supplied file preserved unchanged. |
+| Social demo | [Portrait video](media/hyperkut-demo-official.mp4) | Author-selected presentation, 111.3 seconds, 540×960, with audio; supplied file preserved unchanged. |
 | README demo | [Landscape walkthrough](media/hyperkut-demo-readme.mp4) | About 107 seconds, 1280×720 delivery, English narration. Simulated cursor, typing, progress, correction and trim, built from actual Studio component markup. |
 
 The README demo includes a real saved fashion result; simulated actions are not proof of a newly computed regeneration or inference-speed measurements. Separate screenshots in the README were captured from the actual local interface.
