@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HyperKut — your footage, your direction</title>
+<meta name="description" content="A local AI video studio for short edits you keep directing. Remix a reference, start with an idea or build around your music. Open-weights models in ComfyUI, on your own GPU.">
+<link rel="icon" href="media/hyperkut-logo.svg">
+<meta property="og:title" content="HyperKut — your footage, your direction">
+<meta property="og:description" content="A local AI video studio for short edits you keep directing.">
+<meta property="og:image" content="media/demo-poster.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#121016;--panel:#1c1922;--panel2:#24202b;--line:#3a3442;--text:#f1eef4;--muted:#a49dae;--lime:#edff47;--ink:#201722;--remix:#e07a2e;--txt:#3fae6b;--music:#9a6ff0;--r:14px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(#2a2531 1px,transparent 1px) 0 0/22px 22px;mask:linear-gradient(#000,transparent 70%)}
+a{color:inherit}
+img{display:block;max-width:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+.mono{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+
+nav{position:sticky;top:0;z-index:10;background:rgba(18,16,22,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:24px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:"Archivo Black";font-size:18px;letter-spacing:.02em}
+.brand img{width:30px;height:30px}
+nav ul{display:flex;gap:22px;margin:0 0 0 auto;padding:0;list-style:none}
+nav ul a{text-decoration:none;color:var(--muted)}
+nav ul a:hover{color:var(--text)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:999px;border:1.5px solid var(--lime);color:var(--lime);text-decoration:none;font-family:"JetBrains Mono";font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;transition:.15s}
+.btn:hover{background:var(--lime);color:var(--ink)}
+.btn.solid{background:var(--lime);color:var(--ink)}
+.btn.solid:hover{background:transparent;color:var(--lime)}
+nav .btn{padding:7px 14px;font-size:12px}
+
+.hero{padding:84px 0 40px;text-align:center}
+h1{font-family:"Archivo Black";font-weight:400;font-size:clamp(40px,8vw,96px);line-height:1.02;margin:0;text-transform:uppercase;letter-spacing:-.01em}
+h1 .hl{display:inline-block;background:var(--lime);color:var(--ink);padding:0 .18em;transform:rotate(-1.5deg);border-radius:6px}
+.lede{max-width:700px;margin:28px auto 0;color:#d4cfda;font-size:19px}
+.lede b{color:var(--text)}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+.tagline{margin-top:22px;color:var(--muted);font-size:14px}
+
+/* node demo */
+.demo{margin-top:56px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.tab{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:9px 16px;border-radius:999px;cursor:pointer;font:700 13px "JetBrains Mono";letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.tab i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.tab[aria-selected=true]{color:var(--text);border-color:var(--c);background:color-mix(in srgb,var(--c) 18%,var(--panel2))}
+.graph{display:grid;grid-template-columns:1.05fr 46px 1.25fr 46px .85fr;align-items:center}
+.node{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-align:left}
+.node>header{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);color:var(--muted)}
+.node>header b{color:var(--text)}
+.node>header .dot{width:8px;height:8px;border-radius:50%;background:var(--c,var(--lime))}
+.node .body{padding:12px}
+.inputs{display:grid;gap:10px}
+.chip{display:flex;gap:10px;align-items:center;background:#17141c;border:1px solid var(--line);border-radius:10px;padding:8px}
+.chip img{width:96px;height:72px;object-fit:cover;border-radius:6px}
+.chip .k{color:var(--muted);font-size:11px}
+.chip .v{font-size:13px;line-height:1.35}
+.brief{font-size:13.5px;line-height:1.45;background:#17141c;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:#ddd8e3}
+.brief::before{content:"\201C";color:var(--lime);font:700 20px/0 "Archivo Black";margin-right:4px;vertical-align:-6px}
+.vid{display:grid;place-items:center;height:72px;width:96px;border-radius:6px;background:repeating-linear-gradient(90deg,#2b2633 0 10px,#231f2a 10px 20px);font-size:22px;flex:none}
+.wave{display:flex;align-items:center;gap:2px;height:72px;width:100%;position:relative}
+.wave span{flex:1;background:var(--music);border-radius:2px;opacity:.85}
+.wave em{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--lime);border-radius:2px}
+.plan .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.plan .steps span{font:700 11px "JetBrains Mono";letter-spacing:.06em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.plan .steps span.on{background:var(--lime);color:var(--ink);border-color:var(--lime)}
+.shots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.shots figure{margin:0;position:relative}
+.shots img{aspect-ratio:9/16;object-fit:cover;width:100%;border-radius:6px;border:1px solid var(--line)}
+.shots figcaption{position:absolute;left:4px;top:4px;font:700 10px "JetBrains Mono";background:rgba(18,16,22,.8);padding:1px 5px;border-radius:4px}
+.shots figure.regen img{border:2px solid var(--lime)}
+.shots figure.regen::after{content:"\21BB";position:absolute;right:4px;bottom:4px;width:22px;height:22px;border-radius:50%;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-weight:700;font-size:13px}
+.plannote{margin-top:10px;font-size:12.5px;color:var(--muted)}
+.out .body{display:grid;place-items:center;padding:12px}
+.out a{display:block;position:relative;width:100%;max-width:220px}
+.out img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:10px}
+.out a::after{content:"\25B6  sound";position:absolute;right:8px;bottom:8px;font:700 11px "JetBrains Mono";background:rgba(18,16,22,.85);padding:4px 8px;border-radius:999px;color:var(--lime)}
+.meta{margin-top:10px;font:700 11px "JetBrains Mono";letter-spacing:.06em;color:var(--muted);text-align:center;text-transform:uppercase}
+.meta b{color:var(--lime)}
+.wire{height:100%;display:grid;place-items:center}
+.wire svg{width:46px;height:20px;overflow:visible}
+.wire path{stroke:var(--lime);stroke-width:2.2;fill:none;stroke-dasharray:5 5;animation:flow 1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-20}}
+.demo-foot{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+.pane{display:none}
+.pane.on{display:block;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+
+section{margin-top:110px;scroll-margin-top:80px}
+.kicker{color:var(--lime)}
+h2{font-family:"Archivo Black";font-weight:400;font-size:clamp(30px,4.6vw,52px);line-height:1.05;margin:10px 0 14px;text-transform:uppercase}
+.sub{color:#cfc9d6;max-width:680px;font-size:17px;margin:0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;position:relative;overflow:hidden}
+.card h3{margin:0 0 8px;font-family:"Archivo Black";font-weight:400;font-size:22px;text-transform:uppercase}
+.card p{margin:0;color:#cfc9d6;font-size:15px}
+.card .bar{position:absolute;left:0;top:0;right:0;height:5px;background:var(--c)}
+.card dl{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.card dt{color:var(--muted);font:700 11px/1.9 "JetBrains Mono";letter-spacing:.08em;text-transform:uppercase}
+.card dd{margin:0}
+
+.direct{display:grid;grid-template-columns:1fr 1.35fr;gap:40px;align-items:center;margin-top:36px}
+.points{display:grid;gap:14px}
+.point{display:flex;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.point .n{font-family:"Archivo Black";color:var(--ink);background:var(--lime);width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:9px}
+.point h3{margin:0 0 2px;font-size:17px}
+.point p{margin:0;color:#cfc9d6;font-size:14.5px}
+.shots-ui{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.shots-ui a{display:block}
+.shots-ui img{border-radius:10px;border:1px solid var(--line);aspect-ratio:3/4;object-fit:cover;object-position:top;width:100%}
+.shots-ui span{display:block;margin-top:6px;color:var(--muted)}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.stat .big{font-family:"Archivo Black";font-size:56px;line-height:1;color:var(--lime)}
+.stat .big small{font-size:22px;margin-left:4px}
+.stat h3{margin:12px 0 4px;font-size:16px}
+.stat p{margin:0;color:var(--muted);font-size:14px}
+.fine{margin-top:16px;color:var(--muted);font-size:13.5px;max-width:860px}
+
+.gallery{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-top:36px}
+.gallery a{display:block;text-decoration:none}
+.gallery img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:10px;border:1px solid var(--line);transition:.2s}
+.gallery a:hover img{border-color:var(--lime);transform:translateY(-3px)}
+.gallery span{display:block;margin-top:6px;color:var(--muted);font-size:10.5px}
+
+.open{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:36px}
+.open .card h3{font-size:18px}
+.diagram{margin-top:24px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.diagram img{margin:0 auto}
+.diagram p{margin:10px 0 0;text-align:center;color:var(--muted);font-size:13.5px}
+
+.run{display:grid;grid-template-columns:1fr 1.4fr;gap:40px;margin-top:36px;align-items:start}
+.req{display:grid;gap:10px}
+.req div{display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding:10px 0}
+.req div span:first-child{color:var(--muted)}
+.steps-run{display:grid;gap:14px}
+.code{background:#0d0b10;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.code header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);color:var(--muted)}
+.code button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;font:700 11px "JetBrains Mono";padding:3px 8px;cursor:pointer}
+.code button:hover{color:var(--lime);border-color:var(--lime)}
+.code pre{margin:0;padding:14px;overflow-x:auto;font:13px/1.65 "JetBrains Mono",monospace;color:#e9e5ee}
+.code pre .c{color:#7d7488}
+
+footer{margin-top:110px;border-top:1px solid var(--line);padding:36px 0 56px;color:var(--muted);font-size:14px}
+footer .wrap{display:grid;gap:8px;text-align:center}
+footer a{color:var(--text)}
+
+@media (max-width:980px){
+  .graph{grid-template-columns:1fr;gap:0}
+  .wire{height:40px}
+  .wire svg{transform:rotate(90deg)}
+  .out a{max-width:240px}
+  .grid3,.stats{grid-template-columns:1fr}
+  .direct,.run{grid-template-columns:1fr}
+  .gallery{grid-template-columns:repeat(4,1fr)}
+  .open{grid-template-columns:1fr}
+  nav ul{display:none}
+  nav .btn{margin-left:auto}
+}
+@media (max-width:520px){
+  .gallery{grid-template-columns:repeat(2,1fr)}
+  .shots-ui{grid-template-columns:1fr}
+  .hero{padding-top:56px}
+}
+@media (prefers-reduced-motion:reduce){.wire path{animation:none}.pane.on{animation:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="media/hyperkut-logo.svg" alt="">HYPERKUT</a>
+    <ul>
+      <li><a href="#modes">Modes</a></li>
+      <li><a href="#direct">Direct</a></li>
+      <li><a href="#speed">Speed</a></li>
+      <li><a href="#open">Open</a></li>
+      <li><a href="#run">Run it</a></li>
+    </ul>
+    <a class="btn" href="https://github.com/MajoorWaldi/HyperKut-Studio">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero wrap">
+  <h1>Your footage.<br><span class="hl">Your direction.</span></h1>
+  <p class="lede">HyperKut makes <b>short multi-shot videos</b>, viral clips or tiny stories, and lets you keep directing them. Remix a reference edit, start from an idea or build around your music. <b>Open-weights models in ComfyUI, on your own GPU.</b></p>
+  <div class="cta">
+    <a class="btn solid" href="#run">Run it locally</a>
+    <a class="btn" href="media/hyperkut-demo-readme.mp4">Watch the demo</a>
+    <a class="btn" href="https://github.com/MajoorWaldi/HyperKut-Studio">Read the code</a>
+  </div>
+  <p class="tagline">Inspired by Higgsfield's Katana, Genjutsu and Cinema Studio. Built for the Comfy Open Source Higgsfield challenge.</p>
+
+  <div class="demo">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-pane="remix" style="--c:var(--remix)"><i></i>Remix</button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="text" style="--c:var(--txt)"><i></i>Text</button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="music" style="--c:var(--music)"><i></i>Music</button>
+    </div>
+
+    <div class="pane on" id="remix" role="tabpanel">
+      <div class="graph">
+        <div class="node" style="--c:var(--remix)">
+          <header class="mono"><b>Start with</b><span class="dot"></span></header>
+          <div class="body inputs">
+            <div class="chip"><div class="vid">&#9654;</div><div><div class="k mono">Reference edit</div><div class="v">A 12 s fashion edit by <a href="https://higgsfield.ai/@silver.muse">silver.muse</a></div></div></div>
+            <div class="chip"><img src="media/site/ref-man.jpg" alt="Turnaround sheet of the subject"><div><div class="k mono">Your subject</div><div class="v">One turnaround photo</div></div></div>
+            <div class="brief">Recreate this fashion edit faithfully.</div>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node plan">
+          <header class="mono"><b>Plan &amp; generate</b><span>28 shots</span></header>
+          <div class="body">
+            <div class="steps"><span>Brief</span><span>Plan</span><span class="on">Generate</span><span class="on">Takes</span><span>Trim</span><span>Export</span></div>
+            <div class="shots">
+              <figure><img src="media/site/remix-1.jpg" alt=""><figcaption>04</figcaption></figure>
+              <figure><img src="media/site/remix-2.jpg" alt=""><figcaption>05</figcaption></figure>
+              <figure class="regen"><img src="media/site/remix-3.jpg" alt=""><figcaption>06</figcaption></figure>
+              <figure><img src="media/site/remix-4.jpg" alt=""><figcaption>07</figcaption></figure>
+              <figure><img src="media/site/remix-5.jpg" alt=""><figcaption>08</figcaption></figure>
+            </div>
+            <p class="plannote">The cuts, framing and rhythm are read from the reference. Every shot is redrawn with your subject, and any one of them can be regenerated alone.</p>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node out">
+          <header class="mono"><b>Output</b><span>9:16</span></header>
+          <div class="body">
+            <a href="media/demos/hyperkut_26c4e181fe36.mp4"><img src="media/demos/hyperkut_26c4e181fe36.gif" alt="Remix output: fashion edit with the new subject" loading="lazy"></a>
+            <div class="meta">12.2 s · Standard · <b>21 min</b> on an RTX 4090</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" id="text" role="tabpanel">
+      <div class="graph">
+        <div class="node" style="--c:var(--txt)">
+          <header class="mono"><b>Start with</b><span class="dot"></span></header>
+          <div class="body inputs">
+            <div class="brief">THE LAST COLOR, a 15-second emotional micro-story in five 3-second takes. A man walks a grey city; one touch of his fingertip brings colour back.</div>
+            <div class="chip"><img src="media/site/ref-man.jpg" alt="Turnaround sheet of the subject"><div><div class="k mono">Your subject</div><div class="v">Optional photo, kept in every shot</div></div></div>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node plan">
+          <header class="mono"><b>Plan &amp; generate</b><span>5 shots</span></header>
+          <div class="body">
+            <div class="steps"><span>Brief</span><span>Plan</span><span class="on">Generate</span><span class="on">Takes</span><span>Trim</span><span>Export</span></div>
+            <div class="shots">
+              <figure><img src="media/site/text-1.jpg" alt=""><figcaption>01</figcaption></figure>
+              <figure><img src="media/site/text-2.jpg" alt=""><figcaption>02</figcaption></figure>
+              <figure><img src="media/site/text-3.jpg" alt=""><figcaption>03</figcaption></figure>
+              <figure class="regen"><img src="media/site/text-4.jpg" alt=""><figcaption>04</figcaption></figure>
+              <figure><img src="media/site/text-5.jpg" alt=""><figcaption>05</figcaption></figure>
+            </div>
+            <p class="plannote">A local model writes the shot list from your idea. You can edit each shot's prompt before or after it renders. A soundtrack is generated too.</p>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node out">
+          <header class="mono"><b>Output</b><span>9:16</span></header>
+          <div class="body">
+            <a href="media/demos/hyperkut_e721126225dd.mp4"><img src="media/demos/hyperkut_e721126225dd.gif" alt="Text output: THE LAST COLOR" loading="lazy"></a>
+            <div class="meta">15 s · Draft · <b>5 shots</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" id="music" role="tabpanel">
+      <div class="graph">
+        <div class="node" style="--c:var(--music)">
+          <header class="mono"><b>Start with</b><span class="dot"></span></header>
+          <div class="body inputs">
+            <div class="chip" style="display:block"><div class="k mono" style="margin-bottom:6px">Your track · cuts on the beat</div><div class="wave" id="wave"></div></div>
+            <div class="chip"><img src="media/site/ref-woman.jpg" alt="Turnaround sheet of the subject"><div><div class="k mono">Your subject</div><div class="v">One turnaround photo</div></div></div>
+            <div class="brief">Streetwear editorial: one stairwell-to-rooftop route, wide-angle perspectives, a confident finish.</div>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node plan">
+          <header class="mono"><b>Plan &amp; generate</b><span>4 shots</span></header>
+          <div class="body">
+            <div class="steps"><span>Brief</span><span>Plan</span><span class="on">Generate</span><span class="on">Takes</span><span>Trim</span><span>Export</span></div>
+            <div class="shots" style="grid-template-columns:repeat(4,1fr)">
+              <figure><img src="media/site/music-1.jpg" alt=""><figcaption>3.9 s</figcaption></figure>
+              <figure><img src="media/site/music-2.jpg" alt=""><figcaption>2.9 s</figcaption></figure>
+              <figure class="regen"><img src="media/site/music-3.jpg" alt=""><figcaption>2.9 s</figcaption></figure>
+              <figure><img src="media/site/music-4.jpg" alt=""><figcaption>2.4 s</figcaption></figure>
+            </div>
+            <p class="plannote">The track's beats and energy set the shot lengths. The music stays yours, untouched.</p>
+          </div>
+        </div>
+        <div class="wire"><svg viewBox="0 0 46 20"><path d="M2 10H38"/><path d="M36 5l7 5-7 5" style="stroke-dasharray:none;animation:none"/></svg></div>
+        <div class="node out">
+          <header class="mono"><b>Output</b><span>9:16</span></header>
+          <div class="body">
+            <a href="media/demos/hyperkut_ac3723c049d9.mp4"><img src="media/demos/hyperkut_ac3723c049d9.gif" alt="Music output: streetwear edit cut on the beat" loading="lazy"></a>
+            <div class="meta">12 s · Max · <b>9.7 min</b> on an RTX 4090</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="demo-foot">Real projects and real exports, no retouching. Times run from submit to finished video on the first run. Everyone shown is AI-generated by the author.</p>
+  </div>
+</header>
+
+<section id="modes" class="wrap">
+  <div class="mono kicker">Three ways in</div>
+  <h2>Start with what you have</h2>
+  <p class="sub">Every mode ends in the same place: a plan of shots you can read, change and regenerate one by one.</p>
+  <div class="grid3">
+    <div class="card" style="--c:var(--remix)"><div class="bar"></div>
+      <h3>Remix</h3>
+      <p>Bring an edit you love and photos of your subject. HyperKut keeps its cuts, framing and rhythm and puts your subject in every shot.</p>
+      <dl><dt>In</dt><dd>a video + your photos</dd><dt>Out</dt><dd>the same edit, with your subject</dd></dl>
+    </div>
+    <div class="card" style="--c:var(--txt)"><div class="bar"></div>
+      <h3>Text</h3>
+      <p>Write a short idea. A local model turns it into a shot list, the shots render, and a soundtrack is generated to fit.</p>
+      <dl><dt>In</dt><dd>a short idea</dd><dt>Out</dt><dd>shots + a soundtrack</dd></dl>
+    </div>
+    <div class="card" style="--c:var(--music)"><div class="bar"></div>
+      <h3>Music</h3>
+      <p>Drop your track and an idea. The beats set where each cut lands, so the edit moves with the music.</p>
+      <dl><dt>In</dt><dd>your track + an idea</dd><dt>Out</dt><dd>an edit cut on the beats</dd></dl>
+    </div>
+  </div>
+</section>
+
+<section id="direct" class="wrap">
+  <div class="mono kicker">You stay the director</div>
+  <h2>Fix one shot. Keep the rest.</h2>
+  <p class="sub">A generated edit is a first cut, not a final answer. Everything after generation stays editable.</p>
+  <div class="direct">
+    <div class="points">
+      <div class="point"><div class="n">1</div><div><h3>Regenerate one shot</h3><p>Change a shot's prompt and render only that shot. The other shots stay exactly as they are.</p></div></div>
+      <div class="point"><div class="n">2</div><div><h3>Choose the take</h3><p>Keep several takes of a shot and swap between them on the timeline.</p></div></div>
+      <div class="point"><div class="n">3</div><div><h3>Edit after generation</h3><p>Trim, cut and reorder shots, then export. No new render needed.</p></div></div>
+    </div>
+    <div class="shots-ui">
+      <a href="media/studio-home.jpg"><img src="media/studio-home.jpg" alt="Studio home" loading="lazy"><span class="mono">Start a project</span></a>
+      <a href="media/studio-project.jpg"><img src="media/studio-project.jpg" alt="Shot controls" loading="lazy"><span class="mono">Direct each shot</span></a>
+      <a href="media/studio-finishing.jpg"><img src="media/studio-finishing.jpg" alt="Finishing" loading="lazy"><span class="mono">Finish the edit</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="speed" class="wrap">
+  <div class="mono kicker">Measured, not promised</div>
+  <h2>Minutes, on one GPU</h2>
+  <p class="sub">Median time from submit to finished video, for every first-run project in the author's workspace. One RTX 4090 (24 GB), model loading included.</p>
+  <div class="stats">
+    <div class="stat"><div class="big">5<small>min</small></div><h3>Draft · 0.35 MP</h3><p>13 projects · about 3 shots and 10 s each</p></div>
+    <div class="stat"><div class="big">10.6<small>min</small></div><h3>Max · ~1 MP</h3><p>16 projects · about 4–5 shots and 9 s each</p></div>
+    <div class="stat"><div class="big">11.5<small>min</small></div><h3>Standard · 0.6 MP</h3><p>9 projects · about 6 shots and 15 s each</p></div>
+  </div>
+  <p class="fine">38 first-run projects, read from the project files: time from project creation to the exported video. Projects that were edited and re-rendered afterwards are left out, since their file times include the later work. Remix projects with many short shots take longer: the 28-shot fashion Remix above took 21 minutes.</p>
+</section>
+
+<section id="examples" class="wrap">
+  <div class="mono kicker">Real exports</div>
+  <h2>Made with HyperKut</h2>
+  <p class="sub">Click a preview to watch it with sound.</p>
+  <div class="gallery">
+    <a href="media/demos/hyperkut_26c4e181fe36.mp4"><img src="media/demos/hyperkut_26c4e181fe36.gif" alt="Fashion edit" loading="lazy"><span class="mono">Fashion · Remix</span></a>
+    <a href="media/demos/hyperkut_4eaec061ddbd.mp4"><img src="media/demos/hyperkut_4eaec061ddbd.gif" alt="Character lookbook" loading="lazy"><span class="mono">Lookbook · Remix</span></a>
+    <a href="media/demos/hyperkut_ac3723c049d9.mp4"><img src="media/demos/hyperkut_ac3723c049d9.gif" alt="Fashion in motion" loading="lazy"><span class="mono">Fashion · Music</span></a>
+    <a href="media/demos/hyperkut_f54b09f850b2.mp4"><img src="media/demos/hyperkut_f54b09f850b2.gif" alt="Sneaker" loading="lazy"><span class="mono">Sneaker · Music</span></a>
+    <a href="media/demos/hyperkut_9e8e85878a3c.mp4"><img src="media/demos/hyperkut_9e8e85878a3c.gif" alt="Product" loading="lazy"><span class="mono">Product · Text</span></a>
+    <a href="media/demos/hyperkut_e721126225dd.mp4"><img src="media/demos/hyperkut_e721126225dd.gif" alt="Character story" loading="lazy"><span class="mono">Story · Text</span></a>
+    <a href="media/demos/hyperkut_c9cdc7be3b8b.mp4"><img src="media/demos/hyperkut_c9cdc7be3b8b.gif" alt="Headphones" loading="lazy"><span class="mono">Headphones · Text</span></a>
+  </div>
+  <p class="fine">The fashion Remix reference video belongs to <a href="https://higgsfield.ai/@silver.muse">silver.muse</a>. Thank you for the inspiration.</p>
+</section>
+
+<section id="open" class="wrap">
+  <div class="mono kicker">Open by default</div>
+  <h2>Your machine. Your files.</h2>
+  <div class="open">
+    <div class="card"><h3>Open-weights models</h3><p>MiniMax H3 renders the shots, Gemma 4 plans them, YuE2 writes the music, FLUX.2 klein draws optional location plates. No credits, no cloud. Each model keeps its own license: see <a href="https://github.com/MajoorWaldi/HyperKut-Studio/blob/master/LICENSES.md">LICENSES.md</a>.</p></div>
+    <div class="card"><h3>Every mode is a ComfyUI workflow</h3><p>The Studio fills a ComfyUI workflow for each job. The workflows are in the repo, built from <a href="https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools">Majoor VideoTools</a> nodes, so you can open and change them.</p></div>
+    <div class="card"><h3>Comfy developer platform</h3><p>Jobs go through the official Comfy SDK to the Comfy API, served locally by comfy-api-proxy in front of your ComfyUI. Progress and previews stream back to the browser.</p></div>
+    <div class="card"><h3>MIT code</h3><p>The Studio is open source under MIT. Projects, takes and exports stay in your own folders.</p></div>
+  </div>
+  <div class="diagram"><img src="media/how-it-works.svg" alt="HyperKut node graph: plan and generate, then edit and export" loading="lazy"><p>Simplified node graph of a HyperKut job.</p></div>
+  <div class="diagram"><img src="media/server-flow.svg" alt="HyperKut server flow: browser, FastAPI, Comfy SDK, comfy-api-proxy, ComfyUI" loading="lazy"><p>How the servers talk.</p></div>
+</section>
+
+<section id="run" class="wrap">
+  <div class="mono kicker">Run it</div>
+  <h2>Install on Windows</h2>
+  <div class="run">
+    <div class="req">
+      <div><span>GPU</span><span>NVIDIA (measured on an RTX 4090, 24 GB)</span></div>
+      <div><span>App</span><span><a href="https://github.com/Comfy-Org/ComfyUI">ComfyUI</a></span></div>
+      <div><span>Nodes</span><span><a href="https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools">Majoor VideoTools</a> + comfyui_controlnet_aux</span></div>
+      <div><span>Tools</span><span>Python 3.10+, Node.js 22+, FFmpeg</span></div>
+      <div><span>Models</span><span><a href="https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/models-and-downloads.md">Model inventory</a></span></div>
+      <p class="fine" style="margin:6px 0 0">Optional finishing, custom ports and details: <a href="https://github.com/MajoorWaldi/HyperKut-Studio/blob/master/docs/installation.md">full installation guide</a>.</p>
+    </div>
+    <div class="steps-run">
+      <div class="code"><header class="mono">1 · Clone inside VideoTools<button>Copy</button></header><pre>cd ComfyUI\custom_nodes\ComfyUI-Majoor-VideoTools
+git clone https://github.com/MajoorWaldi/HyperKut-Studio "HyperKut Studio"</pre></div>
+      <div class="code"><header class="mono">2 · Install, from HyperKut Studio<button>Copy</button></header><pre>python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Push-Location frontend; npm ci; npm run build; Pop-Location</pre></div>
+      <div class="code"><header class="mono">3 · Start ComfyUI, then the Studio<button>Copy</button></header><pre>.\scripts\run_studio.ps1   <span class="c"># http://127.0.0.1:8090/</span></pre></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>HyperKut Studio · MIT · <a href="https://github.com/MajoorWaldi/HyperKut-Studio">GitHub</a> · <a href="https://github.com/MajoorWaldi/HyperKut-Studio/blob/master/README.fr.md">Français</a></div>
+    <div>Built with ComfyUI for the <a href="https://comfy.org/open-source-higgsfield">Comfy Open Source Higgsfield challenge</a>. HyperKut is independent and not affiliated with Higgsfield.</div>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === t.dataset.pane));
+}));
+
+// peaks of the first 12 s of the track used by the Music example; lime marks are its three cuts
+const peaks = [0.84,0.17,0.07,0.65,0.74,0.22,0.69,0.29,0.79,0.18,0.75,0.33,0.8,0.56,0.58,0.73,0.79,0.3,0.69,0.73,0.7,0.79,0.52,0.86,0.67,0.71,0.41,0.78,0.33,0.73,0.51,0.87,0.48,0.29,0.55,0.83,0.26,0.76,0.33,0.77,0.59,0.66,0.87,0.83,0.58,0.56,0.82,0.76,0.42,0.74,0.87,0.56,0.85,0.7,0.85,0.38,0.99,0.44,0.88,0.34,0.76,0.7,0.83,0.84,0.71,0.76,0.84,0.81,0.69,0.8,0.82,0.76,0.62,0.81,0.75,0.73,0.69,0.77,0.78,0.43,0.9,0.84,0.6,0.8,0.6,0.84,0.38,0.71,0.75,0.79,0.57,0.66,0.75,1.0,0.68,0.63];
+const wave = document.getElementById('wave');
+wave.innerHTML = peaks.map(p => `<span style="height:${Math.max(6, p * 100)}%"></span>`).join('')
+  + [3.88, 6.76, 9.64].map(t => `<em style="left:${t / 12 * 100}%"></em>`).join('');
+
+document.querySelectorAll('.code button').forEach(b => b.addEventListener('click', () => {
+  navigator.clipboard.writeText(b.closest('.code').querySelector('pre').innerText.replace(/\s+#.*$/m, ''));
+  b.textContent = 'Copied';
+  setTimeout(() => b.textContent = 'Copy', 1400);
+}));
+</script>
+</body>
+</html>
