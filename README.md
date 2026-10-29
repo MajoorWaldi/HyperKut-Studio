@@ -4,6 +4,8 @@
 
 <p align="center"><a href="README.fr.md">Français</a> · <a href="#see-it-in-action">Examples</a> · <a href="#install-on-windows">Installation</a> · <a href="docs/installation.md">Full setup</a> · <a href="LICENSES.md">Licenses</a></p>
 
+> **BETA — The entire HyperKut Studio is currently in beta.** Features and workflows are still evolving. **Finishing is experimental:** internal sub-cuts, visual effects, text/titles, motion graphics, animated design, sound design and sound effects. These optional finishing controls start disabled; review their results before export.
+
 ## Official demo
 
 <a href="docs/media/hyperkut-demo-official.mp4"><img src="docs/media/demo-official-poster.jpg" width="240" alt="HyperKut official demo" /></a>
@@ -17,14 +19,14 @@
 
 **1 min 10 · 16:9 · English narration · with sound.** [Watch or download](docs/media/hyperkut-demo-readme.mp4). This landscape presentation combines a live Studio screenshot, an animated walkthrough made from actual Studio components, and a saved output. The regeneration sequence is illustrative; it does not claim a newly computed take. [Demo provenance and production tools](docs/demo-production.md).
 
-Built for the [Comfy Open Source Higgsfield challenge](https://comfy.org/open-source-higgsfield). **Submission preparation is in progress; this README does not certify official acceptance or prize eligibility.**
+Built for the [Comfy Open Source Higgsfield challenge](https://comfy.org/open-source-higgsfield). 
 
 ## Inside the actual app
 
 | 1. Start with your brief | 2. Review and direct each shot | 3. Finish the edit |
 |:---:|:---:|:---:|
 | [![Live Studio home](docs/media/studio-home.jpg)](docs/media/studio-home.jpg) | [![Saved project with shot controls](docs/media/studio-project.jpg)](docs/media/studio-project.jpg) | [![Optional finishing controls](docs/media/studio-finishing.jpg)](docs/media/studio-finishing.jpg) |
-| Pick a mode and add your media. | Actual completed 28-shot project, take controls and source-window trim. | Cuts, effects, typography and graphics are optional. |
+| Pick a mode and add your media. | Actual completed 28-shot project, take controls and source-window trim. | Finishing is experimental: internal cuts, effects, typography, graphics and sound. |
 
 These are live interface screenshots, captured 29 October 2026. No generation, regeneration or export was started to produce them. The 28-shot example is a saved edit, not a claim that every shot was generated in this documentation session.
 
@@ -40,7 +42,7 @@ These are live interface screenshots, captured 29 October 2026. No generation, r
 
 **Brief → plan → generate shots → choose takes → trim → export.**
 
-Change a shot's prompt, regenerate that shot, keep another take, or adjust its selected passage. A shared timeline editor supports cutting, reordering and trimming after generation. Optional titles, motion graphics and sound effects finish the edit. They start **off by default**.
+Change a shot's prompt, regenerate that shot, keep another take, or adjust its selected passage. A shared timeline editor supports cutting, reordering and trimming after generation. Finishing tools — internal sub-cuts, visual effects, text/titles, motion graphics, animated design, sound design and sound effects — are **experimental**, optional and **off by default**.
 
 ## Why build another video tool?
 
@@ -123,7 +125,7 @@ ComfyUI/custom_nodes/ComfyUI-Majoor-VideoTools/
     └── README.md
 ```
 
-The VideoTools repository alone does not include this separate Studio source. A public Studio download URL has not been supplied in this checkout; obtain the matching source before continuing. No placeholder clone URL is used here.
+Studio source is distributed separately at [HyperKut-Studio](https://github.com/MajoorWaldi/HyperKut-Studio); the matching VideoTools pack is also required. Use a source release containing the backend, frontend and workflow files before continuing.
 
 **1. Download the models.** Follow the [configured model inventory](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/models-and-downloads.md). Download weights separately and accept their applicable terms.
 
@@ -138,7 +140,7 @@ npm run build
 Pop-Location
 ```
 
-**3. Optional finishing.** In the **parent VideoTools folder**, install the graphics renderer and/or sound palette if you want those features:
+**3. Experimental finishing (optional).** In the **parent VideoTools folder**, install the graphics renderer and/or sound palette if you want those features:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install_hyperframes.ps1
@@ -165,13 +167,13 @@ Open **http://127.0.0.1:8090/**. The helper uses ComfyUI on `8188` and the SDK p
 | Gemma 4 + MiniMax H3 | Vision/planning and video generation in the maintained workflow. |
 | YuE2 | Newly generated music; supplied-track workflows have a different music path. |
 | FLUX.2 klein / BiRefNet | Optional location generation / subject masks for applicable branches. |
-| HyperFrames + GSAP + compatible local browser | Requested titles, shared graphic layers and animated design. |
-| Tone.js + puppeteer-core + Chrome/Edge | One-time generation of the optional 30-cue sound bank; mixing existing WAV cues does not need a browser per edit. |
+| HyperFrames + GSAP + compatible local browser | Experimental titles, shared graphic layers and animated design. |
+| Tone.js + puppeteer-core + Chrome/Edge | One-time generation of the optional, experimental 30-cue sound bank; mixing existing WAV cues does not need a browser per edit. |
 
 Studio Python runtime: `comfy-sdk[pil]`, `comfy-api-proxy`, FastAPI, Uvicorn, python-multipart, HTTPX, Pydantic, filelock and AnyIO. UI: React/React DOM; TypeScript/Vite build tools. VideoTools' own requirements are installed separately into ComfyUI. [Full dependency scope](docs/dependency-scopes.md).
 
-## Before sharing
+## Beta status and licenses
 
 Original application code is **MIT**. Models, GSAP, other dependencies and media retain their own terms: [license scope](LICENSES.md), [notices](THIRD_PARTY_NOTICES.md). Local inference does not automatically grant model or commercial rights, and does not eliminate download/account requirements. Prepare resources before offline use.
 
-Windows is the documented integration path. A reproducible public fresh-clone GPU installation and cross-platform qualification remain release work. See [readiness](docs/submission-readiness.md), [known limits](docs/known-issues-and-roadmap.md) and the [detailed technical reference](docs/archive/README-REFERENCE.md). Documentation changes do not require restarting the Studio.
+Windows is the documented integration path. A reproducible public fresh-clone GPU installation and cross-platform qualification remain release work. See [readiness](docs/submission-readiness.md), [known limits](docs/known-issues-and-roadmap.md), [roadmap](ROADMAP.md) and the [user guide](docs/usage.md).

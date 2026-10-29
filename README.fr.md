@@ -4,6 +4,8 @@
 
 <p align="center"><a href="README.md">English</a> · <a href="#voir-les-résultats">Démos</a> · <a href="#installation-windows">Installation</a> · <a href="LICENSES.md">Licences</a></p>
 
+> **BÊTA — Tout le Studio HyperKut est actuellement en bêta.** Les fonctionnalités et workflows continuent d’évoluer. **La finition est expérimentale :** coupes internes, effets visuels, textes/titres, motion graphics, animations graphiques, sound design et bruitages. Ces réglages facultatifs sont désactivés par défaut ; vérifiez leur résultat avant export.
+
 ## Démo officielle
 
 <a href="docs/media/hyperkut-demo-official.mp4"><img src="docs/media/demo-official-poster.jpg" width="240" alt="Démo officielle HyperKut" /></a>
@@ -17,14 +19,14 @@
 
 **1 min 10 · 16:9 · narration anglaise · avec son.** [Lire ou télécharger](docs/media/hyperkut-demo-readme.mp4). Cette présentation paysage réunit une capture réelle du Studio, une démonstration animée à partir de ses composants et un véritable résultat enregistré. La régénération est illustrée : aucune nouvelle prise calculée n'est revendiquée. [Origine de la démo et outils employés](docs/demo-production.md).
 
-Projet préparé pour le [concours Comfy Open Source Higgsfield](https://comfy.org/open-source-higgsfield). **La préparation de l'envoi est en cours ; ce README ne certifie ni acceptation officielle ni éligibilité à un prix.**
+Projet préparé pour le [concours Comfy Open Source Higgsfield](https://comfy.org/open-source-higgsfield). 
 
 ## Dans l'application réelle
 
 | 1. Préparer son idée | 2. Diriger chaque plan | 3. Finaliser le montage |
 |:---:|:---:|:---:|
 | [![Accueil réel du Studio](docs/media/studio-home.jpg)](docs/media/studio-home.jpg) | [![Projet terminé et plans](docs/media/studio-project.jpg)](docs/media/studio-project.jpg) | [![Finition facultative](docs/media/studio-finishing.jpg)](docs/media/studio-finishing.jpg) |
-| Choisir un mode et ses médias. | Projet réel de 28 plans, prises et sélection du passage. | Coupes internes, effets, textes et animations facultatifs. |
+| Choisir un mode et ses médias. | Projet réel de 28 plans, prises et sélection du passage. | Finition expérimentale : coupes internes, effets, textes, animations et son. |
 
 Captures de l'interface réelle du 29 octobre 2026. Aucune génération, régénération ni export n'a été lancé pour les obtenir. Le montage de 28 plans est un projet enregistré, pas une génération effectuée pendant cette mise à jour documentaire.
 
@@ -40,7 +42,7 @@ Captures de l'interface réelle du 29 octobre 2026. Aucune génération, régén
 
 **Idée → découpage → génération des plans → choix des prises → ajustements → export.**
 
-Modifiez le prompt d'un plan, régénérez-le, gardez une autre prise ou choisissez un autre passage. L'éditeur de montage permet aussi de couper, réordonner et ajuster les durées. Titres, animations graphiques et effets sonores sont facultatifs et **désactivés par défaut**.
+Modifiez le prompt d'un plan, régénérez-le, gardez une autre prise ou choisissez un autre passage. L'éditeur de montage permet aussi de couper, réordonner et ajuster les durées. Les outils de finition — coupes internes, effets visuels, textes/titres, motion graphics, animations graphiques, sound design et bruitages — sont **expérimentaux**, facultatifs et **désactivés par défaut**.
 
 ## Ce qui fait son intérêt
 
@@ -121,7 +123,7 @@ ComfyUI/custom_nodes/ComfyUI-Majoor-VideoTools/
     └── README.md
 ```
 
-Le dépôt VideoTools seul ne fournit pas le code séparé du Studio. Son URL publique de téléchargement n'est pas renseignée dans cette installation : procurez-vous les sources correspondantes avant de poursuivre.
+Les sources du Studio sont distribuées séparément dans [HyperKut-Studio](https://github.com/MajoorWaldi/HyperKut-Studio). Le pack VideoTools correspondant reste nécessaire ; utilisez une version contenant le backend, le frontend et les workflows avant de poursuivre.
 
 **Installer le Studio.** Dans PowerShell, depuis `HyperKut Studio` :
 
@@ -134,7 +136,7 @@ npm run build
 Pop-Location
 ```
 
-**Finition facultative.** Depuis le dossier **VideoTools parent**, pour activer les fonctions concernées :
+**Finition expérimentale (facultative).** Depuis le dossier **VideoTools parent**, pour activer les fonctions concernées :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install_hyperframes.ps1
@@ -161,13 +163,13 @@ Ouvrez **http://127.0.0.1:8090/**. Le lanceur utilise ComfyUI sur `8188` et le p
 | Gemma 4 + MiniMax H3 | Analyse/planification et génération vidéo. |
 | YuE2 | Nouvelle musique générée ; le mode avec musique fournie suit un autre chemin audio. |
 | FLUX.2 klein / BiRefNet | Décors et masques de sujet, selon les options utilisées. |
-| HyperFrames + GSAP + navigateur compatible | Titres, calques graphiques et animations demandés. |
-| Tone.js + puppeteer-core + Chrome/Edge | Création initiale de la palette de 30 bruitages ; son mixage ultérieur lit les WAV existants. |
+| HyperFrames + GSAP + navigateur compatible | Titres, calques graphiques et animations expérimentaux. |
+| Tone.js + puppeteer-core + Chrome/Edge | Création initiale de la palette expérimentale de 30 bruitages ; son mixage ultérieur lit les WAV existants. |
 
 Le fichier `requirements.txt` installe le runtime Studio : `comfy-sdk[pil]`, `comfy-api-proxy`, FastAPI, Uvicorn, python-multipart, HTTPX, Pydantic, filelock et AnyIO. L'interface utilise React/React DOM et les outils TypeScript/Vite. [Détail des dépendances](docs/dependency-scopes.md).
 
-## Avant publication
+## Statut bêta et licences
 
 Le code original est sous **MIT**. Les modèles, GSAP, les autres dépendances et les médias gardent leurs conditions propres : [licences](LICENSES.md), [mentions tierces](THIRD_PARTY_NOTICES.md). Le calcul local ne donne pas automatiquement des droits commerciaux sur les modèles ou les médias. Préparez les téléchargements avant un usage hors ligne.
 
-Windows est le parcours documenté. Une installation GPU reproductible depuis le futur dépôt public et la validation multiplateforme restent à terminer. [État de préparation](docs/submission-readiness.md) · [Limites et roadmap](docs/known-issues-and-roadmap.md) · [Référence technique conservée](docs/archive/README-REFERENCE.md).
+Windows est le parcours documenté. Une installation GPU reproductible depuis le futur dépôt public et la validation multiplateforme restent à terminer. [État de préparation](docs/submission-readiness.md) · [Limites](docs/known-issues-and-roadmap.md) · [Roadmap](ROADMAP.md) · [Guide d’utilisation](docs/usage.md).

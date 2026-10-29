@@ -31,10 +31,8 @@ Run these commands from the new Studio source directory, before its first launch
 
 Start the Studio normally afterwards. Inputs resolve through the existing `/api/uploads/` routes and remain available after restart. A Remix preset whose source was withheld still requires the user to upload their own reference video; Music requires a supplied track if none was cleared.
 
-## Current release decision
+## Media policy
 
-The participant expressly authorized redistribution of the two music tracks and five generated portraits on 2026-10-28. The private ledger records that attestation and each file's digest; this is author permission, not an invented CC0 or MIT license over the media. Model/platform and third-party rights remain applicable.
+Only include assets with explicit redistribution permission recorded in the bundle's rights manifest. Missing or withheld sources must be supplied by the user. Generated previews need their own output/source/audio review; a successful generation or creator credit is not permission.
 
-The two Remix source videos were not byte-identical to the `ref_##` files whose use was previously authorized. Neither is distributed. No generated preview is included while H3 output rights and, where relevant, source-video/music clearance remain unresolved. The active private Studio keeps all its media and previews.
-
-Checks: bundle API round trip after restart, missing permission, tampering, path escape and refusal to overwrite an existing workspace. A separate fresh source snapshot also served all seven cleared inputs for all six presets after two starts. No new GPU generation was required.
+The bundle mechanism preserves input integrity and refuses an existing nonempty workspace. It is not a project-history migration or merge tool.

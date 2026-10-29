@@ -40,4 +40,4 @@ Private review package: code's MIT license does not cover these assets. Verify m
 
 ## Fashion source credit / Crédit de la source mode
 
-The original fashion Remix reference belongs to [silver.muse](https://higgsfield.ai/@silver.muse), according to the project author. Thank you for the original creation and inspiration. This attribution concerns the fashion reference used for job `26c4e181fe36`; it does not identify the authors of every other gallery asset or imply redistribution permission.
+The original fashion Remix reference belongs to [silver.muse](https://higgsfield.ai/@silver.muse), as credited by the project author. Thank you for the original creation and inspiration. This attribution concerns the fashion reference used for the saved fashion example; it does not identify the authors of every other gallery asset or imply redistribution permission.

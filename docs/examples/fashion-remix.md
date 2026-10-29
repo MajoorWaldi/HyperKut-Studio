@@ -11,7 +11,7 @@ English / Français. This is a documented successful run, not a newly qualified 
 - Recorded duration request: **12.245333 seconds**; exported example probes approximately **12.24 seconds**.
 - Recorded structure: **12**, creativity: **15**. These are saved internal settings, not current UI percentage promises.
 - Original audio; music volume zero; graphics, text, effects, sound design, sound effects, subject mask and internal sub-cuts disabled in the recorded request.
-- Saved result: job `26c4e181fe36`, **28 shot entries**, available in the [demo gallery](../demo-gallery.html). A shot entry is not evidence of a separate full model call.
+- Saved result: the saved fashion example, **28 shot entries**, available in the [demo gallery](../demo-gallery.html). A shot entry is not evidence of a separate full model call.
 - [Exact recorded settings and input SHA-256 hashes](fashion-remix-settings.json). Private workspace upload IDs and absolute paths have been removed.
 
 ## Repeat the workflow
@@ -27,8 +27,8 @@ English / Français. This is a documented successful run, not a newly qualified 
 
 The original source video is **not distributed**, following the existing media-rights review. The portrait's owner authorized redistribution previously, but that permission does not clear the source video or retained soundtrack. The recipe publishes hashes and roles, not private asset copies.
 
-With different authorized media, this reproduces the workflow, not the same frames. An exact, publicly reproducible example still needs a cleared source video, packaged inputs, pinned model revisions and a clean-install GPU rerun. Do not mark that release item complete yet.
+With different authorized media, this reproduces the workflow, not the same frames. An exact, publicly reproducible example still needs a cleared source video, packaged inputs, pinned model revisions and a clean-install GPU rerun. 
 
 ## Fashion source credit / Crédit de la source mode
 
-The original fashion Remix reference belongs to [silver.muse](https://higgsfield.ai/@silver.muse), according to the project author. Thank you for the original creation and inspiration. This attribution concerns the fashion reference used for job `26c4e181fe36`; it does not identify the authors of every other gallery asset or imply redistribution permission.
+The original fashion Remix reference belongs to [silver.muse](https://higgsfield.ai/@silver.muse), as credited by the project author. Thank you for the original creation and inspiration. This attribution concerns the fashion reference used for the saved fashion example; it does not identify the authors of every other gallery asset or imply redistribution permission.

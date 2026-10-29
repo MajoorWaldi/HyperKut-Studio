@@ -32,9 +32,9 @@ Pop-Location
 
 The engine and Studio use separate Python environments. Do not replace ComfyUI's packages with the Studio's requirements-tested.txt snapshot. An already built frontend/dist needs no Node process to serve its assets, but this does not remove the Node requirement of HyperFrames or palette installation.
 
-For the Windows/Python 3.14 release-validation dependency resolution captured on 2026-10-28, add `-c constraints-release.txt` to the pip command. Constraints pin versions without installing optional test tools unless they are requested. This captured environment passed startup, media and frontend checks; the backend suite now passes 220 tests with 6 skipped, but this is not a claim of a GPU installation test or a clone of the future published repository. Do not install these constraints into ComfyUI's own environment.
+Optional `-c constraints-release.txt` records a tested Studio dependency resolution. It is not a universal ComfyUI environment; install it only in the Studio virtual environment. See [validation scope](validation-summary.md).
 
-Before the first Studio start, a rights-cleared [preset input bundle](portable-presets.md) can populate a fresh workspace. Upload IDs from the author's private installation alone are not portable. The generic launcher settings example is intended for a new install; do not distribute the author's absolute output directory or Windows shortcut target.
+Before the first Studio start, a rights-cleared [preset input bundle](portable-presets.md) can populate a fresh workspace. Upload IDs from the author's private installation alone are not portable. Launcher settings are machine-local and excluded from source control.
 
 ## 4. Start
 
