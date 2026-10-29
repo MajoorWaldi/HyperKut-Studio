@@ -1,0 +1,94 @@
+{
+  "name": "Neon Ritual",
+  "mode": "music",
+  "description": "Cut supplied music into a vivid, high-energy visual ritual with syncopated bursts and breathing space.",
+  "prompt": "Let the supplied track dictate the edit's pulse, then answer its accents with vivid, surprising images. Build a visual ritual around a recurring gesture, color or object; transform it each time the music returns. Combine brief syncopated inserts with readable held shots, bold camera movement and graphic match cuts. Escalate toward a joyful, unexpected final tableau. Preserve the subject's identity and the music's character; do not impose a genre, mandatory drop or unrequested text.",
+  "settings": {
+    "duration": 20,
+    "ratio": "9:16",
+    "quality": "standard",
+    "structure": 35,
+    "creativity": 100,
+    "audio": "original",
+    "mood": "Follow the supplied track's real character; visually answer its accents with playful, high-voltage invention.",
+    "bpm": 120,
+    "art_direction": {
+      "look": "graphic",
+      "mood": "confident",
+      "camera": "tracking",
+      "light": "night"
+    },
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "motion_design": false,
+    "motion_direction": "{\"preset\":\"energetic\",\"accent\":\"#a7ff00\",\"reactive\":true,\"intensity\":0.9}",
+    "motion_title": "",
+    "motion_cues": "[]",
+    "motion_layers": "[]",
+    "subject_mask": false,
+    "redraw_text": false,
+    "pose_only": false,
+    "quality_check": false,
+    "music_energy": "intense",
+    "music_start": -1,
+    "style": "none",
+    "cut_density": "high",
+    "transition_intensity": "bold",
+    "cut_every": "half_beat",
+    "text_allowed": "",
+    "efficient_sources": true,
+    "reference_style": "camera",
+    "sub_cuts": false
+  },
+  "translations": {
+    "en": {
+      "name": "Neon Ritual",
+      "description": "Cut supplied music into a vivid, high-energy visual ritual with syncopated bursts and breathing space.",
+      "prompt": "Let the supplied track dictate the edit's pulse, then answer its accents with vivid, surprising images. Build a visual ritual around a recurring gesture, color or object; transform it each time the music returns. Combine brief syncopated inserts with readable held shots, bold camera movement and graphic match cuts. Escalate toward a joyful, unexpected final tableau. Preserve the subject's identity and the music's character; do not impose a genre, mandatory drop or unrequested text.",
+      "settings": {
+        "mood": "Follow the supplied track's real character; visually answer its accents with playful, high-voltage invention.",
+        "camera": "Tracking camera and graphic match cuts that hit selected accents without cutting on every beat."
+      }
+    },
+    "fr": {
+      "name": "Rituel néon",
+      "description": "Transforme la musique fournie en rituel visuel intense, entre accents syncopés et plans qui respirent.",
+      "prompt": "Laisse le morceau fourni dicter le pouls du montage, puis réponds à ses accents par des images vives et surprenantes. Construis un rituel visuel autour d'un geste, d'une couleur ou d'un objet récurrent ; transforme-le à chaque retour musical. Combine de brefs inserts syncopés avec des plans tenus et lisibles, des mouvements de caméra audacieux et des raccords graphiques. Fais monter l'énergie jusqu'à un tableau final joyeux et inattendu. Préserve l'identité du sujet et le caractère de la musique ; n'impose ni genre, ni drop obligatoire, ni texte non demandé.",
+      "settings": {
+        "mood": "Suis le caractère réel du morceau fourni ; réponds à ses accents par une invention visuelle joueuse et électrique.",
+        "camera": "Caméra en suivi et raccords graphiques sur certains accents, sans couper à chaque battement."
+      }
+    }
+  },
+  "featured": 5,
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": {
+      "id": "798101538606",
+      "name": "798101538606.wav",
+      "kind": "audio",
+      "url": "/api/uploads/798101538606"
+    },
+    "voice": null,
+    "refs": [
+      {
+        "id": "c56797c14683",
+        "name": "c56797c14683.webp",
+        "kind": "image",
+        "url": "/api/uploads/c56797c14683"
+      },
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "source_job": "46654128306d",
+  "preview": "music-neon-ritual-f8d3ff1c2aa2-preview.mp4"
+}

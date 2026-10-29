@@ -1,0 +1,4 @@
+# Development and tests; runtime dependencies are included.
+-r requirements.txt
+pytest
+pytest-asyncio

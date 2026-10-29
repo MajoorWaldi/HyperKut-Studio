@@ -1,0 +1,89 @@
+{
+  "name": "Portal Atelier",
+  "mode": "text",
+  "description": "Turn an idea into a shape-shifting visual world with tactile collage and an original score.",
+  "prompt": "Make a high-concept short film in which an ordinary place becomes a portal into several impossible worlds. Use tactile paper-collage transitions, bold changes of scale, surprising match cuts and a clear visual motif that evolves from shot to shot. Make every image feel composed and intentional, but let the transformations be strange and delightful. Keep the story readable and the subject's identity consistent. Create original music that belongs to the brief; avoid generic trailer scoring and do not invent brand text.",
+  "settings": {
+    "duration": 18,
+    "ratio": "9:16",
+    "quality": "standard",
+    "structure": 25,
+    "creativity": 100,
+    "audio": "new",
+    "mood": "Inventive, kaleidoscopic and emotionally buoyant; an original score with a memorable evolving motif.",
+    "bpm": 118,
+    "art_direction": {
+      "look": "collage",
+      "mood": "dreamy",
+      "camera": "tracking",
+      "light": "golden"
+    },
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "motion_design": false,
+    "motion_direction": "{\"preset\":\"energetic\",\"accent\":\"#ffb547\",\"reactive\":true,\"intensity\":0.82}",
+    "motion_title": "",
+    "motion_cues": "[]",
+    "motion_layers": "[]",
+    "subject_mask": false,
+    "redraw_text": false,
+    "pose_only": false,
+    "quality_check": false,
+    "music_energy": "intense",
+    "music_start": -1,
+    "style": "none",
+    "cut_density": "high",
+    "transition_intensity": "bold",
+    "cut_every": "2_beats",
+    "text_allowed": "",
+    "efficient_sources": true,
+    "reference_style": "camera",
+    "sub_cuts": false
+  },
+  "translations": {
+    "en": {
+      "name": "Portal Atelier",
+      "description": "Turn an idea into a shape-shifting visual world with tactile collage and an original score.",
+      "prompt": "Make a high-concept short film in which an ordinary place becomes a portal into several impossible worlds. Use tactile paper-collage transitions, bold changes of scale, surprising match cuts and a clear visual motif that evolves from shot to shot. Make every image feel composed and intentional, but let the transformations be strange and delightful. Keep the story readable and the subject's identity consistent. Create original music that belongs to the brief; avoid generic trailer scoring and do not invent brand text.",
+      "settings": {
+        "mood": "Inventive, kaleidoscopic and emotionally buoyant; an original score with a memorable evolving motif.",
+        "camera": "Tracking moves carry the subject through tactile, shifting collage worlds."
+      }
+    },
+    "fr": {
+      "name": "Atelier des portails",
+      "description": "Transforme une idée en univers visuel métamorphe, entre collage tactile et musique originale.",
+      "prompt": "Réalise un court métrage à concept fort où un lieu ordinaire devient un portail vers plusieurs mondes impossibles. Utilise des transitions en collage de papier tactile, des changements d'échelle audacieux, des raccords surprenants et un motif visuel clair qui évolue de plan en plan. Compose chaque image avec intention, tout en laissant les métamorphoses étranges et réjouissantes. Garde une histoire lisible et l'identité du sujet cohérente. Crée une musique originale adaptée au brief ; évite la musique de bande-annonce générique et n'invente pas de texte de marque.",
+      "settings": {
+        "mood": "Inventif, kaléidoscopique et lumineux sur le plan émotionnel ; une musique originale portée par un motif mémorable qui évolue.",
+        "camera": "Des mouvements de suivi accompagnent le sujet à travers des univers de collage tactiles et changeants."
+      }
+    }
+  },
+  "featured": 3,
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      {
+        "id": "b860423cb245",
+        "name": "b860423cb245.png",
+        "kind": "image",
+        "url": "/api/uploads/b860423cb245"
+      },
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "source_job": "5cca5747d535",
+  "preview": "text-portal-atelier-d34d4d2ec867-preview.mp4"
+}

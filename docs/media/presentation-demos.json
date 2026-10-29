@@ -1,0 +1,16 @@
+{
+  "official": {
+    "file": "hyperkut-demo-official.mp4",
+    "source_filename": "HyperKut-Demo-v2-phone_OFFICIAL.mp4",
+    "duration_seconds": 111.3,
+    "width": 540,
+    "height": 960,
+    "sha256": "726c61a79d00aa482692fa3ff51653a6e4c74b8c9a22bd4f8d2644159861d1ce",
+    "designation": "Official presentation selected by project author; not an organizer acceptance claim"
+  },
+  "readme": {
+    "file": "hyperkut-demo-readme.mp4",
+    "description": "Simulated 16:9 README walkthrough; original retained under clearer filename",
+    "sha256": "99fd22dec902d342d6293680431e0aa2fe58df0b4b3c73ca626cf2792ffef386"
+  }
+}

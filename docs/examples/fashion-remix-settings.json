@@ -1,0 +1,70 @@
+{
+  "mode": "remix",
+  "settings": {
+    "approved_brief": "",
+    "approved_brief_context": "",
+    "art_direction": {
+      "camera": "tracking",
+      "look": "raw",
+      "mood": "intense"
+    },
+    "audio": "original",
+    "bpm": 120,
+    "camera": "",
+    "creativity": 15,
+    "cut_density": "auto",
+    "cut_every": "2_beats",
+    "dialogue": "",
+    "duration": 12.245333,
+    "effects": false,
+    "efficient_sources": false,
+    "mood": "",
+    "motion_cues": "[]",
+    "motion_design": false,
+    "motion_direction": "editorial",
+    "motion_layers": "[]",
+    "motion_title": "",
+    "music_cut_sync": 0.8,
+    "music_cut_variation": 0.5,
+    "music_edit_mode": "legacy",
+    "music_energy": "peak",
+    "music_start": -1.0,
+    "music_sync": false,
+    "music_volume": 0.0,
+    "places": false,
+    "pose_only": false,
+    "prompt": "Recreate this fashion edit faithfully. ",
+    "quality": "standard",
+    "quality_check": true,
+    "ratio": "9:16",
+    "redraw_text": false,
+    "reference_style": "camera",
+    "retry_bad_takes": true,
+    "seed": 20261025,
+    "sfx_library": "",
+    "sound_design": false,
+    "sound_effects": false,
+    "structure": 12,
+    "style": "viral_aura_farming",
+    "sub_cuts": false,
+    "subject_mask": false,
+    "text": false,
+    "text_allowed": "",
+    "transition_intensity": "auto"
+  },
+  "input_roles": [
+    {
+      "slot": "source",
+      "description": "Fashion reference edit",
+      "sha256": "da8debf3a38b8a209c9121af52310b14af7ae660ec37a33883d7f95e82339202",
+      "redistributed": false
+    },
+    {
+      "slot": "refs[0]",
+      "description": "User-created afro character, brown three-piece suit",
+      "sha256": "e7549d3d8744ee0caccab8f19c3129085f39055301f814949cb8f1b9a634e490",
+      "redistributed_in_this_recipe": false
+    }
+  ],
+  "qualification": "Recorded successful local case. Exact assets withheld; no fresh GPU rerun or deterministic output guarantee."
+}

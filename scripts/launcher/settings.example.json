@@ -1,0 +1,6 @@
+{
+  "comfyui_url": "http://127.0.0.1:8188",
+  "studio_port": 8090,
+  "proxy_port": 8189,
+  "workspace": "workspace"
+}

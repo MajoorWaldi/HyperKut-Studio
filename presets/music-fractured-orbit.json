@@ -1,0 +1,94 @@
+{
+  "name": "Fractured Orbit",
+  "mode": "music",
+  "description": "Build an elegant visual maze around the supplied track, with controlled surprise and spacious phrasing.",
+  "prompt": "Create an elegant visual maze whose recurring shapes, gestures and locations orbit one another across the edit. Follow the supplied music's actual phrasing: use long, suspended images through spacious passages and precise visual interruptions where the track truly turns. Let transitions feel like impossible continuity rather than a preset effect. Introduce one bold change in the final third, then resolve the opening motif in a new context. Preserve the music's identity and the subject's recognizability; no arbitrary genre, forced beat cuts or invented copy.",
+  "settings": {
+    "duration": 24,
+    "ratio": "16:9",
+    "quality": "standard",
+    "structure": 48,
+    "creativity": 100,
+    "audio": "original",
+    "mood": "Let the supplied music lead; balance spacious, hypnotic passages with occasional precise ruptures.",
+    "bpm": 120,
+    "art_direction": {
+      "look": "raw",
+      "mood": "dreamy",
+      "camera": "steady",
+      "light": "hard"
+    },
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "motion_design": false,
+    "motion_direction": "{\"preset\":\"minimal\",\"accent\":\"#c4a1ff\",\"reactive\":false,\"intensity\":0.32}",
+    "motion_title": "",
+    "motion_cues": "[]",
+    "motion_layers": "[]",
+    "subject_mask": false,
+    "redraw_text": false,
+    "pose_only": false,
+    "quality_check": false,
+    "music_energy": "balanced",
+    "music_start": -1,
+    "style": "none",
+    "cut_density": "low",
+    "transition_intensity": "subtle",
+    "cut_every": "bar",
+    "text_allowed": "",
+    "efficient_sources": true,
+    "reference_style": "camera",
+    "sub_cuts": false
+  },
+  "translations": {
+    "en": {
+      "name": "Fractured Orbit",
+      "description": "Build an elegant visual maze around the supplied track, with controlled surprise and spacious phrasing.",
+      "prompt": "Create an elegant visual maze whose recurring shapes, gestures and locations orbit one another across the edit. Follow the supplied music's actual phrasing: use long, suspended images through spacious passages and precise visual interruptions where the track truly turns. Let transitions feel like impossible continuity rather than a preset effect. Introduce one bold change in the final third, then resolve the opening motif in a new context. Preserve the music's identity and the subject's recognizability; no arbitrary genre, forced beat cuts or invented copy.",
+      "settings": {
+        "mood": "Let the supplied music lead; balance spacious, hypnotic passages with occasional precise ruptures.",
+        "camera": "Patient, composed frames with deliberate reframing at genuine musical turns."
+      }
+    },
+    "fr": {
+      "name": "Orbite fracturée",
+      "description": "Crée un labyrinthe visuel élégant autour du morceau fourni, avec des surprises maîtrisées et un phrasé ample.",
+      "prompt": "Crée un labyrinthe visuel élégant où formes, gestes et lieux récurrents gravitent les uns autour des autres. Suis le phrasé réel de la musique fournie : privilégie de longs plans suspendus dans les passages amples et des interruptions visuelles précises lorsque le morceau bascule réellement. Fais sentir les transitions comme une continuité impossible plutôt que comme un effet prédéfini. Introduis un changement audacieux dans le dernier tiers, puis résous le motif d'ouverture dans un nouveau contexte. Préserve l'identité musicale et la reconnaissabilité du sujet ; pas de genre arbitraire, de coupes forcées sur les battements ni de texte inventé.",
+      "settings": {
+        "mood": "Laisse la musique fournie guider le montage ; équilibre passages amples et hypnotiques avec de rares ruptures précises.",
+        "camera": "Plans patients et composés, avec des recadrages délibérés aux véritables tournants musicaux."
+      }
+    }
+  },
+  "featured": 6,
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": {
+      "id": "77cde8ba147b",
+      "name": "77cde8ba147b.wav",
+      "kind": "audio",
+      "url": "/api/uploads/77cde8ba147b"
+    },
+    "voice": null,
+    "refs": [
+      {
+        "id": "d3099ebcb527",
+        "name": "d3099ebcb527.webp",
+        "kind": "image",
+        "url": "/api/uploads/d3099ebcb527"
+      },
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "source_job": "8ecf96e1da5a",
+  "preview": "music-fractured-orbit-8ecf96e1da5a-preview.mp4"
+}

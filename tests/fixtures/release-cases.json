@@ -1,0 +1,8 @@
+[
+  {"id":"remix-product","mode":"remix","duration":6,"ratio":"1:1","prompt":"A bright yellow bottle, preserving its black cap, white label and beige background.","source":"source.mp4","refs":["product.png"]},
+  {"id":"text-dense-20s","mode":"text","duration":20,"ratio":"9:16","prompt":"A product commercial with a clear opening, a fast rhythmic middle and a final hero shot. Keep the reference bottle identity.","refs":["product.png"]},
+  {"id":"music-clicks","mode":"music","duration":6,"ratio":"1:1","prompt":"A rhythmic product edit on the supplied beat grid.","music":"clicks.wav","refs":["product.png"]},
+  {"id":"landscape","mode":"text","duration":6,"ratio":"16:9","prompt":"A calm landscape product hero shot preserving the supplied bottle.","refs":["product.png"]},
+  {"id":"voice","mode":"text","duration":6,"ratio":"1:1","prompt":"One steady talking subject, no captions.","voice":"voice.wav","refs":["character.png"],"dialogue":"0-6 s: This is a local voice test. Welcome to Secator."},
+  {"id":"remix-character","mode":"remix","duration":6,"ratio":"9:16","prompt":"Replace the main subject with the supplied character, preserving its appearance and clothing.","source":"character-source.mp4","refs":["character.png"]}
+]

@@ -1,0 +1,101 @@
+{
+  "name": "Wild Counterpoint",
+  "mode": "remix",
+  "description": "Let the subject move freely: low motion guidance, high creative freedom and surreal new staging.",
+  "prompt": "Create a radical counterpoint to the reference edit: preserve who the subject is and the core idea, but let each shot discover a different expressive pose, gesture or direction of movement. Transform the setting into playful, impossible spaces with unexpected color, scale and visual rhymes between cuts. Let moments breathe, then break the pattern with one audacious visual surprise. Keep the edit coherent and the subject recognizable; do not copy logos or invent readable copy.  shallow depth of field.  film look. cinematic. Anamorphic.",
+  "settings": {
+    "approved_brief": "",
+    "approved_brief_context": "",
+    "art_direction": {
+      "camera": "handheld",
+      "light": "golden",
+      "look": "collage",
+      "mood": "confident"
+    },
+    "audio": "original",
+    "bpm": 120,
+    "camera": "Fluid, exploratory framing with surprising reframes and deliberate moments of stillness.",
+    "creativity": 100,
+    "cut_density": "medium",
+    "cut_every": "2_beats",
+    "dialogue": "",
+    "duration": 15.0,
+    "effects": false,
+    "efficient_sources": false,
+    "mood": "Keep the source soundtrack; make the visuals feel curious, unruly and dreamlike.",
+    "motion_cues": "[]",
+    "motion_design": false,
+    "motion_direction": "{\"preset\":\"editorial\",\"accent\":\"#7dffcf\",\"reactive\":true,\"intensity\":0.72}",
+    "motion_layers": "[]",
+    "motion_title": "",
+    "music_energy": "peak",
+    "music_start": -1.0,
+    "music_sync": true,
+    "music_volume": 1.0,
+    "places": true,
+    "pose_only": false,
+    "quality": "max",
+    "quality_check": false,
+    "ratio": "9:16",
+    "redraw_text": true,
+    "reference_style": "montage",
+    "retry_bad_takes": true,
+    "seed": 1271217554,
+    "sfx_library": "",
+    "sound_design": false,
+    "sound_effects": false,
+    "structure": 0,
+    "style": "none",
+    "subject_mask": false,
+    "text": false,
+    "text_allowed": "",
+    "transition_intensity": "bold",
+    "sub_cuts": false
+  },
+  "translations": {
+    "en": {
+      "name": "Wild Counterpoint",
+      "description": "Let the subject move freely: low motion guidance, high creative freedom and surreal new staging.",
+      "prompt": "Create a radical counterpoint to the reference edit: preserve who the subject is and the core idea, but let each shot discover a different expressive pose, gesture or direction of movement. Transform the setting into playful, impossible spaces with unexpected color, scale and visual rhymes between cuts. Let moments breathe, then break the pattern with one audacious visual surprise. Keep the edit coherent and the subject recognizable; do not copy logos or invent readable copy.  shallow depth of field.  film look. cinematic. Anamorphic.",
+      "settings": {
+        "camera": "Fluid, exploratory framing with surprising reframes and deliberate moments of stillness.",
+        "mood": "Keep the source soundtrack; make the visuals feel curious, unruly and dreamlike."
+      }
+    },
+    "fr": {
+      "name": "Contrepoint sauvage",
+      "description": "Laisse la personne bouger librement : guidage faible du mouvement, grande liberté créative et mise en scène surréaliste.",
+      "prompt": "Crée un contrepoint radical au montage de référence : préserve l'identité du sujet et l'idée centrale, mais laisse chaque plan découvrir une pose, un geste ou une direction de mouvement différente et expressive. Transforme le décor en espaces ludiques et impossibles, avec des couleurs et des échelles inattendues et des échos visuels entre les coupes. Laisse respirer certains moments, puis brise le motif par une surprise visuelle audacieuse. Garde un montage cohérent et un sujet reconnaissable ; ne copie aucun logo et n'invente pas de texte lisible. Faible profondeur de champ. Rendu pellicule cinématographique. Optique anamorphique.",
+      "settings": {
+        "mood": "Conserve la bande-son source ; donne aux images une atmosphère curieuse, indocile et onirique.",
+        "camera": "Cadrage fluide et exploratoire, recadrages surprenants et pauses immobiles choisies."
+      }
+    }
+  },
+  "featured": 2,
+  "preview": "remix-wild-counterpoint-d03f7733144d-preview.mp4",
+  "inputs": {
+    "source": {
+      "id": "efc99d17da17",
+      "name": "efc99d17da17.mp4",
+      "kind": "video",
+      "url": "/api/uploads/efc99d17da17"
+    },
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      {
+        "id": "c021187bb210",
+        "name": "c021187bb210.png",
+        "kind": "image",
+        "url": "/api/uploads/c021187bb210"
+      },
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "source_job": "d03f7733144d"
+}

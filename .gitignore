@@ -1,0 +1,38 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+.vite/
+
+# Runtime data: jobs, uploads, renders, logs, state
+workspace/
+*.log
+
+# Local settings of this machine (paths, ports, experimental flags)
+scripts/launcher/settings.json
+.env
+.env.*
+HyperKut Studio.lnk
+
+# Render and preview caches
+.hyperframes/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,112 @@
+{
+  "name": "Midnight Wardrobe",
+  "mode": "remix",
+  "description": "Four reference sheets, one identity: a dark, low-angle fashion showcase under a dramatic overhead spotlight.",
+  "prompt": "Recreate the dark spotlight outfit showcase using the afro man from reference 1. Replace source outfits with references 2, 3 and 4 in order: chocolate/cream, olive/black, graphic black. Preserve the top light, low camera, rhythm and deliberate poses. Rebuild minimal graphic dial accents without source timers, logos or lettering. Preserve one consistent identity from reference 1 in EVERY shot, including close-ups and inserts; completely replace all source faces and bodies. Reference sheets show one person from several angles, never a group. Clothes references define garments, not new identities. Keep source shot order, camera, gesture phase, transition timing and original soundtrack. No extra people, copied logos or source captions. Graphics belong in the compositor, never baked into generated footage.",
+  "settings": {
+    "approved_brief": "",
+    "approved_brief_context": "",
+    "art_direction": {},
+    "audio": "original",
+    "bpm": 120,
+    "camera": "",
+    "creativity": 30,
+    "cut_density": "auto",
+    "cut_every": "2_beats",
+    "dialogue": "",
+    "duration": 8.0,
+    "effects": false,
+    "efficient_sources": false,
+    "mood": "",
+    "motion_cues": "[]",
+    "motion_design": false,
+    "motion_direction": "minimal",
+    "motion_layers": "[]",
+    "motion_title": "",
+    "music_energy": "peak",
+    "music_start": -1.0,
+    "music_sync": false,
+    "music_volume": 0.0,
+    "places": true,
+    "pose_only": false,
+    "prompt": "Recreate the dark spotlight outfit showcase using the afro man from reference 1. Replace source outfits with references 2, 3 and 4 in order: chocolate/cream, olive/black, graphic black. Preserve the top light, low camera, rhythm and deliberate poses. Rebuild minimal graphic dial accents without source timers, logos or lettering. Preserve one consistent identity from reference 1 in EVERY shot, including close-ups and inserts; completely replace all source faces and bodies. Reference sheets show one person from several angles, never a group. Clothes references define garments, not new identities. Keep source shot order, camera, gesture phase, transition timing and original soundtrack. No extra people, copied logos or source captions. Graphics belong in the compositor, never baked into generated footage.",
+    "quality": "max",
+    "quality_check": false,
+    "ratio": "9:16",
+    "redraw_text": false,
+    "reference_style": "camera",
+    "retry_bad_takes": false,
+    "seed": 42,
+    "sfx_library": "",
+    "sound_design": false,
+    "sound_effects": false,
+    "structure": 95,
+    "style": "none",
+    "subject_mask": true,
+    "text": false,
+    "text_allowed": "",
+    "transition_intensity": "moderate",
+    "sub_cuts": false
+  },
+  "translations": {
+    "en": {
+      "name": "Midnight Wardrobe",
+      "description": "Four reference sheets, one identity: a dark, low-angle fashion showcase under a dramatic overhead spotlight.",
+      "prompt": "Recreate the dark spotlight outfit showcase using the afro man from reference 1. Replace source outfits with references 2, 3 and 4 in order: chocolate/cream, olive/black, graphic black. Preserve the top light, low camera, rhythm and deliberate poses. Rebuild minimal graphic dial accents without source timers, logos or lettering. Preserve one consistent identity from reference 1 in EVERY shot, including close-ups and inserts; completely replace all source faces and bodies. Reference sheets show one person from several angles, never a group. Clothes references define garments, not new identities. Keep source shot order, camera, gesture phase, transition timing and original soundtrack. No extra people, copied logos or source captions. Graphics belong in the compositor, never baked into generated footage.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Midnight Wardrobe",
+      "description": "Une identité, quatre planches de référence : présentation de tenues en contre-plongée, dans l’obscurité sous un projecteur.",
+      "prompt": "Recrée la présentation de tenues sombre sous un projecteur avec l’homme afro de la référence 1. Remplace les tenues source par les références 2, 3 et 4, dans cet ordre : chocolat/crème, olive/noir, noir graphique. Conserve l’éclairage zénithal, la caméra basse, le rythme et les poses délibérées. Préserve une identité unique dans chaque plan, y compris les gros plans et inserts ; remplace entièrement les visages et corps source. Les planches montrent une seule personne sous plusieurs angles, jamais un groupe. Les références de vêtements définissent les tenues, pas de nouvelles identités. Garde l’ordre des plans, le cadrage, les phases des gestes, les transitions et la bande-son originale. Aucun personnage supplémentaire, logo copié ni légende source. Si les graphismes sont activés, recrée des accents de cadran discrets dans le compositeur, jamais dans les images générées, sans minuteurs ni inscriptions de la source.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "featured": 1,
+  "inputs": {
+    "source": {
+      "id": "bf4f50efb7bf",
+      "name": "From Klickpin.com- Discover Simple digital product ideas that help you create a beautiful result without overspending for ideas worth saving right.mp4",
+      "kind": "video",
+      "url": "/api/uploads/bf4f50efb7bf"
+    },
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      {
+        "id": "45bf249bfdcb",
+        "name": "ChatGPT Image 21 oct. 2026, 11_21_12.png",
+        "kind": "image",
+        "url": "/api/uploads/45bf249bfdcb"
+      },
+      {
+        "id": "7a436edf284d",
+        "name": "streetwear_01_chocolat_creme.png",
+        "kind": "image",
+        "url": "/api/uploads/7a436edf284d"
+      },
+      {
+        "id": "c0a1a1f4c5f9",
+        "name": "streetwear_02_olive_noir.png",
+        "kind": "image",
+        "url": "/api/uploads/c0a1a1f4c5f9"
+      },
+      {
+        "id": "a4028aca7cb9",
+        "name": "streetwear_03_noir_graphique.png",
+        "kind": "image",
+        "url": "/api/uploads/a4028aca7cb9"
+      },
+      null
+    ]
+  },
+  "source_job": "b4b969eda8d3",
+  "preview": "midnight-wardrobe-b4b969eda8d3-preview.mp4"
+}

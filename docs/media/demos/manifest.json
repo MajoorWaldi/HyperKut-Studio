@@ -1,0 +1,89 @@
+[
+  {
+    "file": "hyperkut_26c4e181fe36.mp4",
+    "poster": "hyperkut_26c4e181fe36.jpg",
+    "title": "Fashion edit — Remix",
+    "mode": "REMIX",
+    "duration": 12.24,
+    "bytes": 3658808,
+    "sha256": "fdff9518c2399c6a19c74bdb0867daea76e649d87c233be56999a20b87637f81",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review.",
+    "source_credit": {
+      "creator": "silver.muse",
+      "url": "https://higgsfield.ai/@silver.muse",
+      "scope": "Original fashion Remix reference",
+      "identified_by": "Project author",
+      "permission_inferred": false
+    }
+  },
+  {
+    "file": "hyperkut_4eaec061ddbd.mp4",
+    "poster": "hyperkut_4eaec061ddbd.jpg",
+    "title": "Character lookbook",
+    "mode": "REMIX",
+    "duration": 19.52,
+    "bytes": 14217130,
+    "sha256": "ac8fb190ae3ff737a16797748bf523e187ab6ee9bc9fc3b816cadf95fcd791fd",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "hyperkut_9e8e85878a3c.mp4",
+    "poster": "hyperkut_9e8e85878a3c.jpg",
+    "title": "Sculptural product",
+    "mode": "TEXT",
+    "duration": 15.0,
+    "bytes": 8203464,
+    "sha256": "26e100ec066197d45e13b032595390696df5b62f5b833e826cb28c54e6ae2c39",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "hyperkut_ac3723c049d9.mp4",
+    "poster": "hyperkut_ac3723c049d9.jpg",
+    "title": "Fashion in motion",
+    "mode": "MUSIC",
+    "duration": 12.0,
+    "bytes": 11408390,
+    "sha256": "6c5eb2236d8c5cbdf816c2cfe84303a3a9d3539e6f748c59594b3612dc5e5cba",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "hyperkut_c9cdc7be3b8b.mp4",
+    "poster": "hyperkut_c9cdc7be3b8b.jpg",
+    "title": "Headphone reveal",
+    "mode": "TEXT",
+    "duration": 8.79,
+    "bytes": 4365200,
+    "sha256": "a3b6b8721f5c6ba7f48ef08d0f8703696faeb8807192fbb2331b6b638e40ea14",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "hyperkut_e721126225dd.mp4",
+    "poster": "hyperkut_e721126225dd.jpg",
+    "title": "Urban character",
+    "mode": "TEXT",
+    "duration": 15.21,
+    "bytes": 3129550,
+    "sha256": "cdd8e665443b842a2c2d78bc6aa12d5ebeb0c5efac176e8a75df8cde9fc54d0c",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "hyperkut_f54b09f850b2.mp4",
+    "poster": "hyperkut_f54b09f850b2.jpg",
+    "title": "Sneaker detail",
+    "mode": "MUSIC",
+    "duration": 9.58,
+    "bytes": 7112105,
+    "sha256": "5dd9c93b4963a89537b7fb7da467843f8f239cb4a8ce24d2185a68569bb04356",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  },
+  {
+    "file": "outfit.mp4",
+    "poster": "outfit.jpg",
+    "title": "Outfit — supplied clip",
+    "mode": "Supplied media",
+    "duration": 5.4,
+    "bytes": 811565,
+    "sha256": "004b70d5652f6fdcc2ebdd9a55e1791bb7086f1f9b9bf63225e6829eb92c62f0",
+    "rights": "Private review. Publication permission and model/source/audio terms require separate review."
+  }
+]

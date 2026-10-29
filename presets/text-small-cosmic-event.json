@@ -1,0 +1,104 @@
+{
+  "name": "Recreate this fashion edit faithfully.",
+  "mode": "remix",
+  "description": "Recreate the reference fashion edit with the supplied afro character and its original soundtrack.",
+  "prompt": "Recreate this fashion edit faithfully.",
+  "settings": {
+    "approved_brief": "",
+    "approved_brief_context": "",
+    "art_direction": {
+      "camera": "tracking",
+      "look": "raw",
+      "mood": "intense"
+    },
+    "audio": "original",
+    "bpm": 120,
+    "camera": "",
+    "creativity": 15,
+    "cut_density": "auto",
+    "cut_every": "2_beats",
+    "dialogue": "",
+    "duration": 12.245333,
+    "effects": false,
+    "efficient_sources": false,
+    "mood": "",
+    "motion_cues": "[]",
+    "motion_design": false,
+    "motion_direction": "editorial",
+    "motion_layers": "[]",
+    "motion_title": "",
+    "music_cut_sync": 0.8,
+    "music_cut_variation": 0.5,
+    "music_edit_mode": "legacy",
+    "music_energy": "peak",
+    "music_start": -1.0,
+    "music_sync": false,
+    "music_volume": 0.0,
+    "places": false,
+    "pose_only": false,
+    "prompt": "Recreate this fashion edit faithfully. ",
+    "quality": "standard",
+    "quality_check": true,
+    "ratio": "9:16",
+    "redraw_text": false,
+    "reference_style": "camera",
+    "retry_bad_takes": true,
+    "seed": 20261025,
+    "sfx_library": "",
+    "sound_design": false,
+    "sound_effects": false,
+    "structure": 12,
+    "style": "viral_aura_farming",
+    "sub_cuts": false,
+    "subject_mask": false,
+    "text": false,
+    "text_allowed": "",
+    "transition_intensity": "auto"
+  },
+  "translations": {
+    "en": {
+      "name": "Recreate this fashion edit faithfully.",
+      "description": "Recreate the reference fashion edit with the supplied afro character and its original soundtrack.",
+      "prompt": "Recreate this fashion edit faithfully.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Recréer fidèlement ce montage mode.",
+      "description": "Recrée le montage mode de référence avec le personnage afro fourni et sa bande-son originale.",
+      "prompt": "Recrée fidèlement ce montage mode.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "featured": 4,
+  "inputs": {
+    "source": {
+      "id": "e0d392539d42",
+      "name": "ReftoRemix2.mp4",
+      "kind": "video",
+      "url": "/api/uploads/e0d392539d42"
+    },
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      {
+        "id": "a2108decae83",
+        "name": "ChatGPT Image 21 oct. 2026, 11_21_12.png",
+        "kind": "image",
+        "url": "/api/uploads/a2108decae83"
+      },
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "source_job": "26c4e181fe36",
+  "preview": "faithful-fashion-26c4e181fe36-preview.mp4"
+}
