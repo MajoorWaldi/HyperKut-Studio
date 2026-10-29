@@ -60,3 +60,17 @@ def test_remix_keeps_the_original_audio_switch_and_music_mode_keeps_uploaded_aud
     for phase in ('stage1','shot','final'):
         graph=load_templates(ROOT/'workflows','music')[phase].prompt
         assert not any(n['class_type']=='YuE2GenerateMusic' for n in graph.values())
+
+
+def test_remix_new_music_without_mood_uses_brief_without_selecting_a_genre(tmp_path):
+    from backend.jobs import Job
+    from backend.models import JobRequest
+    from backend.runner import ComfyRunner
+    from test_backend import _settings
+    runner=ComfyRunner(_settings(tmp_path),{'source':tmp_path/'source.mp4'})
+    request=JobRequest(mode='remix',source='source',settings={'audio':'new','mood':'','prompt':'Dark trap, neon sneaker reveal'})
+    values=runner._values(Job(request))
+    assert values['mood'].strip() and 'Dark trap' in values['mood']
+    assert 'jazz' not in values['mood'].lower()
+    explicit=JobRequest(mode='remix',source='source',settings={'audio':'new','mood':'industrial techno'})
+    assert runner._values(Job(explicit))['mood']=='industrial techno'

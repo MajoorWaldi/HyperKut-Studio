@@ -142,7 +142,7 @@ export interface AICandidate {
 
 export interface TimelineInfo { bpm: number | null; beat_times?: number[]; shots: { id: string; cuts: number[]; effects: string[] }[] }
 
-export interface Health { instance_id?: string; preset_inputs?: boolean; music_rhythm_modes?: boolean; adaptive_editing_modes?: boolean; mock: boolean; comfyui: boolean; proxy: boolean; videotools: boolean; output_dir: string | null; missing_nodes?: string[]; missing_models?: string[]; load_errors?: string[] }
+export interface Health { mode?: Mode; instance_id?: string; preset_inputs?: boolean; music_rhythm_modes?: boolean; adaptive_editing_modes?: boolean; mock: boolean; comfyui: boolean; proxy: boolean; videotools: boolean; output_dir: string | null; missing_nodes?: string[]; missing_models?: string[]; load_errors?: string[] }
 
 export interface Inputs { source: Upload | null; refs: (Upload | null)[]; refVideo: Upload | null; music: Upload | null; voice: Upload | null }
 

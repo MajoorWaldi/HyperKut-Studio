@@ -76,5 +76,5 @@ test('an old real Studio backend cannot silently ignore the new controls', async
   vi.stubGlobal('fetch', fetch)
   await expect(createJob('music', DEFAULTS, {source: null, refs: [], refVideo: null, music: null, voice: null})).rejects.toThrow('Restart Studio')
   expect(fetch.mock.calls).toHaveLength(1)
-  expect(fetch).toHaveBeenCalledWith('/api/health')
+  expect(fetch).toHaveBeenCalledWith('/api/health?mode=music&refs=0&ref_video=false&voice=false', {cache: 'no-store'})
 })

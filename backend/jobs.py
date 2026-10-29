@@ -31,6 +31,8 @@ class Job:
         self.edits = 0  # how many times the edit was made: the address of the video changes with it
         self.pending_handle: str | None = None
         self.submission_key: str | None = None
+        self.pending_remote: dict | None = None
+        self.pending_result: dict | None = None
         self.deleting = False
         self.updating_project = False
         self._listeners: list[asyncio.Queue[JobState]] = []
@@ -148,12 +150,14 @@ class JobStore:
             job.edits = saved.get("edits", 0)
             job.pending_handle = saved.get('pending_handle')
             job.submission_key = saved.get('submission_key')
+            job.pending_remote = saved.get('pending_remote')
+            job.pending_result = saved.get('pending_result')
             self.jobs[job.id] = job
 
     def save(self, job: Job) -> None:
         if self.directory:
             self.directory.mkdir(parents=True, exist_ok=True)
-            write_json(self.directory / f'{job.id}.json', {'request': job.request.model_dump(), 'state': job.state.model_dump(), 'edits': job.edits, 'pending_handle': job.pending_handle, 'submission_key': job.submission_key})
+            write_json(self.directory / f'{job.id}.json', {'request': job.request.model_dump(), 'state': job.state.model_dump(), 'edits': job.edits, 'pending_handle': job.pending_handle, 'submission_key': job.submission_key, 'pending_remote':job.pending_remote,'pending_result':job.pending_result})
 
     def create(self, request: JobRequest) -> Job:
         job = Job(request)

@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from backend.unified_motion import finishing_layers, needs_subject_mask
+import pytest
+
+from backend.unified_motion import finishing_layers, needs_subject_mask, validate_finishing
 from backend.templates import load_templates
 
 
@@ -67,3 +69,34 @@ def test_disabling_decoration_does_not_discard_manual_or_restored_layers():
     assert 'hyperframes' not in template.fill({'motion_design':False,'redraw_text':False,'unified_layers':'[]'})
     assert 'hyperframes' in template.fill({'motion_design':False,'redraw_text':True,'unified_layers':'[]'})
     assert 'hyperframes' in template.fill({'motion_design':False,'redraw_text':False,'unified_layers':'[{"type":"box"}]'})
+
+
+@pytest.mark.parametrize(
+    "layers",
+    [
+        [{"type": "vector", "event_role": "accent"}],
+        [{"type": "vector", "sfx": "not-a-sound"}],
+    ],
+)
+def test_studio_rejects_engine_invalid_motion_before_generation(layers):
+    with pytest.raises(ValueError):
+        validate_finishing({"motion_layers": json.dumps(layers)}, 4)
+
+
+def test_studio_validates_planned_rows_before_finishing_prompt():
+    manifest = {"shots": [{"shot_id": "A", "plan": {"motion": [{"type": "vector", "sfx": "not-a-sound"}]}}]}
+    shots = [SimpleNamespace(id="A", start=0, duration=2)]
+    with pytest.raises(ValueError, match="sound effect"):
+        finishing_layers(manifest, shots, "[]")
+
+
+def test_studio_uses_pure_core_contract_without_loading_comfy():
+    import sys
+    from backend.snapshot_schema import motion_contract
+
+    before = set(sys.modules)
+    contract = motion_contract()
+    assert "accent" not in contract.EVENT_ROLES
+    assert "hit" in contract.SOUND_EFFECTS
+    loaded = set(sys.modules) - before
+    assert not any(name == "comfy" or name.startswith("comfy.") for name in loaded)

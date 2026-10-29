@@ -33,7 +33,7 @@
     "music_energy": "peak",
     "music_start": -1.0,
     "music_sync": false,
-    "music_volume": 0.0,
+    "music_volume": 1.0,
     "places": false,
     "pose_only": false,
     "prompt": "Recreate this fashion edit faithfully. ",

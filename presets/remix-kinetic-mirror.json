@@ -26,7 +26,7 @@
     "music_energy": "peak",
     "music_start": -1.0,
     "music_sync": false,
-    "music_volume": 0.0,
+    "music_volume": 1.0,
     "places": true,
     "pose_only": false,
     "prompt": "Recreate the dark spotlight outfit showcase using the afro man from reference 1. Replace source outfits with references 2, 3 and 4 in order: chocolate/cream, olive/black, graphic black. Preserve the top light, low camera, rhythm and deliberate poses. Rebuild minimal graphic dial accents without source timers, logos or lettering. Preserve one consistent identity from reference 1 in EVERY shot, including close-ups and inserts; completely replace all source faces and bodies. Reference sheets show one person from several angles, never a group. Clothes references define garments, not new identities. Keep source shot order, camera, gesture phase, transition timing and original soundtrack. No extra people, copied logos or source captions. Graphics belong in the compositor, never baked into generated footage.",

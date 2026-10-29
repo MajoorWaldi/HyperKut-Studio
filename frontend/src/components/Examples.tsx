@@ -1,7 +1,7 @@
 import { useI18n } from '../i18n'
 import type { Mode, Preset } from '../types'
 import { Icon, type IconName } from './Icon'
-import { Media, presetChips } from './Library'
+import { Media, PresetInputs, presetChips } from './Library'
 
 const MODE_ICON: Record<Mode, IconName> = { remix: 'sparkles', text: 'type', music: 'music' }
 
@@ -28,6 +28,7 @@ export function Examples({ presets, applied, onApply }: Props) {
             <span className={`example-media ${preset.mode}`}>
               {!preset.preview && <Icon name={MODE_ICON[preset.mode]} size={34} />}
               {preset.reference && <img className="example-reference" src={`/api/presets/media/${preset.reference}`} alt="" />}
+              <PresetInputs preset={preset} playing />
               <span className="lib-mode">{name[preset.mode]}</span>
               {preset.id === applied && <span className="example-check" aria-hidden><Icon name="check" size={14} /></span>}
             </span>

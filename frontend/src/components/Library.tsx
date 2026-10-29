@@ -45,6 +45,37 @@ export function Media({ url, playing }: { url: string; playing: boolean }) {
     : <img src={url} alt="" loading="lazy" />
 }
 
+/** What a preset loads as inputs, over its card: the source video, the reference pictures and the waveform of the music. The video plays while `playing`. */
+export function PresetInputs({ preset, playing }: { preset: Preset; playing: boolean }) {
+  const { t } = useI18n()
+  const inputs = preset.inputs
+  const musicId = inputs?.music?.id
+  const [peaks, setPeaks] = useState<{ id: string; values: number[] } | null>(null)
+  useEffect(() => {
+    if (!musicId) return
+    const controller = new AbortController()
+    fetch(`/api/uploads/${musicId}/waveform`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then((values: number[]) => setPeaks({ id: musicId, values }))
+      .catch(() => {})
+    return () => controller.abort()
+  }, [musicId])
+  const wave = peaks && peaks.id === musicId ? peaks.values : undefined
+  const refs = (inputs?.refs ?? []).filter(ref => ref !== null)
+  if (!inputs?.source && !refs.length && !wave) return null
+  return (
+    <>
+      {wave && <svg className="preset-wave" viewBox={`0 0 ${wave.length} 100`} preserveAspectRatio="none" role="img" aria-label={t.waveform}>
+        <path d={wave.map((peak, i) => `M${i + .5} ${50 - peak * 46}V${50 + peak * 46}`).join(' ')} stroke="currentColor" strokeWidth=".65" fill="none" />
+      </svg>}
+      <span className="preset-inputs">
+        {inputs?.source && <video key={playing ? 'on' : 'off'} src={`${inputs.source.url}#t=0.1`} muted loop playsInline preload="metadata" autoPlay={playing} />}
+        {refs.slice(0, 4).map(ref => <img key={ref.id} src={ref.url} alt="" loading="lazy" />)}
+      </span>
+    </>
+  )
+}
+
 /** The library: the projects as cards with a preview of their result, and the presets as cards with what they set. It lies over the side column and goes wider than it; the button above the loaders opens and closes it; a press outside closes it too. */
 export function Library(props: Props) {
   const { open, onClose, jobs, sizes, presets, mode, currentJob } = props
@@ -183,6 +214,7 @@ export function Library(props: Props) {
                 <button type="button" className="lib-preset-main" title={`${preset.prompt}\n\n${t.tip.applyPreset}`} onClick={() => props.onApplyPreset(preset.id)}>
                   <span className={`lib-preview ${preset.mode}`}>
                     {preset.preview ? <Media url={`/api/presets/media/${preset.preview}`} playing={hover === preset.id} /> : <span className="lib-nocover"><Icon name={MODE_ICON[preset.mode]} size={34} /></span>}
+                    <PresetInputs preset={preset} playing={hover === preset.id} />
                     <span className="lib-mode">{modeName[preset.mode]}</span>
                   </span>
                   <span className="lib-preset-top"><b>{preset.name}</b></span>

@@ -38,7 +38,26 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS)
   const [inputs, setInputs] = useState<Inputs>(EMPTY)
   const [job, setJob] = useState<JobState | null>(null)
-  const [health, setHealth] = useState<Health | null>(null)
+  const [healthResult, setHealthResult] = useState<{ scope: string; value: Health } | null>(null)
+  const healthInputs = useMemo(() => ({ refs: inputs.refs.filter(Boolean).length, ref_video: !!inputs.refVideo, voice: !!inputs.voice }), [inputs])
+  const healthScope = `${mode}:${healthInputs.refs}:${healthInputs.ref_video}:${healthInputs.voice}`
+  const currentHealthScope = useRef(healthScope)
+  currentHealthScope.current = healthScope
+  const healthRequest = useRef(0)
+  const health = healthResult?.scope === healthScope ? healthResult.value : null
+  const refreshHealth = useCallback(async () => {
+    const request = ++healthRequest.current
+    try {
+      const value = await api.health(mode, healthInputs)
+      if (request !== healthRequest.current || currentHealthScope.current !== healthScope) return null
+      setHealthResult({ scope: healthScope, value })
+      return value
+    } catch (error) {
+      if (request !== healthRequest.current || currentHealthScope.current !== healthScope) return null
+      setHealthResult(null)
+      throw error
+    }
+  }, [mode, healthInputs, healthScope])
   const [presetSources, setPresets] = useState<Preset[]>([])
   const [recent, setRecent] = useState<JobState[]>([])
   const [library, setLibrary] = useState(false)
@@ -53,6 +72,7 @@ export default function App() {
   const [undo, setUndo] = useState<{ label: string; run: () => void } | null>(null)
   const [message, setMessageState] = useState<string | null>(null)
   const [messageTone, setMessageTone] = useState<ToastTone>('success')
+  const [dismissedFallback, setDismissedFallback] = useState<string | null>(null)
   const setMessage = (value: string | null, tone: ToastTone = 'success') => { setMessageState(value); setMessageTone(tone) }
   const [actionError, setActionError] = useState<string | null>(null)
   const [restarting, setRestarting] = useState(false)
@@ -74,8 +94,26 @@ export default function App() {
   const t = dictionaries[lang]
   const i18n = useMemo(() => ({ lang, t, setLang: (next: Lang) => { writePreference('lang', next); setLangState(next) } }), [lang, t])
   const running = restarting || submitting || job?.status === 'queued' || job?.status === 'running'
+  const fallbackMessages: Record<string, string> = lang === 'fr' ? {
+    'optional:hyperframes:unavailable': 'Vidéo prête sans finition graphique : HyperFrames est indisponible ou a échoué.',
+    'optional:tone:missing': 'Banque Tone.js absente : effets sonores de secours utilisés.',
+    'optional:tone:unavailable': 'Banque Tone.js inutilisable : effets sonores de secours utilisés.',
+    'optional:mask:unavailable': 'Détourage indisponible : vidéo livrée sans la finition graphique qui en dépend.',
+    'optional:layout:unavailable': 'Vidéo prête. Le contrôle facultatif de disposition des calques n’a pas pu être effectué.',
+  } : {
+    'optional:hyperframes:unavailable': 'Video ready without graphic finishing: HyperFrames is unavailable or failed.',
+    'optional:tone:missing': 'Tone.js bank is missing: fallback sound effects were used.',
+    'optional:tone:unavailable': 'Tone.js bank is unusable: fallback sound effects were used.',
+    'optional:mask:unavailable': 'Subject masking unavailable: video delivered without the dependent graphic finishing.',
+    'optional:layout:unavailable': 'Video ready. The optional layer layout check could not be completed.',
+  }
+  const fallbackWarnings = [...new Set((job?.warnings ?? []).filter(w => w.startsWith('optional:')))]
+  const fallbackKey = `${job?.id}:${job?.operation}:${fallbackWarnings.join('|')}`
 
-  useEffect(() => { api.health().then(setHealth).catch(() => setHealth(null)) }, [])
+  useEffect(() => {
+    void refreshHealth().catch(() => {})
+    return () => { healthRequest.current += 1 }
+  }, [refreshHealth])
   useEffect(() => { api.recentJobs().then(setRecent).catch(() => setRecent([])) }, [job?.status])
   useEffect(() => { api.presets().then(setPresets).catch(() => setPresets([])) }, [])
   useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, recent])
@@ -342,7 +380,7 @@ export default function App() {
           if (!response.ok) continue
           const found = await response.json() as Health
           if (!found.instance_id || found.instance_id === accepted.instance_id) continue
-          setHealth(await api.health())
+          await refreshHealth()
           setPresets(await api.presets())
           await refreshJobs()
           setMessage(lang === 'fr' ? 'Studio redémarré.' : 'Studio restarted.')
@@ -361,7 +399,8 @@ export default function App() {
   const planned = job?.shots.reduce((sum, s) => sum + s.duration, 0) ?? 0
   const activeShots = regenerating?.job===job?.id && regenerating?.operation===job?.operation ? regenerating?.shots ?? [] : []
   const position = job?.output_url && !job.manual_export && played.duration > 0 ? (played.time * planned) / played.duration : null
-  const status = !health ? t.gpuMissing : health.mock ? t.simulated : !health.comfyui || !health.proxy ? t.gpuMissing : !health.videotools ? t.packMissing : t.gpuOk
+  const readinessIssues = [...(health?.missing_nodes ?? []), ...(health?.missing_models ?? [])]
+  const status = !health ? t.gpuMissing : health.mock ? t.simulated : !health.comfyui || !health.proxy ? t.gpuMissing : !health.videotools || readinessIssues.length > 0 ? t.packMissing : t.gpuOk
   const ok = health !== null && (health.mock || (health.comfyui && health.proxy && health.videotools && health.output_dir !== null && !(health.missing_models?.length)))
   const advice = { remix: t.adviceRemix, text: t.adviceText, music: t.adviceMusic }[mode]
   const tips = { remix: t.tip.modeRemix, text: t.tip.modeText, music: t.tip.modeMusic }
@@ -376,7 +415,7 @@ export default function App() {
             {MODES.map(m => <button key={m} type="button" title={tips[m]} className={`tab ${mode === m ? 'active' : ''}`} onClick={() => chooseMode(m)} disabled={running || preparing}><span className="sym"><Icon name={MODE_ICON[m]} size={17} /></span> {label[m]}</button>)}
           </nav>
           <div className="head-right">
-            <button type="button" className="chip" title={t.tip.status} onClick={() => { api.health().then(found => { setHealth(found); const issues = [...(found.missing_nodes ?? []), ...(found.missing_models ?? []), ...(found.load_errors ?? []), ...(!found.proxy ? ['Comfy API proxy unavailable'] : []), ...(!found.output_dir ? ['Set HYPERKUT_OUTPUT_DIR'] : [])]; if (issues.length) setActionError(issues.join(' · ')) }).catch(error => setActionError((error as Error).message)) }}><span className={`dot ${ok ? 'on' : ''}`} /> {status}</button>
+            <button type="button" className="chip" title={t.tip.status} onClick={() => { refreshHealth().then(found => { if (!found) return; const issues = [...(found.load_errors ?? []), ...(!found.proxy ? ['Comfy API proxy unavailable'] : []), ...(!found.output_dir ? ['Set HYPERKUT_OUTPUT_DIR'] : [])]; if (issues.length) setActionError(issues.join(' · ')) }).catch(error => setActionError((error as Error).message)) }}><span className={`dot ${ok ? 'on' : ''}`} /> {status}</button>
             <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? (lang === 'fr' ? 'Redémarrage…' : 'Restarting…') : 'Restart'}</button>
             <Dropdown label={t.language} title={t.tip.language} icon={<Icon name="globe" size={15} />} value={lang} choices={[{ value: 'en', label: 'English', short: 'EN' }, { value: 'fr', label: 'Français', short: 'FR' }]} onChange={i18n.setLang} />
             <Dropdown label={t.zoomPage} title={t.tip.zoomPage} icon={<Icon name="zoom" size={15} />} value={zoom} choices={ZOOMS.map(z => ({ value: z, label: `${Math.round(z * 100)}%` }))} onChange={setZoom} />
@@ -384,6 +423,9 @@ export default function App() {
             <button type="button" className="primary" title={t.tip.generate} onClick={generate} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
           </div>
         </header>
+        {health && !health.mock && readinessIssues.length > 0 && <section className="error-notice" role="status">
+          <div className="error-notice-content"><strong>{lang === 'fr' ? 'Dépendances du mode sélectionné' : 'Selected mode dependencies'} · {label[mode]}</strong><p>{readinessIssues.join(' · ')}</p><small>{lang === 'fr' ? 'Les modes non sélectionnés ne sont pas vérifiés. La génération vérifie son graphe réel avant envoi.' : 'Other modes are not checked. Generation validates its actual graph before submission.'}</small></div>
+        </section>}
         {visibleError && <section className="error-notice" role="alert" aria-live="assertive" aria-atomic="true">
           <span className="error-notice-mark" aria-hidden="true">!</span>
           <div className="error-notice-content"><strong>{job?.status === 'failed' && !actionError ? (lang === 'fr' ? 'La génération a échoué' : 'Generation failed') : (lang === 'fr' ? 'Action impossible' : 'Action failed')}</strong><p>{visibleError}</p><small>{lang === 'fr' ? 'Consulte le message avant de réessayer.' : 'Review the message before trying again.'}</small></div>
@@ -427,6 +469,7 @@ export default function App() {
         </div>
         <Tooltips />
         <div className="toast-stack" aria-label={lang === 'fr' ? 'Notifications du Studio' : 'Studio notifications'}>
+          {job?.status === 'succeeded' && fallbackWarnings.length > 0 && dismissedFallback !== fallbackKey && <Toast tone="warning" lang={lang} onDismiss={() => setDismissedFallback(fallbackKey)}>{fallbackWarnings.map(w => fallbackMessages[w] ?? (lang === 'fr' ? 'Vidéo prête avec une finition facultative désactivée.' : 'Video ready with optional finishing skipped.')).join(' ')}</Toast>}
           {undo && <Toast tone="info" lang={lang} action={{ label: t.undo, run: () => { undo.run(); setUndo(null) } }} onDismiss={() => setUndo(null)}>{undo.label}</Toast>}
           {(message || uploading > 0) && <Toast tone={uploading > 0 ? 'info' : messageTone} lang={lang} busy={uploading > 0} onDismiss={uploading > 0 ? undefined : () => setMessage(null)}>{uploading > 0 ? t.uploading : message}</Toast>}
         </div>

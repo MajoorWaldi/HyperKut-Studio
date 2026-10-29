@@ -79,8 +79,8 @@ async def test_concurrent_mutations_reconcile_a_persisted_handle_once(tmp_path):
 
     runner = Runner(config, {})
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(config, runner)), base_url='http://testserver') as client:
-        responses = await asyncio.gather(*(client.post('/api/jobs', json={'mode': 'text'}) for _ in range(2)))
-    assert all(r.status_code in (200, 429) for r in responses)
+        responses = await asyncio.gather(*(client.post(f'/api/jobs/{old.id}/cancel') for _ in range(2)))
+    assert all(r.status_code == 200 for r in responses)
     assert runner.calls == 1
     assert JobStore(config.workspace / 'state').get(old.id).pending_handle is None
 

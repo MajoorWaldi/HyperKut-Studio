@@ -48,7 +48,7 @@ class Settings(BaseModel):
     places: bool = True
     camera: str = ""
     motion_design: bool = False
-    music_volume: float = Field(0.0, ge=0, le=4)
+    music_volume: float = Field(1.0, ge=0, le=4)
     motion_direction: str = Field("editorial", max_length=12000)
     motion_title: str = Field("", max_length=120)
     motion_cues: str = Field("[]", max_length=24000)

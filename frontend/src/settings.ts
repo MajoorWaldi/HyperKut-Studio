@@ -10,7 +10,7 @@ export function applySettingsChanges(current: Settings, changes: Partial<Setting
 }
 
 export const DEFAULTS: Settings = {
-  music_volume: 0, motion_design: false, motion_direction: 'editorial', motion_title: '', motion_cues: '[]',
+  music_volume: 1, motion_design: false, motion_direction: 'editorial', motion_title: '', motion_cues: '[]',
   efficient_sources: false, reference_style: 'camera', sfx_library: '',
   prompt: '', duration: 15, ratio: '9:16', quality: 'draft', structure: 85, creativity: 50, seed: null, audio: 'original', mood: '', bpm: 120,
   effects: false, text: false, sound_design: false, sound_effects: false, sub_cuts: false, music_sync: false, retry_bad_takes: true,
