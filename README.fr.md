@@ -8,16 +8,15 @@
 
 ## Démo officielle
 
-<a href="docs/media/hyperkut-demo-official.mp4"><img src="docs/media/demo-official-poster.jpg" width="240" alt="Démo officielle HyperKut" /></a>
+<a href="docs/media/hyperkut-demo-official.mp4"><img src="docs/media/demo-official-preview.gif" width="240" alt="Démo officielle HyperKut, aperçu muet" /></a>
 
-**1 min 51 · 9:16 · avec son.** [Lire ou télécharger la démo officielle](docs/media/hyperkut-demo-official.mp4). Présentation choisie par l'auteur du projet.
+**1 min 51 · 9:16 · avec son.** Aperçu muet ci-dessus ; cliquez dessus pour [lire ou télécharger la démo complète](docs/media/hyperkut-demo-official.mp4). Présentation choisie par l'auteur du projet. Toutes les personnes visibles dans les démos sont générées par IA par l'auteur.
 
 ## Démo README
 
+<a href="docs/media/hyperkut-demo-readme.mp4"><img src="docs/media/demo-readme-preview.gif" width="640" alt="Démonstration HyperKut, aperçu muet" /></a>
 
-[![Voir la démonstration HyperKut](docs/media/demo-poster.jpg)](docs/media/hyperkut-demo-readme.mp4)
-
-**1 min 10 · 16:9 · narration anglaise · avec son.** [Lire ou télécharger](docs/media/hyperkut-demo-readme.mp4). Cette présentation paysage réunit une capture réelle du Studio, une démonstration animée à partir de ses composants et un véritable résultat enregistré. La régénération est illustrée : aucune nouvelle prise calculée n'est revendiquée. [Origine de la démo et outils employés](docs/demo-production.md).
+**1 min 10 · 16:9 · narration anglaise · avec son.** Aperçu muet ci-dessus ; cliquez dessus pour [lire ou télécharger la démonstration complète](docs/media/hyperkut-demo-readme.mp4). Cette présentation paysage réunit une capture réelle du Studio, une démonstration animée à partir de ses composants et un véritable résultat enregistré. La régénération est illustrée : aucune nouvelle prise calculée n'est revendiquée. [Origine de la démo et outils employés](docs/demo-production.md).
 
 Projet préparé pour le [concours Comfy Open Source Higgsfield](https://comfy.org/open-source-higgsfield). 
 
@@ -58,7 +57,7 @@ Ce sont des choix de conception, pas une promesse de supériorité ni une invent
 
 ## Voir les résultats
 
-Cliquez sur une image pour ouvrir la vidéo. Pour les lire avec des contrôles et une option de boucle, ouvrez la [galerie locale](docs/demo-gallery.html) dans un navigateur. Les lecteurs vidéo intégrés ne fonctionnent pas sur tous les hébergeurs de Markdown.
+Cliquez sur une image pour ouvrir la vidéo. Pour les lire avec des contrôles et une option de boucle, ouvrez la [galerie locale](docs/demo-gallery.html) dans un navigateur. GitHub ne lit pas directement dans la page les vidéos stockées dans un dépôt.
 
 | Mode / personnage | Produit | Musique / produit |
 |:---:|:---:|:---:|
