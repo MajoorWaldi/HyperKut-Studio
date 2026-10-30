@@ -16,7 +16,7 @@ from comfy_sdk import AsyncComfy, CancelRefused, ComfyError, JobFailed, Preview,
 from .config import Settings
 from .jobs import Job
 from .models import EditStyle, Shot
-from .templates import TemplateError, applied_style, load_templates, reachable_graph
+from .templates import Template, TemplateError, applied_style, load_templates, reachable_graph
 from .direction import resolved_brief, use_prepared_brief, normalize_media_roles, apply_plan_contract
 from .creative_controls import level as _level, direction as creative_direction
 from .media import validate_video
@@ -28,6 +28,40 @@ logger = logging.getLogger(__name__)
 SHARE = {"analyze": (0.0, 0.15), "shots": (0.15, 0.9), "edit": (0.9, 1.0)}
 QUALITY_MEGAPIXELS = {"draft": 0.35, "standard": 0.6, "max": 0.98, "xhigh": 1.5}
 RATIOS = {"9:16": "9:16 (Portrait Widescreen)", "16:9": "16:9 (Widescreen)", "1:1": "1:1 (Square)", "3:4": "3:4 (Portrait Standard)"}
+OPTIONAL_MUSIC_NODES = {
+    'MajoorMusicDirection', 'MajoorMusicFit', 'MajoorSaveProjectMusic',
+    'MajoorYuE2Score', 'MajoorYuE2Style', 'YuE2GenerateABC',
+    'YuE2GenerateMusic',
+}
+OPTIONAL_MUSIC_FAILURES = (
+    'MajoorMusicDirection', 'MajoorMusicFit', 'MajoorYuE2',
+    'YuE2GenerateABC', 'YuE2GenerateMusic', 'musical direction',
+    'music score', 'instrumental score',
+)
+
+
+def _without_nodes(template: Template, classes: set[str]) -> Template | None:
+    prompt = {key: json.loads(json.dumps(node)) for key, node in template.prompt.items()
+              if node['class_type'] not in classes}
+    removed = set(template.prompt) - set(prompt)
+    if not removed:
+        return None
+    for node in prompt.values():
+        node['inputs'] = {
+            name: value for name, value in node.get('inputs', {}).items()
+            if not (isinstance(value, list) and str(value[0]) in removed)
+        }
+    prompt = reachable_graph(prompt, {})
+    slots = {
+        name: tuple((node, field) for node, field in targets if node in prompt)
+        for name, targets in template.slots.items()
+    }
+    return Template(prompt, {name: targets for name, targets in slots.items() if targets})
+
+
+def _is_optional_music_failure(error: Exception) -> bool:
+    message = str(error).casefold()
+    return any(indicator.casefold() in message for indicator in OPTIONAL_MUSIC_FAILURES)
 
 
 class Runner(Protocol):
@@ -540,7 +574,24 @@ class ComfyRunner:
                  'finishing_active':values.get('motion_design',True) or bool(json.loads(values['unified_layers'])),
                  'warnings':list(dict.fromkeys([*kept_warnings,*optional_warnings])),
                  'edit_version':job.edits+1}
-        final = await self._run(client, job, templates["final"], {**values, "project_id": job.state.project_id}, "edit",result_context=context)
+        final_template = templates['final']
+        if job.request.mode in ('text', 'music') and job.state.project_id:
+            retained_music = self.projects() / job.state.project_id / 'music' / 'retained.wav'
+            if not retained_music.is_file():
+                final_template = _without_nodes(final_template, {'MajoorLoadProjectMusic'}) or final_template
+        try:
+            final = await self._run(client, job, final_template, {**values, "project_id": job.state.project_id}, "edit",result_context=context)
+        except ComfyError as error:
+            if job.request.mode != 'remix' or job.request.settings.audio != 'new' or not _is_optional_music_failure(error):
+                raise
+            context['warnings'].append(
+                'Generated music failed; the edit was retried without it, using source audio when available.'
+            )
+            fallback_values = {**values, 'replace_sound': False}
+            final = await self._run(
+                client, job, final_template, {**fallback_values, "project_id": job.state.project_id},
+                "edit", result_context=context,
+            )
         await self._finish_edit(job,final,context)
 
     async def _finish_edit(self,job,handle,context):
@@ -591,22 +642,48 @@ class ComfyRunner:
         client = None
         try:
             client = self.client_factory()
-            if job.state.status != 'running':
-                job.begin('analyze')
             templates = load_templates(self.settings.templates_dir, job.request.mode)
             values = self._values(job)
-            job.update(status="running", stage="analyze")
-            await self._run(client, job, templates["stage1"], values, "analyze")
-            info = json.loads((self.projects() / "_jobs" / f"{job.id}.json").read_text(encoding="utf-8"))
-            shots = [Shot(id=s['id'], start=s['start'], duration=s['duration'], prompt=s.get('prompt',''), generation_prompt=s.get('generation_prompt',''), generation_frames=s.get('generation_frames',0),render_source=s.get('render_source','generated'), thumb=f'/api/jobs/{job.id}/shots/{s["id"]}/thumb') for s in info['shots']]
-            if not shots:
-                raise ValueError('The plan contains no shots')
-            frames = [(s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots]
-            seconds = sum(frames)/24
-            retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
-            job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
-            for i, shot in enumerate(shots):
-                await self._run(client, job, templates['shot' if shot.render_source=='generated' else 'local'], {**values, 'shot_id': shot.id, 'shot_start':shot.start,'shot_duration':shot.duration,'project_id':info['project_id'],'job_name':f'{job.id}_shot'}, 'shots', i/len(shots),1/len(shots))
+            index = self.projects() / '_jobs' / f'{job.id}.json'
+            resumable = False
+            if job.state.project_id:
+                project = SharedProjectRepository(self.projects()).path(job.state.project_id)
+                resumable = index.is_file() and (project / 'manifest.json').is_file()
+            if resumable:
+                info = json.loads(index.read_text(encoding='utf-8'))
+                if info.get('project_id') != job.state.project_id:
+                    raise ValueError('Saved plan belongs to another project; refusing to resume it')
+                self._hydrate_project(job)
+                shots = job.state.shots
+                if not shots:
+                    raise ValueError('The saved plan contains no shots')
+                job.update(status='running', stage='shots', error=None)
+            else:
+                if job.state.status != 'running':
+                    job.begin('analyze')
+                job.update(status="running", stage="analyze")
+                try:
+                    await self._run(client, job, templates["stage1"], values, "analyze")
+                except ComfyError as error:
+                    if job.request.mode != 'text' or not _is_optional_music_failure(error):
+                        raise
+                    plan_only = _without_nodes(templates['stage1'], OPTIONAL_MUSIC_NODES)
+                    if plan_only is None:
+                        raise
+                    warning = 'Optional music generation failed during planning; the project will continue without generated music.'
+                    job.update(warnings=list(dict.fromkeys([*job.state.warnings, warning])))
+                    await self._run(client, job, plan_only, values, 'analyze')
+                info = json.loads(index.read_text(encoding="utf-8"))
+                shots = [Shot(id=s['id'], start=s['start'], duration=s['duration'], prompt=s.get('prompt',''), generation_prompt=s.get('generation_prompt',''), generation_frames=s.get('generation_frames',0),render_source=s.get('render_source','generated'), thumb=f'/api/jobs/{job.id}/shots/{s["id"]}/thumb') for s in info['shots']]
+                if not shots:
+                    raise ValueError('The plan contains no shots')
+                frames = [(s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots]
+                seconds = sum(frames)/24
+                retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
+                job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
+            remaining = [shot for shot in shots if not shot.done]
+            for i, shot in enumerate(remaining):
+                await self._run(client, job, templates['shot' if shot.render_source=='generated' else 'local'], {**values, 'shot_id': shot.id, 'shot_start':shot.start,'shot_duration':shot.duration,'project_id':info['project_id'],'job_name':f'{job.id}_shot'}, 'shots', i/len(remaining),1/len(remaining))
                 self._mark(job, shot.id)
             await self._edit(client, job, templates, values)
         except Exception as error:

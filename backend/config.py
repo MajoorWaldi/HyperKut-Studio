@@ -65,7 +65,7 @@ class Settings:
     max_upload_bytes: int = MAX_STUDIO_UPLOAD_BYTES
     max_media_seconds: int = 3600
     max_media_pixels: int = 4096 * 4096
-    max_active_jobs: int = 8
+    max_active_jobs: int = 1
     allowed_hosts: tuple[str, ...] = ('127.0.0.1', 'localhost', '[::1]', 'testserver')
     job_metadata_labels: bool = False  # Local proxy accepts no SDK label maps.
     experimental_ai_edit: bool = False
@@ -77,6 +77,12 @@ class Settings:
     access_password: str = field(default="", repr=False)
     max_workspace_bytes: int = 20 * 1024**3
     min_free_disk_bytes: int = 256 * 1024**2
+
+    def __post_init__(self):
+        if not 1 <= self.max_active_jobs <= 8:
+            raise ValueError('MAX_ACTIVE_JOBS must be between 1 and 8')
+        if self.max_workspace_bytes <= 0 or self.min_free_disk_bytes < 0:
+            raise ValueError('Workspace and free-disk limits must be positive')
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -91,6 +97,13 @@ class Settings:
         upload_mb = int(_studio_env('MAX_UPLOAD_MB', 1024))
         if not 1 <= upload_mb <= MAX_STUDIO_UPLOAD_BYTES // MIB:
             raise ValueError('MAX_UPLOAD_MB must be between 1 and 1024 (Studio uploads are capped at 1 GiB)')
+        max_active_jobs = int(_studio_env('MAX_ACTIVE_JOBS', 1))
+        if not 1 <= max_active_jobs <= 8:
+            raise ValueError('MAX_ACTIVE_JOBS must be between 1 and 8')
+        workspace_mb = int(_studio_env('MAX_WORKSPACE_MB', 20480))
+        min_free_disk_mb = int(_studio_env('MIN_FREE_DISK_MB', 256))
+        if workspace_mb < 1 or min_free_disk_mb < 0:
+            raise ValueError('MAX_WORKSPACE_MB must be positive and MIN_FREE_DISK_MB cannot be negative')
         output = _studio_env('OUTPUT_DIR')
         if backend == 'remote_artifacts':
             output = str(workspace / 'remote-output')
@@ -101,15 +114,15 @@ class Settings:
         return cls(comfyui, os.environ.get("COMFY_BASE_URL", "http://127.0.0.1:8189").rstrip("/"), Path(output).resolve() if output else detected,
                    workspace, Path(_studio_env('TEMPLATES', ROOT / "workflows")), _studio_env('MOCK') == "1",
                    max_media_seconds=int(_studio_env('MAX_MEDIA_SECONDS',3600)), max_media_pixels=int(_studio_env('MAX_MEDIA_PIXELS',4096*4096)),
-                   max_active_jobs=int(_studio_env('MAX_ACTIVE_JOBS',8)),
+                   max_active_jobs=max_active_jobs,
                    allowed_hosts=tuple(x.strip() for x in _studio_env('ALLOWED_HOSTS', '127.0.0.1,localhost,[::1]').split(',') if x.strip()),
                    job_metadata_labels=_studio_env('JOB_METADATA_LABELS') == '1',
                    experimental_ai_edit=_studio_env('EXPERIMENTAL_AI_EDIT') == '1', storage_backend=backend,
                    max_artifact_bytes=MAX_ARTIFACT_BYTES, max_artifact_cache_bytes=MAX_ARTIFACT_CACHE_BYTES,
                    max_upload_bytes=upload_mb * MIB, access_mode=access_mode,
                    access_username=_studio_env('ACCESS_USERNAME', ''), access_password=_studio_env('ACCESS_PASSWORD', ''),
-                   max_workspace_bytes=int(_studio_env('MAX_WORKSPACE_MB', 20480)) * MIB,
-                   min_free_disk_bytes=int(_studio_env('MIN_FREE_DISK_MB', 256)) * MIB)
+                   max_workspace_bytes=workspace_mb * MIB,
+                   min_free_disk_bytes=min_free_disk_mb * MIB)
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)
@@ -123,4 +136,7 @@ class Settings:
             'artifact_cache_max_bytes': self.max_artifact_cache_bytes,
             'snapshot_transfer_max_bytes': transfer_bytes,
             'proxy_upload_max_mb': (transfer_bytes + MIB - 1) // MIB,
+            'max_active_jobs': self.max_active_jobs,
+            'workspace_max_bytes': self.max_workspace_bytes,
+            'minimum_free_disk_bytes': self.min_free_disk_bytes,
         }

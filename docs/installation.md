@@ -48,6 +48,8 @@ The launcher uses ComfyUI on 8188 and Studio on 8090. `start_hyperkut.ps1` prefe
 
 The Studio accepts browser media uploads up to **1 GiB**. Project transport permits **2 GiB per artifact blob** and **20 GiB total cached artifact bytes**; the bounded snapshot ZIP transfer limit is 20 GiB plus 32 MiB for descriptors and ZIP metadata. Both launchers therefore configure the SDK proxy to **20,512 MiB** per request. These are separate ceilings: the larger proxy allowance is for an already-preflighted snapshot bundle, not a way to bypass the Studio's 1 GiB media-upload limit. The current effective identity and limits are available at `GET /api/studio/status`.
 
+Project ZIP import is limited by the workspace budget rather than the ordinary 1 GiB media-upload ceiling. It preflights expanded project size, copied input media, workspace budget and free disk before publication. Keep enough temporary space for the archive and its extracted project while importing.
+
 Open http://127.0.0.1:8090/ . To select ports explicitly and use a nonstandard output folder already present on disk:
 
 ```powershell

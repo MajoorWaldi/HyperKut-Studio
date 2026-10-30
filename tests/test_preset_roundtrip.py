@@ -75,3 +75,12 @@ def test_preset_save_rejects_unknown_media(tmp_path):
     with TestClient(create_app(settings(tmp_path), MockRunner())) as client:
         response = client.post('/api/presets', json={'name': 'Missing', 'mode': 'text', 'inputs': {'music': {'id': 'missing', 'kind': 'audio', 'name': 'song', 'url': '/outside'}}})
         assert response.status_code == 422
+
+
+def test_distinct_preset_names_that_normalize_to_the_same_slug_conflict(tmp_path):
+    with TestClient(create_app(settings(tmp_path), MockRunner())) as client:
+        first = client.post('/api/presets', json={'name': 'A_B', 'mode': 'text'})
+        second = client.post('/api/presets', json={'name': 'A B', 'mode': 'text'})
+        assert first.status_code == 200
+        assert second.status_code == 409
+        assert len([p for p in client.get('/api/presets').json() if p.get('user')]) == 1

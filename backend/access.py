@@ -92,8 +92,10 @@ class AccessMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        upload = scope["path"] == "/api/uploads"
-        maximum = settings.max_upload_bytes + 1024**2 if upload else 16 * 1024**2
+        media_upload = scope["path"] == "/api/uploads"
+        project_import = scope["path"] == "/api/projects/import"
+        body_limit = max(settings.max_upload_bytes, settings.max_workspace_bytes) if project_import else settings.max_upload_bytes if media_upload else 16 * 1024**2
+        maximum = body_limit + 1024**2 if media_upload or project_import else body_limit
         length = headers.get("content-length")
         if length is not None and (not length.isascii() or not length.isdecimal()
                                    or len(length) > 20 or int(length) > maximum):

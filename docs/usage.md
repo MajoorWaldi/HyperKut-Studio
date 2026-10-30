@@ -28,8 +28,8 @@ Changing finishing can reuse existing footage, but still requires local assembly
 
 ## Projects, presets and controls
 
-Library opens on Projects, with Presets in a separate tab. Presets include settings and any inputs available on this installation; a private upload identifier is not a portable input. See [portable presets](portable-presets.md).
+Library opens on Projects, with Presets in a separate tab. Export a project ZIP from its video preview, then use **Import project ZIP** in the Projects tab on another Studio installation. Import validates archive paths, the saved shot manifest, timeline, media references and uploaded inputs; it assigns new project/upload IDs rather than trusting IDs in the archive. Imports require a shared ComfyUI output directory and available workspace/disk budget. Presets include settings and any inputs available on this installation; a private upload identifier is not a portable input. See [portable presets](portable-presets.md).
 
 Stop cancels the current operation. Restart Studio restarts the web application, not ComfyUI; wait for active generations first. Keep the app bound to localhost.
 
-Project ZIP export is available; ZIP import is not. Voice/dialogue, graphic layers, location plates and experimental extension have additional model/runtime requirements. See [dependencies](dependency-scopes.md) and [known limits](known-issues-and-roadmap.md).
+Project ZIP archives are limited by the workspace budget (20 GiB by default); their expanded project and copied inputs must also fit the workspace and free-disk budgets while the archive is staged. Ordinary browser media uploads remain limited to 1 GiB by default. Voice/dialogue, graphic layers, location plates and experimental extension have additional model/runtime requirements. See [dependencies](dependency-scopes.md) and [known limits](known-issues-and-roadmap.md).

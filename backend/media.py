@@ -3,24 +3,44 @@ import array
 import math
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from PIL import Image
 
 
 def audio_waveform(path: Path, max_seconds: float, bins: int = 96) -> list[float]:
-    result = subprocess.run(
-        [shutil.which('ffmpeg') or 'ffmpeg', '-v', 'error', '-i', str(path),
-         '-t', str(max_seconds), '-vn', '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'],
-        capture_output=True, timeout=60)
-    if result.returncode:
-        raise ValueError('The audio waveform could not be decoded')
-    samples = array.array('f')
-    samples.frombytes(result.stdout[:len(result.stdout) // 4 * 4])
-    if not samples or not all(math.isfinite(x) for x in samples):
+    if bins < 1:
+        raise ValueError('Waveform bin count must be positive')
+    info = media_info(path)
+    if not info['has_audio']:
+        raise ValueError('The media contains no audio stream')
+    duration = min(max_seconds, info['duration'])
+    sample_count = max(1, math.ceil(duration * 8000))
+    peaks = [0.0] * bins
+    seen = 0
+    try:
+        with tempfile.TemporaryFile() as result_path:
+            result = subprocess.run(
+                [shutil.which('ffmpeg') or 'ffmpeg', '-v', 'error', '-i', str(path),
+                 '-t', str(max_seconds), '-vn', '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'],
+                stdout=result_path, stderr=subprocess.PIPE, timeout=60)
+            if result.returncode:
+                raise ValueError('The audio waveform could not be decoded')
+            result_path.seek(0)
+            while chunk := result_path.read(64 * 1024):
+                samples = array.array('f')
+                samples.frombytes(chunk[:len(chunk) // samples.itemsize * samples.itemsize])
+                for sample in samples:
+                    if not math.isfinite(sample):
+                        raise ValueError('The audio waveform contains no valid samples')
+                    index = min(bins - 1, seen * bins // sample_count)
+                    peaks[index] = max(peaks[index], abs(sample))
+                    seen += 1
+    except subprocess.TimeoutExpired as error:
+        raise ValueError('Waveform decoding exceeded the 60 second limit') from error
+    if not seen:
         raise ValueError('The audio waveform contains no valid samples')
-    peaks = [max((abs(x) for x in samples[i * len(samples) // bins:(i + 1) * len(samples) // bins]), default=0.0)
-             for i in range(bins)]
     top = max(peaks) or 1.0
     return [round(peak / top, 3) for peak in peaks]
 

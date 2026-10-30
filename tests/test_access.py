@@ -67,3 +67,11 @@ def test_body_limit_is_checked_before_parsing(settings):
     with TestClient(create_app(settings, MockRunner(pace=0))) as client:
         for length in (str(17 * 1024**2), "9" * 5000, "-1", "unknown"):
             assert client.post("/api/jobs", content=b"{}", headers={"Content-Length": length}).status_code == 413
+
+
+def test_project_import_uses_the_workspace_body_limit(settings):
+    config = replace(settings, max_upload_bytes=15 * 1024**2, max_workspace_bytes=20 * 1024**2)
+    with TestClient(create_app(config, MockRunner(pace=0))) as client:
+        oversized_for_json = {"Content-Length": str(17 * 1024**2)}
+        assert client.post('/api/jobs', content=b'{}', headers=oversized_for_json).status_code == 413
+        assert client.post('/api/projects/import', content=b'{}', headers=oversized_for_json).status_code == 422

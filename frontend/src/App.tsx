@@ -283,6 +283,15 @@ export default function App() {
 
   const openFromLibrary = async (id: string) => { setLibrary(false); await openRecent(id) }
 
+  const importProject = (file: File) => {
+    void submit(() => api.importProject(file)).then(ok => {
+      if (!ok) return
+      setLibrary(false)
+      setMessage(t.projectImported)
+      void refreshJobs()
+    })
+  }
+
   const duplicate = async (id: string) => {
     try {
       const made = await api.jobInputs(id)
@@ -364,6 +373,11 @@ export default function App() {
     finally { setCancelling(false) }
   }
 
+  const resume = async () => {
+    if (!job) return
+    await submit(() => api.resumeJob(job.id))
+  }
+
   const visibleError = actionError || (job?.status === 'failed' ? job.error || t.failed : null)
   const restartStudio = async () => {
     if (restarting || running || preparing || uploading > 0) return
@@ -419,6 +433,7 @@ export default function App() {
             <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? (lang === 'fr' ? 'Redémarrage…' : 'Restarting…') : 'Restart'}</button>
             <Dropdown label={t.language} title={t.tip.language} icon={<Icon name="globe" size={15} />} value={lang} choices={[{ value: 'en', label: 'English', short: 'EN' }, { value: 'fr', label: 'Français', short: 'FR' }]} onChange={i18n.setLang} />
             <Dropdown label={t.zoomPage} title={t.tip.zoomPage} icon={<Icon name="zoom" size={15} />} value={zoom} choices={ZOOMS.map(z => ({ value: z, label: `${Math.round(z * 100)}%` }))} onChange={setZoom} />
+            {job && job.project_id && job.shots.length > 0 && (job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="primary" onClick={resume} disabled={submitting || preparing || uploading > 0}>{t.resume}</button>}
             <button type="button" className="primary stop-generation" title={t.tip.cancel} aria-label={lang==='fr' ? 'Annuler la génération' : 'Cancel generation'} aria-busy={cancelling} disabled={submitting || cancelling || !job || (job.status!=='running' && job.status!=='queued')} onClick={cancel}><Icon name="x" size={18} />{cancelling ? (lang==='fr' ? 'Arrêt…' : 'Stopping…') : 'Stop'}</button>
             <button type="button" className="primary" title={t.tip.generate} onClick={generate} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
           </div>
@@ -442,7 +457,7 @@ export default function App() {
           <div className="left">
           <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} />
           <Library open={library} onClose={() => setLibrary(false)} jobs={recent} sizes={sizes} presets={presets} mode={mode} currentJob={job?.id ?? null} onOpenJob={openFromLibrary} onDuplicateJob={duplicate} onPatchJob={patchJob}
-            onDeleteJob={deleteJob} onFree={freeSpace} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} />
+            onDeleteJob={deleteJob} onFree={freeSpace} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
           </div>
           <main className="workarea">
             <p className="mode-advice">{advice}</p>

@@ -1,3 +1,4 @@
+-c constraints-release.txt
 comfy-sdk[pil]>=0.5,<0.6
 comfy-api-proxy>=0.1.6
 fastapi

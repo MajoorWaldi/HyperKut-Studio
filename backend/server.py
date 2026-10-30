@@ -30,12 +30,14 @@ from PIL import Image
 
 from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
+from .capacity import CapacityError, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
 from .jobs import JobStore
-from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PresetIn, Regenerate, ShotPatch, Take, TimelineInfo, TimelineShot, TrimTake, Upload
+from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PresetIn, Regenerate, Shot, ShotPatch, Take, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
 from .take_trim import trim_bounds
+from .take_retention import free_unused_takes
 from .runner import ComfyRunner, MockRunner, Runner, _failure_message
 from .media import validate_media
 from .review import build_review_frames
@@ -46,6 +48,9 @@ from . import restart as studio_restart
 from .brief_preview import prepare_brief
 from .unified_motion import validate_finishing
 from .access import AccessMiddleware, acquire_upload_quota, validate_access
+from .project_import import extract_project_archive
+from .project_snapshot import audio_references, read_json, referenced_files
+from .snapshot_schema import checked_document
 
 KINDS = {"video": "video", "image": "image", "audio": "audio"}
 logger = logging.getLogger(__name__)
@@ -234,18 +239,18 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         upload_id = uuid.uuid4().hex[:12]
         path = settings.workspace / "uploads" / f"{upload_id}{Path(file.filename or '').suffix.lower()}"
         size = 0
-        quota_lock = FileLock(str(settings.workspace / ".uploads-quota.lock"), thread_local=False)
+        quota_lock = capacity_lock(settings)
         try:
             await acquire_upload_quota(quota_lock)
-            used = sum(path.stat().st_size for path in (settings.workspace / "uploads").iterdir()
-                       if path.is_file() and not path.is_symlink())
             with path.open('wb') as stream:
                 while chunk := await file.read(1024*1024):
                     size += len(chunk)
                     if size > settings.max_upload_bytes:
                         raise HTTPException(413,'The upload exceeds the configured size limit')
-                    if used + size > settings.max_workspace_bytes:
-                        raise HTTPException(507, 'The upload storage quota is exhausted. Remove unused uploads before retrying.')
+                    try:
+                        ensure_capacity(settings, store, len(chunk))
+                    except CapacityError as error:
+                        raise HTTPException(507, str(error)) from error
                     stream.write(chunk)
             if not settings.mock:
                 try:
@@ -334,6 +339,22 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
 
+    def begin_operation(job, stage, duration_seconds=None):
+        estimate = reservation_bytes(job.request, duration_seconds)
+        try:
+            with capacity_lock(settings):
+                if sum(j.state.status in ('queued', 'running') for j in store.jobs.values()) >= settings.max_active_jobs:
+                    raise HTTPException(429, 'The GPU job limit is full; wait for a job to finish')
+                ensure_capacity(settings, store, estimate)
+                write_reservation(settings, job.id, estimate)
+                try:
+                    job.begin(stage)
+                except BaseException:
+                    store.release_reservation(job.id)
+                    raise
+        except CapacityError as error:
+            raise HTTPException(507, str(error)) from error
+
     preview_lock = asyncio.Lock()
 
     @app.get('/api/art-direction')
@@ -369,9 +390,21 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs", response_model=JobState)
     async def create_job(request: JobRequest):
         validate_request(request)
-        if sum(j.state.status in ('queued','running') for j in store.jobs.values()) >= settings.max_active_jobs:
-            raise HTTPException(429,'The job queue is full; wait for a job to finish')
-        job = store.create(request)
+        job = None
+        try:
+            with capacity_lock(settings):
+                if sum(j.state.status in ('queued','running') for j in store.jobs.values()) >= settings.max_active_jobs:
+                    raise HTTPException(429,'The GPU job limit is full; wait for a job to finish')
+                estimate = reservation_bytes(request)
+                ensure_capacity(settings, store, estimate)
+                job = store.create(request)
+                try:
+                    write_reservation(settings, job.id, estimate)
+                except Exception:
+                    store.delete(job)
+                    raise
+        except CapacityError as error:
+            raise HTTPException(507, str(error)) from error
         job.update(title=(request.settings.prompt.strip() or request.mode)[:60])
         job.task = asyncio.create_task(runner.run(job))
         return job.state
@@ -550,28 +583,11 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         project, manifest = _manifest(job)
         _exclusive(job)
         def discard_unused():
-            freed = 0
-            discarded = []
-            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
-                used = manual_timeline.referenced_takes(project)
-                protected = {r['media_ref'] for s in manifest['shots'] for r in s.get('revisions',[]) if r.get('media_range') is not None or r['revision_id']==s.get('active_revision_id')}
-                protected.update(r['media_ref'] for s in manifest['shots'] for r in s.get('revisions', [])
-                                 if (s['shot_id'], r['revision_id']) in used)
-                for shot in manifest['shots']:
-                    kept = []
-                    for revision in shot.get('revisions',[]):
-                        if revision.get('media_range') is not None or revision['revision_id']==shot.get('active_revision_id') or (shot['shot_id'], revision['revision_id']) in used:
-                            kept.append(revision)
-                        else:
-                            target=(project/revision['media_ref']).resolve()
-                            if project in target.parents and target.is_file() and revision['media_ref'] not in protected:
-                                discarded.append(target)
-                    shot['revisions']=kept
-            for target in set(discarded):
-                freed += target.stat().st_size
-                target.unlink()
-            return {"freed": freed,'mirror_freed_bytes':freed,'cache_freed_bytes':0,'worker_freed_bytes':None}
-        result = await update_project(job, discard_unused)
+            return free_unused_takes(project, manual_timeline.referenced_takes)
+        try:
+            result = await update_project(job, discard_unused)
+        except OSError as error:
+            raise HTTPException(503, 'Take cleanup is journaled but incomplete. Retry the cleanup to recover it safely.') from error
         refresh_shots(job)
         return result
 
@@ -630,6 +646,33 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             job.update(status='cancelled')
         return job.state
 
+    @app.post('/api/jobs/{job_id}/resume', response_model=JobState)
+    async def resume_job(job_id: str):
+        job = _job(job_id)
+        await recover_pending(job)
+        if job.state.status not in ('failed', 'cancelled'):
+            raise HTTPException(409, 'Only a failed or cancelled project can be resumed')
+        if job.pending_handle or job.submission_key or job.pending_result:
+            raise HTTPException(503, 'A previous GPU result still needs recovery before this project can resume')
+        if not job.state.project_id or settings.output_dir is None:
+            raise HTTPException(409, 'This job has no saved plan to resume')
+        _exclusive(job)
+        refresh_shots(job)
+        if not job.state.shots:
+            raise HTTPException(409, 'This project has no saved shots to resume')
+        index = settings.output_dir / 'MajoorVideoTools' / '_jobs' / f'{job.id}.json'
+        if not index.is_file():
+            raise HTTPException(409, 'The saved plan index is missing; the job cannot be resumed safely')
+        try:
+            project = SharedProjectRepository(settings.output_dir / 'MajoorVideoTools').path(job.state.project_id)
+        except ValueError as error:
+            raise HTTPException(409, 'The saved project identity is invalid') from error
+        if not (project / 'manifest.json').is_file():
+            raise HTTPException(409, 'The saved project manifest is missing')
+        begin_operation(job, 'shots')
+        job.task = asyncio.create_task(runner.run(job))
+        return job.state
+
     @app.get("/api/jobs/{job_id}/video")
     async def video(job_id: str):
         path = settings.workspace / "jobs" / f"{_job(job_id).id}.mp4"
@@ -652,7 +695,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(409, f"Locked shots are kept as they are: {locked}")
         if any(known[shot].render_source!='generated' and shot in body.prompts and body.prompts[shot]!=known[shot].prompt for shot in body.shots):
             raise HTTPException(422,'Local sources use render_source in the plan; changing their generation prompt would not change the render')
-        job.begin('shots')
+        begin_operation(job, 'shots', sum(known[shot].duration for shot in body.shots))
         job.task = asyncio.create_task(runner.regenerate(job, body.shots, {k: v for k, v in body.prompts.items() if k in body.shots}))
         return job.state
 
@@ -712,8 +755,6 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         candidate_runner = getattr(runner, 'ai_candidate', None)
         if not callable(candidate_runner):
             raise HTTPException(409, 'This runner does not implement AI edit candidates')
-        if sum(j.state.status in ('queued', 'running') for j in store.jobs.values()) >= settings.max_active_jobs:
-            raise HTTPException(429, 'The job queue is full')
         project, manifest = _manifest(job)
         def prepare():
             row = prepare_candidate(project, manifest, shot_id, body)
@@ -724,7 +765,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             row = await update_project(job, prepare)
         except (ValueError, StopIteration) as error:
             raise HTTPException(422, str(error)) from error
-        job.begin('shots')
+        begin_operation(job, 'shots', row['generated_seconds'])
         job.task = asyncio.create_task(candidate_runner(job, row))
         return {'job': job.state, 'candidate': public_candidate(job, row)}
 
@@ -792,7 +833,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             validate_finishing(values, sum(s.duration for s in job.state.shots))
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
-        job.begin('edit')
+        begin_operation(job, 'edit', sum(s.duration for s in job.state.shots))
         job.task = asyncio.create_task(runner.re_edit(job, style))
         return job.state
 
@@ -967,9 +1008,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         render = getattr(runner, 'manual_edit', None)
         if not callable(render):
             raise HTTPException(409, 'Manual montage export requires the real Comfy SDK runner')
-        if sum(j.state.status in ('queued', 'running') for j in store.jobs.values()) >= settings.max_active_jobs:
-            raise HTTPException(429, 'The job queue is full')
-        job.begin('edit')
+        document = record['document']
+        fps = document['fps_num'] / document['fps_den']
+        duration = sum((clip['out_frame'] - clip['in_frame']) / fps for clip in document['clips'])
+        begin_operation(job, 'edit', duration)
         job.task = asyncio.create_task(render(job))
         return job.state
 
@@ -1067,23 +1109,36 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         os.close(handle)
         archive = Path(name)
         def build():
-            with FileLock(str(project / '.lock'), timeout=120), zipfile.ZipFile(archive,'w',zipfile.ZIP_STORED) as bundle:
+            with capacity_lock(settings), FileLock(str(project / '.lock'), timeout=120):
                 video_file=settings.workspace/'jobs'/f'{job.id}.mp4'
-                if video_file.is_file():bundle.write(video_file,'result.mp4')
-                bundle.writestr('request.json',job.request.model_dump_json(indent=1))
-                manifest = json.loads((project/'manifest.json').read_text(encoding='utf-8'))
+                manifest = read_json((project/'manifest.json').read_bytes())
                 refs = {manifest.get('source', {}).get('uri')}
                 refs.update(s.get('source_media_ref') for s in manifest.get('shots', []))
                 refs.update(s.get('thumbnail_ref') for s in manifest.get('shots', []))
                 refs.update(r.get('media_ref') for s in manifest.get('shots', []) for r in s.get('revisions', []))
-                retained = project/'music/retained.wav'
-                if retained.is_file(): refs.add('music/retained.wav')
-                bundle.write(project/'manifest.json','manifest.json')
+                for optional in ('music/retained.wav', 'sources/music.wav', 'editor/timeline.json'):
+                    if (project / optional).is_file():
+                        refs.add(optional)
+                audio_index = project / 'sources/audio/index.json'
+                if audio_index.is_file():
+                    refs.add('sources/audio/index.json')
+                    refs.update(audio_references(read_json(audio_index.read_bytes())))
+                editor = project / 'editor/timeline.json'
+                if editor.is_file():
+                    record = read_json(editor.read_bytes())
+                    if not isinstance(record, dict) or not isinstance(record.get('sources'), dict):
+                        raise ValueError('Saved timeline metadata is invalid')
+                    checked_document(record['sources'], record.get('document'))
+                    refs.update(referenced_files(record['sources']))
+                media_files = []
+                if video_file.is_file():
+                    media_files.append((video_file, 'result.mp4'))
+                media_files.append((project/'manifest.json', 'manifest.json'))
                 for ref in sorted(r for r in refs if r):
                     target = (project/ref).resolve()
                     if project not in target.parents or not target.is_file():
                         raise ValueError(f'Project media is missing or outside the project: {ref}')
-                    bundle.write(target, target.relative_to(project).as_posix())
+                    media_files.append((target, target.relative_to(project).as_posix()))
                 request_files = {}
                 given = job.request
                 ids = {u for u in (given.source, given.ref_video, given.music, given.voice, *given.refs) if u}
@@ -1092,9 +1147,19 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                         raise ValueError(f'An input file is missing: {upload_id}')
                     target = uploads[upload_id]
                     entry = f'inputs/{upload_id}{target.suffix.lower()}'
-                    bundle.write(target, entry)
+                    media_files.append((target, entry))
                     request_files[upload_id] = entry
-                bundle.writestr('request_files.json', json.dumps(request_files, indent=2))
+                request_json = job.request.model_dump_json(indent=1)
+                files_json = json.dumps(request_files, indent=2)
+                estimated_archive_bytes = sum(path.stat().st_size for path, _ in media_files)
+                estimated_archive_bytes += len(request_json.encode('utf-8')) + len(files_json.encode('utf-8'))
+                estimated_archive_bytes += 1024 * (len(media_files) + 2) + 64 * 1024
+                ensure_capacity(settings, store, estimated_archive_bytes)
+                with zipfile.ZipFile(archive, 'w', zipfile.ZIP_STORED) as bundle:
+                    for path, entry in media_files:
+                        bundle.write(path, entry)
+                    bundle.writestr('request.json', request_json)
+                    bundle.writestr('request_files.json', files_json)
         building = asyncio.create_task(update_project(job, build))
         try:
             await asyncio.shield(building)
@@ -1103,10 +1168,246 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             with anyio.CancelScope(shield=True):
                 await asyncio.gather(building, return_exceptions=True)
                 archive.unlink(missing_ok=True)
+            if isinstance(error, CapacityError):
+                raise HTTPException(507, str(error)) from error
             if isinstance(error, ValueError):
                 raise HTTPException(422, str(error)) from error
             raise
         return FileResponse(archive, media_type="application/zip", filename=f"{EXPORT_PREFIX}_{job.id}.zip", background=BackgroundTask(archive.unlink))
+
+    @app.post('/api/projects/import', response_model=JobState)
+    async def import_project(file: UploadFile = File(...)):
+        if settings.output_dir is None:
+            raise HTTPException(503, 'Project import requires an available ComfyUI output directory')
+        import_dir = settings.workspace / '.imports'
+        import_dir.mkdir(parents=True, exist_ok=True)
+        archive_path = import_dir / f'{uuid.uuid4().hex}.zip'
+        quota_lock = capacity_lock(settings)
+        size = 0
+        try:
+            await acquire_upload_quota(quota_lock)
+            with archive_path.open('xb') as stream:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > settings.max_workspace_bytes:
+                        raise HTTPException(413, 'The project archive exceeds the configured workspace limit')
+                    try:
+                        ensure_capacity(settings, store, len(chunk))
+                    except CapacityError as error:
+                        raise HTTPException(507, str(error)) from error
+                    stream.write(chunk)
+        except BaseException:
+            archive_path.unlink(missing_ok=True)
+            raise
+        finally:
+            if quota_lock.is_locked:
+                quota_lock.release()
+            await file.close()
+
+        def commit_import():
+            project_root = settings.output_dir / 'MajoorVideoTools'
+            project_root.mkdir(parents=True, exist_ok=True)
+            staging = project_root / f'.import_{uuid.uuid4().hex}'
+            final_project = None
+            result_path = None
+            created_uploads = []
+            created_job = None
+            index_path = None
+            prior_job_ids = set(store.jobs)
+            prior_names = dict(names)
+            prior_uploads = dict(uploads)
+            try:
+                with capacity_lock(settings):
+                    imported = extract_project_archive(
+                        archive_path,
+                        staging,
+                        settings.max_workspace_bytes,
+                        preflight=lambda amount: ensure_capacity(settings, store, amount),
+                    )
+                    request = imported.request
+                    role_kinds = {}
+                    for upload_id, kind in (
+                        (request.source, 'video'), (request.ref_video, 'video'),
+                        (request.music, 'audio'), (request.voice, 'audio'),
+                        *((upload_id, 'image') for upload_id in request.refs),
+                    ):
+                        if upload_id:
+                            if upload_id in role_kinds and role_kinds[upload_id] != kind:
+                                raise ValueError('One archived input is assigned incompatible media roles')
+                            role_kinds[upload_id] = kind
+                    if set(imported.request_files) != set(role_kinds):
+                        raise ValueError('Project archive input files do not match its saved request')
+
+                    copied_uploads = {}
+                    copied_names = {}
+                    extra_copy_bytes = 0
+                    for old_id, kind in role_kinds.items():
+                        relative = imported.request_files[old_id]
+                        suffix = Path(relative).suffix.lower()
+                        if suffix not in MEDIA_SUFFIXES[kind]:
+                            raise ValueError(f'Unsupported archived {kind} input suffix')
+                        source_path = staging.joinpath(*relative.split('/'))
+                        if not settings.mock:
+                            validate_media(source_path, kind, settings.max_media_seconds, settings.max_media_pixels)
+                        new_id = uuid.uuid4().hex[:12]
+                        target = settings.workspace / 'uploads' / f'{new_id}{suffix}'
+                        while new_id in uploads or target.exists():
+                            new_id = uuid.uuid4().hex[:12]
+                            target = settings.workspace / 'uploads' / f'{new_id}{suffix}'
+                        copied_uploads[old_id] = (new_id, target)
+                        copied_names[new_id] = {'name': Path(relative).name, 'kind': kind}
+                        extra_copy_bytes += source_path.stat().st_size
+                    result_source = staging / 'result.mp4'
+                    has_result = result_source.is_file()
+                    if has_result:
+                        if not settings.mock:
+                            validate_media(result_source, 'video', settings.max_media_seconds, settings.max_media_pixels)
+                        extra_copy_bytes += result_source.stat().st_size
+                    ensure_capacity(settings, store, extra_copy_bytes)
+
+                    replacements = {field: copied_uploads[value][0] for field, value in (
+                        ('source', request.source), ('ref_video', request.ref_video),
+                        ('music', request.music), ('voice', request.voice),
+                    ) if value}
+                    replacements['refs'] = [copied_uploads[value][0] for value in request.refs]
+                    request = request.model_copy(update=replacements)
+                    uploads_dir = settings.workspace / 'uploads'
+                    uploads_dir.mkdir(parents=True, exist_ok=True)
+                    for old_id, (new_id, target) in copied_uploads.items():
+                        created_uploads.append((new_id, target))
+                        shutil.copyfile(staging / imported.request_files[old_id], target)
+                        uploads[new_id] = target
+                        names[new_id] = copied_names[new_id]
+                    validate_request(request)
+
+                    manifest = imported.manifest
+                    new_project_id = f'p_{uuid.uuid4().hex[:12]}'
+                    while (project_root / new_project_id).exists():
+                        new_project_id = f'p_{uuid.uuid4().hex[:12]}'
+                    manifest['project_id'] = new_project_id
+                    write_json(staging / 'manifest.json', manifest)
+                    editor_path = staging / 'editor/timeline.json'
+                    if editor_path.is_file():
+                        record = read_json(editor_path.read_bytes())
+                        record['sources']['project_id'] = new_project_id
+                        record['document']['project_id'] = new_project_id
+                        _, edits, _ = manual_timeline.core()
+                        record['document']['source_signature'] = edits.source_signature(
+                            manual_timeline.shot_list(record['sources'])
+                        )
+                        checked_document(record['sources'], record['document'])
+                        write_json(editor_path, record)
+                    manifest_key = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()[:12]
+                    write_json(staging / 'manifests' / f'{manifest_key}.json', manifest)
+
+                    (staging / 'request.json').unlink()
+                    (staging / 'request_files.json').unlink()
+                    if (staging / 'inputs').exists():
+                        shutil.rmtree(staging / 'inputs')
+                    final_project = project_root / new_project_id
+                    os.replace(staging, final_project)
+
+                    job = store.create(request)
+                    created_job = job
+                    if has_result:
+                        result_path = settings.workspace / 'jobs' / f'{job.id}.mp4'
+                        result_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(final_project / 'result.mp4', result_path)
+                        (final_project / 'result.mp4').unlink()
+                        job.edits = 1
+                    (project_root / '_jobs').mkdir(parents=True, exist_ok=True)
+                    index_path = project_root / '_jobs' / f'{job.id}.json'
+                    cursor = 0.0
+                    shots = []
+                    for row in sorted(manifest['shots'], key=lambda shot: shot['timeline_index']):
+                        plan = row.get('plan') or {}
+                        revision = next(
+                            (item for item in row.get('revisions', []) if item.get('revision_id') == row.get('active_revision_id')),
+                            {},
+                        )
+                        duration = float(row['target_duration_seconds'])
+                        render_source = plan.get('render_source') or {}
+                        shots.append({
+                            'id': row['shot_id'],
+                            'start': cursor,
+                            'duration': duration,
+                            'prompt': plan.get('prompt', ''),
+                            'generation_prompt': revision.get('generation_prompt', ''),
+                            'generation_frames': plan.get('generation_frames', 0),
+                            'render_source': render_source.get('kind', 'generated') if isinstance(render_source, dict) else 'generated',
+                        })
+                        cursor += duration
+                    if not shots:
+                        raise ValueError('Project manifest contains no shots')
+                    write_json(index_path, {'project_id': new_project_id, 'shots': shots})
+                    job_shots = [
+                        Shot(**shot, thumb=f'/api/jobs/{job.id}/shots/{shot["id"]}/thumb')
+                        for shot in shots
+                    ]
+                    output_url = f'/api/jobs/{job.id}/video?v={job.edits}' if result_path else None
+                    completed = sum(
+                        any(
+                            revision.get('revision_id') == row.get('active_revision_id')
+                            and revision.get('media_range') is None
+                            for revision in row.get('revisions', [])
+                        )
+                        for row in manifest['shots']
+                    )
+                    all_done = completed == len(shots)
+                    job.update(
+                        status='succeeded' if all_done else 'cancelled',
+                        stage='done' if all_done else 'shots',
+                        progress=1.0 if all_done else completed / len(shots),
+                        project_id=new_project_id,
+                        shots=job_shots,
+                        title=(request.settings.prompt.strip() or request.mode)[:60],
+                        output_url=output_url,
+                        error=None if all_done else 'Imported project contains unfinished shots; resume it to continue generation.',
+                    )
+                    job.sync_shots(manifest)
+                    write_json(names_file, names)
+                    return job.state
+            except BaseException:
+                for job_id in set(store.jobs) - prior_job_ids:
+                    store.delete(store.jobs[job_id])
+                if created_job is not None and created_job.id in store.jobs:
+                    store.delete(created_job)
+                for upload_id, path in created_uploads:
+                    uploads.pop(upload_id, None)
+                    path.unlink(missing_ok=True)
+                if result_path is not None:
+                    result_path.unlink(missing_ok=True)
+                if index_path is not None:
+                    index_path.unlink(missing_ok=True)
+                for project in (staging, final_project):
+                    if project is not None and project.exists():
+                        shutil.rmtree(project)
+                names.clear()
+                names.update(prior_names)
+                uploads.clear()
+                uploads.update(prior_uploads)
+                if created_uploads:
+                    write_json(names_file, names)
+                raise
+
+        try:
+            building = asyncio.create_task(asyncio.to_thread(commit_import))
+            try:
+                return await asyncio.shield(building)
+            except BaseException:
+                with anyio.CancelScope(shield=True):
+                    await asyncio.gather(building, return_exceptions=True)
+                raise
+        except HTTPException:
+            raise
+        except CapacityError as error:
+            raise HTTPException(507, str(error)) from error
+        except OSError as error:
+            raise HTTPException(507, f'Project import could not be stored: {error}') from error
+        except (ValueError, TypeError, KeyError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile, subprocess.TimeoutExpired) as error:
+            raise HTTPException(422, f'Project archive could not be imported: {error}') from error
+        finally:
+            archive_path.unlink(missing_ok=True)
 
     mine = settings.workspace / "presets"
 
@@ -1156,7 +1457,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         slug = _re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-") or "preset"
         path = mine / f"{slug}.json"
         payload = resolve_preset_media(body.model_dump(), strict=True)
-        write_json(path,payload)
+        with FileLock(str(mine / '.presets.lock'), timeout=30):
+            if path.is_file():
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if existing.get('name') != body.name:
+                    raise HTTPException(409, 'Another preset name already uses this identifier')
+            write_json(path,payload)
         return payload | {"id": f"user-{slug}", "user": True}
 
     @app.delete("/api/presets/{preset_id}")

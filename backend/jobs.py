@@ -107,6 +107,8 @@ class Job:
                     if not self._progress_deferred:
                         logger.warning('Progress persistence deferred by a file lock for job %s', self.id)
                     self._progress_deferred = True
+            if changes.get('status') in ('succeeded', 'failed', 'cancelled'):
+                self.store.release_reservation(self.id)
         for queue in self._listeners:
             if queue.full():
                 queue.get_nowait()
@@ -170,6 +172,11 @@ class JobStore:
         self.jobs.pop(job.id, None)
         if self.directory:
             (self.directory / f"{job.id}.json").unlink(missing_ok=True)
+            self.release_reservation(job.id)
+
+    def release_reservation(self, job_id: str) -> None:
+        if self.directory:
+            (self.directory.parent / '.job-reservations' / f'{job_id}.json').unlink(missing_ok=True)
 
     def get(self, job_id: str) -> Job | None:
         return self.jobs.get(job_id)

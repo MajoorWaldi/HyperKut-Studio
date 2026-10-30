@@ -19,6 +19,12 @@ export function upload(file: File): Promise<Upload> {
   return fetch('/api/uploads', { method: 'POST', body: form }).then(json<Upload>)
 }
 
+export function importProject(file: File): Promise<JobState> {
+  const form = new FormData()
+  form.append('file', file)
+  return fetch('/api/projects/import', { method: 'POST', body: form }).then(json<JobState>)
+}
+
 export async function createJob(mode: Mode, settings: Settings, inputs: Inputs): Promise<JobState> {
   if ((mode !== 'remix' || settings.audio === 'new') && settings.music_edit_mode !== 'legacy') {
     const status = await health(mode, { refs: inputs.refs.filter(Boolean).length, ref_video: !!inputs.refVideo, voice: !!inputs.voice })
@@ -103,6 +109,8 @@ export const lockShot = (id: string, shot: string, locked: boolean) =>
   fetch(`/api/jobs/${id}/shots/${shot}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked }) }).then(json<JobState>)
 
 export const cancelJob = (id: string) => fetch(`/api/jobs/${id}/cancel`, { method: 'POST' }).then(json<JobState>)
+
+export const resumeJob = (id: string) => fetch(`/api/jobs/${id}/resume`, { method: 'POST' }).then(json<JobState>)
 
 /** Follow a job: the server sends its whole state every time it changes. Returns the function that stops following. */
 export function follow(id: string, onState: (state: JobState) => void, onLost: () => void): () => void {

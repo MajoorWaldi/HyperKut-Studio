@@ -23,6 +23,7 @@ interface Props {
   onSavePreset: (name: string, description: string) => void
   onDeletePreset: (id: string) => void
   onImportPreset: (file: File) => void
+  onImportProject: (file: File) => void
 }
 
 const MODES: Mode[] = ['remix', 'text', 'music']
@@ -90,6 +91,7 @@ export function Library(props: Props) {
   const [description, setDescription] = useState('')
 
   const block = useRef<HTMLElement>(null)
+  const projectFile = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -143,6 +145,12 @@ export function Library(props: Props) {
         {tab === 'projects' && (
           <div className="lib-tools">
             <input type="search" placeholder={t.search} aria-label={t.search} value={search} onChange={e => setSearch(e.target.value)} />
+            <button type="button" onClick={() => projectFile.current?.click()}>{t.importProject}</button>
+            <input ref={projectFile} type="file" accept=".zip,application/zip" hidden onChange={event => {
+              const file = event.currentTarget.files?.[0]
+              event.currentTarget.value = ''
+              if (file) props.onImportProject(file)
+            }} />
             <div className="lib-filter">
               {(['all', ...MODES] as const).map(m => <button key={m} type="button" className={filter === m ? 'on' : ''} onClick={() => setFilter(m)}>{m === 'all' ? t.all : modeName[m]}</button>)}
             </div>

@@ -11,7 +11,7 @@ The entire Studio is **beta**. Finishing is **experimental** and disabled by def
 | Shot workflow | Per-shot prompts, retained takes, regeneration, source-window selection and export. |
 | Manual montage | Shared Timeline Edit adapter: trim/slip, cuts, reordering, duplication, take selection, undo/redo and export. |
 | Music direction | YuE2 for new music, supplied-track mode, waveform preview and measured timing guidance. |
-| Projects and presets | Local persistence, project ZIP export and a rights-gated portable preset-input bundle. ZIP import is not available. |
+| Projects and presets | Local persistence, project ZIP export/import with validated media remapping, and a rights-gated portable preset-input bundle. |
 | Interface | English/French, progressive image inputs, optional controls, stop/restart controls and notifications. |
 | Formats and quality | Portrait, square and landscape; Draft, Standard, Max and XHigh. XHigh is approximately 1.5 MP generation, not 4K upscaling. |
 

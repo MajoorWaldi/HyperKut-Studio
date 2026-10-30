@@ -90,6 +90,9 @@ def test_studio_status_exposes_nonsecret_identity_and_effective_limits(tmp_path)
             "artifact_cache_max_bytes": 20 * 1024**3,
             "snapshot_transfer_max_bytes": 20 * 1024**3 + 32 * 1024**2,
             "proxy_upload_max_mb": 20512,
+            "max_active_jobs": 1,
+            "workspace_max_bytes": 20 * 1024**3,
+            "minimum_free_disk_bytes": 256 * 1024**2,
         }
 
 
@@ -409,6 +412,41 @@ def test_a_project_gives_back_its_settings_and_its_files(tmp_path):
         assert made["mode"] == "remix" and made["settings"]["prompt"] == "hello" and made["settings"]["duration"] == 12
         assert (made["source"]["name"], made["source"]["kind"], made["refs"][0]["kind"], made["voice"]) == ("my clip.mp4", "video", "image", None)
         assert client.get(made["refs"][0]["url"]).content == b"png"
+
+
+def test_free_takes_recovers_a_failed_physical_delete(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+    project = _project_on_disk(settings)
+    runner = MockRunner(pace=0.01)
+    original_run = runner.run
+
+    async def with_project(job):
+        await original_run(job)
+        job.update(project_id=project.name)
+
+    runner.run = with_project
+    original_unlink = Path.unlink
+    failed = False
+
+    def fail_once(path, *args, **kwargs):
+        nonlocal failed
+        if '.retention' in path.parts and 'trash' in path.parts and not failed:
+            failed = True
+            raise PermissionError('injected file lock')
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'unlink', fail_once)
+    with TestClient(create_app(settings, runner)) as client:
+        job = _finished_job(client)
+        response = client.post(f'/api/jobs/{job}/free')
+        assert response.status_code == 503
+        journal = project / '.retention' / 'pending.json'
+        assert journal.is_file()
+        retry = client.post(f'/api/jobs/{job}/free')
+        assert retry.status_code == 200
+        assert retry.json()['freed'] == 3
+        assert not journal.exists()
+        assert not (project / '.retention' / 'trash').exists()
 
 
 def _project_on_disk(settings, project_id="p_0123456789ab"):
