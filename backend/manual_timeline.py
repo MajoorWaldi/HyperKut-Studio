@@ -131,8 +131,13 @@ def editor_payload(project, max_seconds):
         waveform = {'file': '@music', 'duration': info['duration'],
                     'source_audio': music.relative_to(project).as_posix() not in ('music/retained.wav', 'sources/music.wav'),
                     'peaks': audio_waveform(music, max_seconds, bins=1024)}
+    graph = None
+    if not stale:
+        module = importlib.import_module(core()[0].__package__ + '.editorial_graph')
+        graph = module.preview_adapter(module.compile_project(sl, document))
     return {'library': library, 'initial': initial, 'document': document, 'music': waveform,
-            'etag': record_token(record), 'enabled': bool(record and record['enabled']), 'stale': stale}
+            'etag': record_token(record), 'enabled': bool(record and record['enabled']), 'stale': stale,
+            'editorial_graph': graph}
 
 
 def save_document(project, document, expected, enabled=True):

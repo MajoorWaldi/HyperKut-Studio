@@ -104,6 +104,12 @@ Push-Location frontend; npm ci; npm run build; Pop-Location
 
 Optional finishing, custom ports and details: [full installation](docs/installation.md) · [user guide](docs/usage.md) · [dependencies](docs/dependency-scopes.md).
 
+### Access boundary
+
+The default `HYPERKUT_ACCESS_MODE=local` rejects non-loopback clients. Opt-in `jury` mode requires HTTPS at the backend, explicit dedicated `HYPERKUT_WORKSPACE` / `HYPERKUT_OUTPUT_DIR`, non-wildcard `HYPERKUT_ALLOWED_HOSTS`, and `HYPERKUT_ACCESS_USERNAME` / `HYPERKUT_ACCESS_PASSWORD` (at least 24 characters). Configure secrets privately, never in source. Frontend/API/media require Basic authentication; jury restart is forbidden. Keep ComfyUI and proxy ports private and configure TLS/trusted proxy headers separately.
+
+`HYPERKUT_MAX_WORKSPACE_MB` currently caps persistent uploads only (default 20480 MiB), not generated media or GPU consumption. `HYPERKUT_MIN_FREE_DISK_MB` defaults to 256 MiB. Body and per-file limits also apply. This is a shared-account dedicated jury instance, not multi-user authorization or a qualified public deployment.
+
 ## License
 
 Code: **MIT**. Models, dependencies and demo media keep their own terms: see [LICENSES.md](LICENSES.md) and [third-party notices](THIRD_PARTY_NOTICES.md). [Known limits](docs/known-issues-and-roadmap.md) · [Roadmap](ROADMAP.md).

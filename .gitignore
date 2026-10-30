@@ -24,6 +24,8 @@ workspace/
 scripts/launcher/settings.json
 .env
 .env.*
+.cloudflare/
+.wrangler/
 HyperKut Studio.lnk
 
 # Render and preview caches

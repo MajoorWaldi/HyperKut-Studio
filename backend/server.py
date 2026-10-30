@@ -45,6 +45,7 @@ from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
 from .brief_preview import prepare_brief
 from .unified_motion import validate_finishing
+from .access import AccessMiddleware, acquire_upload_quota, validate_access
 
 KINDS = {"video": "video", "image": "image", "audio": "audio"}
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class SameOriginMiddleware:
 
 def create_app(settings: Settings | None = None, runner: Runner | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
+    validate_access(settings)
     recovery_lock = asyncio.Lock()
     async def recover_pending(target=None, *, all_jobs=False):
         async with recovery_lock:
@@ -232,12 +234,18 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         upload_id = uuid.uuid4().hex[:12]
         path = settings.workspace / "uploads" / f"{upload_id}{Path(file.filename or '').suffix.lower()}"
         size = 0
+        quota_lock = FileLock(str(settings.workspace / ".uploads-quota.lock"), thread_local=False)
         try:
+            await acquire_upload_quota(quota_lock)
+            used = sum(path.stat().st_size for path in (settings.workspace / "uploads").iterdir()
+                       if path.is_file() and not path.is_symlink())
             with path.open('wb') as stream:
                 while chunk := await file.read(1024*1024):
                     size += len(chunk)
                     if size > settings.max_upload_bytes:
                         raise HTTPException(413,'The upload exceeds the configured size limit')
+                    if used + size > settings.max_workspace_bytes:
+                        raise HTTPException(507, 'The upload storage quota is exhausted. Remove unused uploads before retrying.')
                     stream.write(chunk)
             if not settings.mock:
                 try:
@@ -261,6 +269,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             path.unlink(missing_ok=True)
             raise
         finally:
+            if quota_lock.is_locked:
+                quota_lock.release()
             await file.close()
         uploads[upload_id] = path
         names[upload_id] = {'name':file.filename or path.name,'kind':kind}
@@ -1160,4 +1170,5 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     dist = ROOT / "frontend" / "dist"
     if dist.is_dir():
         app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+    app.add_middleware(AccessMiddleware, settings=settings)
     return app

@@ -1,6 +1,6 @@
 import hashlib
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -72,6 +72,11 @@ class Settings:
     storage_backend: str = "shared_local"
     max_artifact_bytes: int = MAX_ARTIFACT_BYTES
     max_artifact_cache_bytes: int = MAX_ARTIFACT_CACHE_BYTES
+    access_mode: str = "local"
+    access_username: str = field(default="", repr=False)
+    access_password: str = field(default="", repr=False)
+    max_workspace_bytes: int = 20 * 1024**3
+    min_free_disk_bytes: int = 256 * 1024**2
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -80,6 +85,9 @@ class Settings:
         if backend not in ('shared_local','remote_artifacts'):
             raise ValueError('Unknown storage backend')
         workspace = Path(_studio_env('WORKSPACE', ROOT / 'workspace'))
+        access_mode = _studio_env('ACCESS_MODE', 'local')
+        if access_mode == 'jury' and (not _studio_env('WORKSPACE') or not _studio_env('OUTPUT_DIR')):
+            raise ValueError('Jury access requires explicit dedicated WORKSPACE and OUTPUT_DIR')
         upload_mb = int(_studio_env('MAX_UPLOAD_MB', 1024))
         if not 1 <= upload_mb <= MAX_STUDIO_UPLOAD_BYTES // MIB:
             raise ValueError('MAX_UPLOAD_MB must be between 1 and 1024 (Studio uploads are capped at 1 GiB)')
@@ -98,7 +106,10 @@ class Settings:
                    job_metadata_labels=_studio_env('JOB_METADATA_LABELS') == '1',
                    experimental_ai_edit=_studio_env('EXPERIMENTAL_AI_EDIT') == '1', storage_backend=backend,
                    max_artifact_bytes=MAX_ARTIFACT_BYTES, max_artifact_cache_bytes=MAX_ARTIFACT_CACHE_BYTES,
-                   max_upload_bytes=upload_mb * MIB)
+                   max_upload_bytes=upload_mb * MIB, access_mode=access_mode,
+                   access_username=_studio_env('ACCESS_USERNAME', ''), access_password=_studio_env('ACCESS_PASSWORD', ''),
+                   max_workspace_bytes=int(_studio_env('MAX_WORKSPACE_MB', 20480)) * MIB,
+                   min_free_disk_bytes=int(_studio_env('MIN_FREE_DISK_MB', 256)) * MIB)
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)
