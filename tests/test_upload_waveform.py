@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from backend.runner import MockRunner
 from backend.server import create_app
-from test_backend import _settings
+from test_backend import _finished_job, _settings
 from backend.media import audio_waveform
 
 
@@ -59,3 +59,18 @@ def test_audio_waveform_keeps_decoded_pcm_out_of_process_memory(monkeypatch, tmp
     peaks = audio_waveform(tmp_path / 'fixture.wav', 1, bins=4)
     assert peaks == [1.0, 0.0, 0.0, 0.0]
     assert calls[1][1]['timeout'] == 60
+
+
+def test_job_waveform_uses_the_block_decoder_and_is_flat_without_audio(tmp_path):
+    settings = _settings(tmp_path)
+    with TestClient(create_app(settings, MockRunner())) as client:
+        job = _finished_job(client)
+        jobs = settings.workspace / 'jobs'
+        jobs.mkdir(parents=True, exist_ok=True)
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=64x64:d=2:r=24', '-f', 'lavfi', '-i', 'sine=d=2',
+                        '-shortest', '-pix_fmt', 'yuv420p', str(jobs / f'{job}.mp4')], check=True)
+        peaks = client.get(f'/api/jobs/{job}/waveform', params={'bins': 40}).json()
+        assert len(peaks) == 40 and max(peaks) == 1
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=64x64:d=2:r=24', '-pix_fmt', 'yuv420p', str(jobs / f'{job}.mp4')], check=True)
+        silent = client.get(f'/api/jobs/{job}/waveform', params={'bins': 20}).json()
+        assert silent == [0.0] * 20

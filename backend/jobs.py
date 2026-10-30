@@ -38,6 +38,7 @@ class Job:
         self._listeners: list[asyncio.Queue[JobState]] = []
         self._last_progress_write = 0.0
         self._progress_deferred = False
+        self._timed: tuple[str, float] | None = None
 
     def begin(self, stage: str) -> None:
         self.preview = None
@@ -86,10 +87,21 @@ class Job:
         if shots != self.state.shots:
             self.update(shots=shots)
 
+    def _time_stage(self, changes: dict) -> None:
+        stage, status, now = changes.get('stage', self.state.stage), changes.get('status', self.state.status), time.monotonic()
+        if self._timed and (stage != self._timed[0] or status != 'running'):
+            name, started = self._timed
+            changes['timings'] = {**self.state.timings, name: round(self.state.timings.get(name, 0) + now - started, 1)}
+            self._timed = None
+        if status == 'running' and self._timed is None:
+            self._timed = (stage, now)
+
     def update(self, **changes) -> None:
         """Change the state and tell everyone who follows the job. The progress never goes back (the nodes of one prompt count from zero again for the next one)."""
         if "progress" in changes:
             changes["progress"] = max(changes["progress"], self.state.progress)
+        if 'stage' in changes or 'status' in changes:
+            self._time_stage(changes)
         self.state = self.state.model_copy(update=changes)
         if self.store:
             critical = bool(set(changes) - {'progress', 'node', 'step', 'steps', 'preview'})

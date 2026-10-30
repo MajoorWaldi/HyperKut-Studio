@@ -236,3 +236,52 @@ def test_atomic_json_survives_a_temporary_windows_reader(tmp_path):
         reader.close()
     assert json.loads(path.read_text())=={'value':'after'}
     assert not list(tmp_path.glob('*.tmp'))
+
+
+@pytest.mark.parametrize('schemas, native_text', [({}, True), ({'MajoorHyperFrames': {}}, False)])
+async def test_planned_text_is_kept_when_hyperframes_is_absent(tmp_path, monkeypatch, schemas, native_text):
+    import httpx
+    async def object_info(self, url, **kwargs):
+        return httpx.Response(200, json=schemas, request=httpx.Request('GET', url))
+    monkeypatch.setattr(httpx.AsyncClient, 'get', object_info)
+    sent = {}
+    class Handle:
+        def get_outputs(self, node): return []
+    class Runner(ComfyRunner):
+        async def _run(self, client, job, template, values, *args, **kwargs):
+            sent.update(values)
+            return Handle()
+    runner = Runner(settings(tmp_path), {})
+    job = Job(JobRequest(mode='text', settings={'text': True, 'motion_design': True}))
+    with pytest.raises(Exception, match='SaveVideo'):
+        await runner._edit(None, job, load_templates(ROOT/'workflows', 'text'), runner._values(job))
+    assert sent['edit_text'] is native_text
+
+
+@pytest.mark.parametrize('backend, access', [('remote_artifacts', 'local'), ('shared_local', 'jury')])
+def test_sfx_library_stays_inside_its_root_when_remote(tmp_path, backend, access):
+    from dataclasses import replace
+    root = tmp_path / 'sfx'
+    (root / 'kit').mkdir(parents=True)
+    runner = ComfyRunner(replace(settings(tmp_path), storage_backend=backend, access_mode=access, sfx_root=root.resolve()), {})
+    assert runner._sfx_library('kit') == str((root / 'kit').resolve())
+    assert runner._sfx_library('') == ''
+    for outside in ('..', str(tmp_path), '../elsewhere'):
+        with pytest.raises(ValueError, match='SFX_ROOT'):
+            runner._sfx_library(outside)
+    with pytest.raises(ValueError, match='SFX_ROOT'):
+        ComfyRunner(replace(settings(tmp_path), storage_backend=backend, access_mode=access), {})._sfx_library('kit')
+
+
+def test_sfx_library_is_free_on_a_local_studio(tmp_path):
+    assert ComfyRunner(settings(tmp_path), {})._sfx_library('D:/my/cues') == 'D:/my/cues'
+
+
+def test_stage_timings_add_up_each_stage(monkeypatch):
+    now = iter([100.0, 103.0, 110.0])
+    monkeypatch.setattr('backend.jobs.time.monotonic', lambda: next(now))
+    job = Job(JobRequest(mode='text'))
+    job.begin('analyze')
+    job.begin('shots')
+    job.update(status='succeeded', stage='done')
+    assert job.state.timings == {'analyze': 3.0, 'shots': 7.0}

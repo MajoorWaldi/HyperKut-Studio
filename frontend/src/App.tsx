@@ -100,12 +100,20 @@ export default function App() {
     'optional:tone:unavailable': 'Banque Tone.js inutilisable : effets sonores de secours utilisés.',
     'optional:mask:unavailable': 'Détourage indisponible : vidéo livrée sans la finition graphique qui en dépend.',
     'optional:layout:unavailable': 'Vidéo prête. Le contrôle facultatif de disposition des calques n’a pas pu être effectué.',
+    'optional:qc:duration': 'Contrôle export : la durée de la vidéo s’écarte de celle demandée.',
+    'optional:qc:ratio': 'Contrôle export : le format de la vidéo diffère du format demandé.',
+    'optional:qc:no_audio': 'Contrôle export : la vidéo n’a pas de piste audio.',
+    'optional:qc:remix_cuts': 'Contrôle export : le nombre de coupes s’écarte de la vidéo de référence.',
   } : {
     'optional:hyperframes:unavailable': 'Video ready without graphic finishing: HyperFrames is unavailable or failed.',
     'optional:tone:missing': 'Tone.js bank is missing: fallback sound effects were used.',
     'optional:tone:unavailable': 'Tone.js bank is unusable: fallback sound effects were used.',
     'optional:mask:unavailable': 'Subject masking unavailable: video delivered without the dependent graphic finishing.',
     'optional:layout:unavailable': 'Video ready. The optional layer layout check could not be completed.',
+    'optional:qc:duration': 'Export check: the video length differs from the requested length.',
+    'optional:qc:ratio': 'Export check: the video format differs from the requested format.',
+    'optional:qc:no_audio': 'Export check: the video has no audio track.',
+    'optional:qc:remix_cuts': 'Export check: the number of cuts differs from the reference video.',
   }
   const fallbackWarnings = [...new Set((job?.warnings ?? []).filter(w => w.startsWith('optional:')))]
   const fallbackKey = `${job?.id}:${job?.operation}:${fallbackWarnings.join('|')}`

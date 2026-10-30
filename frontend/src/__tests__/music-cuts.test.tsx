@@ -17,11 +17,11 @@ async function show(changes: Partial<Settings> = {}, busy = false) {
   return {...rendered, props, onSettings}
 }
 
-test('new music defaults to random with variation and synchronization', async () => {
+test('new music defaults to adaptive with variation and synchronization', async () => {
   const {onSettings} = await show()
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('random')
+  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('adaptive')
   expect(screen.queryByLabelText('Cut every')).toBeNull()
-  expect((screen.getByLabelText('Cut pace') as HTMLSelectElement).value).toBe('high')
+  expect((screen.getByLabelText('Cut pace') as HTMLSelectElement).value).toBe('auto')
   const variation = screen.getByLabelText('Duration variation · 100%')
   fireEvent.change(variation, {target: {value: '.75'}})
   expect(onSettings).toHaveBeenLastCalledWith({music_cut_variation: .75})
@@ -44,15 +44,15 @@ test('legacy settings remain visible and reset includes the new fields', async (
   await show({music_edit_mode: 'legacy'})
   expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('legacy')
   expect(screen.getByLabelText('Cut every')).toBeTruthy()
-  expect(optionDefaults()).toMatchObject({music_edit_mode: 'random', music_cut_sync: 1, music_cut_variation: 1})
+  expect(optionDefaults()).toMatchObject({music_edit_mode: 'adaptive', music_cut_sync: 1, music_cut_variation: 1})
 })
 
-test('busy controls cannot be changed and Text also defaults to random', async () => {
+test('busy controls cannot be changed and Text also defaults to adaptive', async () => {
   const {rerender, props} = await show({}, true)
   expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).disabled).toBe(true)
   expect(screen.getAllByRole('slider').every(el => (el as HTMLInputElement).disabled)).toBe(true)
   rerender(<Options {...props} mode="text"/>)
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('random')
+  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('adaptive')
 })
 
 test('Remix shows random controls only with new music', async () => {
@@ -60,7 +60,7 @@ test('Remix shows random controls only with new music', async () => {
   rerender(<Options {...props} mode="remix" settings={{...props.settings, audio: 'original'}}/>)
   expect(screen.queryByLabelText('Editing rhythm')).toBeNull()
   rerender(<Options {...props} mode="remix" settings={{...props.settings, audio: 'new'}}/>)
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('random')
+  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('adaptive')
   rerender(<Options {...props} mode="remix" settings={{...props.settings, audio: 'voice'}}/>)
   expect(screen.queryByLabelText('Editing rhythm')).toBeNull()
 })
@@ -68,7 +68,7 @@ test('Remix shows random controls only with new music', async () => {
 test('opening old projects preserves legacy timing while new presets keep random', () => {
   expect(restoreSettings({cut_every: 'bar'})).toMatchObject({music_edit_mode: 'legacy', music_cut_sync: 1, music_cut_variation: .5, cut_every: 'bar'})
   expect(restoreSettings({music_edit_mode: 'random'}).music_edit_mode).toBe('random')
-  expect(DEFAULTS.music_edit_mode).toBe('random')
+  expect(DEFAULTS.music_edit_mode).toBe('adaptive')
 })
 
 test('an old real Studio backend cannot silently ignore the new controls', async () => {

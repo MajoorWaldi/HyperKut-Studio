@@ -19,7 +19,8 @@ from .models import EditStyle, Shot
 from .templates import Template, TemplateError, applied_style, load_templates, reachable_graph
 from .direction import resolved_brief, use_prepared_brief, normalize_media_roles, apply_plan_contract
 from .creative_controls import level as _level, direction as creative_direction
-from .media import validate_video
+from .export_qc import export_qc
+from .media import media_info, validate_video
 from .storage import SharedProjectRepository
 
 logger = logging.getLogger(__name__)
@@ -181,7 +182,7 @@ class ComfyRunner:
         if s.reference_style=='montage' and r.ref_video:
             directions.append('Use the reference video as an editing-style reference: infer pacing, relative shot lengths, camera vocabulary, palette, typography and transitions. Create a new edit suited to the brief. Preserve the identity and clothing of the supplied subject images. Keep the user music. Do not copy reference footage, logos or words; use only explicitly allowed text.')
         values['planning_instructions']='\n'.join(directions)
-        values['sfx_library']=s.sfx_library
+        values['sfx_library']=self._sfx_library(s.sfx_library)
         style = style if style is not None else job.state.style
         for key, value in style.model_dump(exclude_none=True).items():
             if key == 'rendered_layers':
@@ -475,6 +476,16 @@ class ComfyRunner:
         suffix = f" ({', '.join(location)})" if location else ""
         return f"{error.message.strip()}{suffix}"
 
+    def _sfx_library(self, directory: str) -> str:
+        """A remote or shared Studio reads cue libraries only from its SFX_ROOT."""
+        if not directory.strip() or (self.settings.storage_backend == 'shared_local' and self.settings.access_mode == 'local'):
+            return directory
+        root = self.settings.sfx_root
+        path = (root / directory).resolve() if root else None
+        if path is None or not path.is_relative_to(root):
+            raise ValueError('SFX library must be a folder inside HYPERKUT_SFX_ROOT')
+        return str(path)
+
     async def _edit(self, client, job: Job, templates, values: dict, style: EditStyle | None = None) -> None:
         """The edit of the project as it is on the disk now, saved as the video of the job."""
         from .manual_timeline import read_record, render_saved_timeline
@@ -513,6 +524,7 @@ class ComfyRunner:
         values['unified_layers'] = finishing_layers(manifest, job.state.shots, values.get('motion_layers', '[]'), requested_text, values.get('motion_design', True))
         values['subject_mask'] = needs_subject_mask(values['unified_layers'])
         finishing_requested = values.get('motion_design', True) or bool(json.loads(values['unified_layers']))
+        hyperframes_missing = False
         if values['subject_mask'] or finishing_requested:
             import httpx
             schemas = None
@@ -529,6 +541,7 @@ class ComfyRunner:
             if isinstance(schemas, dict):
                 if finishing_requested and 'MajoorHyperFrames' not in schemas:
                     skip_finishing = 'optional:hyperframes:unavailable'
+                    hyperframes_missing = True
                 elif values['subject_mask']:
                     unavailable = not {'LoadBackgroundRemovalModel', 'RemoveBackground'} <= schemas.keys()
                     for node in templates['final'].prompt.values():
@@ -544,7 +557,7 @@ class ComfyRunner:
                 optional_warnings.append(skip_finishing)
                 values.update(subject_mask=False, motion_design=False, unified_layers='[]',
                               motion_cues='[]', redraw_text=False, motion_on=False, extra_layers='[]')
-        values['edit_text'] = False  # planned typography is drawn once, in HyperFrames
+        values['edit_text'] = requested_text and hyperframes_missing  # planned typography is drawn once, in HyperFrames; the assembler draws it when HyperFrames is absent
         direction = values.get('motion_direction', 'editorial')
         if values.get('motion_title') and requested_text:
             # Explicit title only; the visual brief never invents advertising copy.
@@ -594,6 +607,15 @@ class ComfyRunner:
             )
         await self._finish_edit(job,final,context)
 
+    def _export_qc(self, job: Job, video: Path) -> list[str]:
+        r, s = job.request, job.request.settings
+        reference = self.uploads.get(r.ref_video) if r.mode == 'remix' and r.ref_video else None
+        try:
+            duration = media_info(reference)['video_duration'] if reference else s.duration if r.mode != 'remix' else None
+            return export_qc(video, duration=duration, ratio=s.ratio if r.mode != 'remix' else None, audio=s.audio != 'original', reference=reference)
+        except (OSError, ValueError):
+            return []
+
     async def _finish_edit(self,job,handle,context):
         outputs = handle.get_outputs(context['output_node']) if context.get('output_node') else []
         if not outputs:
@@ -631,6 +653,8 @@ class ComfyRunner:
         if not context.get('manual_export') and audio_report_path.is_file():
             audio_report = json.loads(audio_report_path.read_text(encoding='utf-8'))
             optional_warnings.extend(w for w in audio_report.get('warnings', []) if isinstance(w, str) and w.startswith('optional:'))
+        if not context.get('manual_export'):
+            optional_warnings.extend(await asyncio.to_thread(self._export_qc, job, destination))
         job.edits = context.get('edit_version',job.edits+1)
         energy_path=self.projects()/job.state.project_id/'exports/energy.json'
         energy=json.loads(energy_path.read_text(encoding='utf-8')) if not context.get('manual_export') and energy_path.is_file() else None

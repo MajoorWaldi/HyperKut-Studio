@@ -178,7 +178,7 @@ async def test_final_export_recovery_downloads_without_generating(editorial_proj
     persisted=JobStore(config.workspace/'state').get(job.id)
     assert persisted.state.status=='succeeded' and persisted.edits==4
     assert persisted.state.output_url==f'/api/jobs/{job.id}/video?v=4'
-    assert persisted.state.style.text is False and persisted.state.warnings==['retained']
+    assert persisted.state.style.text is False and [w for w in persisted.state.warnings if not w.startswith('optional:qc:')]==['retained']
     assert runner.video_path(persisted).read_bytes()==source.read_bytes()
     assert persisted.pending_handle is None and persisted.pending_result is None
 

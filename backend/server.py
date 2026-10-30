@@ -1,6 +1,5 @@
 """The HTTP side of the app: uploads, jobs and their progress (server-sent events), the result video, and the web interface itself."""
 import asyncio
-import array
 import hashlib
 import json
 import logging
@@ -39,7 +38,7 @@ from . import manual_timeline
 from .take_trim import trim_bounds
 from .take_retention import free_unused_takes
 from .runner import ComfyRunner, MockRunner, Runner, _failure_message
-from .media import validate_media
+from .media import audio_waveform, validate_media
 from .review import build_review_frames
 from .storage import SharedProjectRepository, project_path, write_json
 from .templates import TemplateError, load_templates
@@ -309,7 +308,6 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if describe(upload_id).kind != 'audio':
             raise HTTPException(422, "Waveform preview requires an audio upload")
         if upload_id not in upload_waves:
-            from .media import audio_waveform
             try:
                 peaks = await asyncio.to_thread(audio_waveform, uploads[upload_id], settings.max_media_seconds)
             except (ValueError, OSError, subprocess.TimeoutExpired) as error:
@@ -1065,15 +1063,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if not video_file.is_file():
             raise HTTPException(404, "This job has no video yet")
         if key not in waveforms:
-            raw = await asyncio.to_thread(lambda: subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-i", str(video_file), '-t', str(settings.max_media_seconds), "-vn", "-ac", "1", "-ar", "8000", "-f", "f32le", "-"], capture_output=True,timeout=60).stdout)
-            samples = array.array("f")
-            samples.frombytes(raw[: len(raw) // 4 * 4])
-            size = max(1, len(samples) // bins)
-            peaks = [max((abs(x) for x in samples[i * size:(i + 1) * size]), default=0.0) for i in range(bins)]
-            top = max(peaks, default=0.0) or 1.0
             if len(waveforms)>=32:
                 waveforms.pop(next(iter(waveforms)))
-            waveforms[key] = [round(p / top, 3) for p in peaks]
+            try:
+                waveforms[key] = await asyncio.to_thread(audio_waveform, video_file, settings.max_media_seconds, bins)
+            except ValueError:  # no audio track or undecodable: a flat line
+                waveforms[key] = [0.0] * bins
         return waveforms[key]
 
     @app.get('/api/jobs/{job_id}/review')

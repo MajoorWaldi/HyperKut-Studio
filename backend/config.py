@@ -77,6 +77,7 @@ class Settings:
     access_password: str = field(default="", repr=False)
     max_workspace_bytes: int = 20 * 1024**3
     min_free_disk_bytes: int = 256 * 1024**2
+    sfx_root: Path | None = None
 
     def __post_init__(self):
         if not 1 <= self.max_active_jobs <= 8:
@@ -122,7 +123,8 @@ class Settings:
                    max_upload_bytes=upload_mb * MIB, access_mode=access_mode,
                    access_username=_studio_env('ACCESS_USERNAME', ''), access_password=_studio_env('ACCESS_PASSWORD', ''),
                    max_workspace_bytes=workspace_mb * MIB,
-                   min_free_disk_bytes=min_free_disk_mb * MIB)
+                   min_free_disk_bytes=min_free_disk_mb * MIB,
+                   sfx_root=Path(_studio_env('SFX_ROOT')).resolve() if _studio_env('SFX_ROOT') else None)
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)

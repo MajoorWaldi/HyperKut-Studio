@@ -150,6 +150,7 @@ class JobState(BaseModel):
     energy: dict | None = None
     warnings: list[str] = []
     manual_export: dict | None = None
+    timings: dict[str, float] = {}  # seconds spent running each stage, summed over its runs
 
 
 class TimelineShot(BaseModel):

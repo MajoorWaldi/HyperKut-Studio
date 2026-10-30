@@ -15,8 +15,8 @@ export const DEFAULTS: Settings = {
   prompt: '', duration: 15, ratio: '9:16', quality: 'draft', structure: 85, creativity: 50, seed: null, audio: 'original', mood: '', bpm: 120,
   effects: false, text: false, sound_design: false, sound_effects: false, sub_cuts: false, music_sync: false, retry_bad_takes: true,
   dialogue: '', places: true, camera: '', motion_layers: '[]', subject_mask: false, redraw_text: false, pose_only: false, quality_check: false, music_start: -1,
-  style: 'none', cut_density: 'high', transition_intensity: 'auto', cut_every: '2_beats', text_allowed: '',
-  music_edit_mode: 'random', music_cut_variation: 1, music_cut_sync: 1,
+  style: 'none', cut_density: 'auto', transition_intensity: 'auto', cut_every: '2_beats', text_allowed: '',
+  music_edit_mode: 'adaptive', music_cut_variation: 1, music_cut_sync: 1,
 }
 
 export function restoreSettings(saved: Partial<Settings>): Settings {
