@@ -27,7 +27,7 @@
     "motion_direction": "editorial",
     "motion_layers": "[]",
     "motion_title": "",
-    "music_cut_sync": 0.8,
+    "music_cut_sync": 1.0,
     "music_cut_variation": 0.5,
     "music_edit_mode": "legacy",
     "music_energy": "peak",

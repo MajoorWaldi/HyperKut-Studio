@@ -9,7 +9,7 @@ button, input, textarea { font: inherit; }
 button { cursor: pointer; border: 0; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 input[type=range] { accent-color: var(--soft); cursor: pointer; }
-.sc-app { max-width: 1760px; margin: auto; padding: 14px 22px 16px; height: calc(100vh / var(--ui-zoom, 1)); display: flex; flex-direction: column; overflow: hidden; }
+.sc-app { max-width: 1760px; margin: auto; padding: 14px 22px 16px; height: calc(100vh / var(--ui-zoom, 1)); display: flex; flex-direction: column; overflow: hidden; overflow: clip; }
 
 .header { flex: none; height: 55px; display: grid; grid-template-columns: var(--side) minmax(0, 1fr) auto; align-items: center; column-gap: 16px; margin-bottom: 12px; }
 .brand { display: flex; align-items: center; gap: 12px; min-width: 270px; }
@@ -126,7 +126,7 @@ html[data-w~="sm"] .brand small { display: none; }
 .shot-image { text-shadow: 0 0 4px #000; }
 
 .adv-toggles { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: #30283a; border: 1px solid var(--line); color: #cfc5d0; font-size: 12px; cursor: pointer; user-select: none; transition: background .15s, border-color .15s, color .15s; }
+.chip-toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: #30283a; border: 1px solid var(--line); color: #cfc5d0; font-size: 12px; cursor: pointer; user-select: none; transition: background .15s, border-color .15s, color .15s; }
 .chip-toggle:hover:not(.disabled) { border-color: #6b5b78; }
 .chip-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .chip-toggle .switch { position: relative; width: 28px; height: 16px; border-radius: 999px; background: #4a3f55; transition: background .15s; flex: none; }
