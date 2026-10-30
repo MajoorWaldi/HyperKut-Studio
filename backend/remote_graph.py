@@ -186,7 +186,8 @@ class RemoteMirror:
         with self.retention_lock:
             history=self.scratch/'history'/project_id
             for path in history.glob('*.descriptor.json'):path.unlink()
-            if history.is_dir():history.rmdir()
+            # POSIX file locks retain their inode after release; do not unlink it.
+            if history.is_dir() and not any(history.iterdir()):history.rmdir()
             for path in (self.scratch/'publications').glob('*.json'):
                 if json.loads(path.read_text(encoding='utf-8'))['snapshot']['project_id']==project_id:path.unlink()
 

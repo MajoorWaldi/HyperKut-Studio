@@ -38,7 +38,10 @@ HyperKut Studio.lnk
 Thumbs.db
 desktop.ini
 .DS_Store
-/experimental/
+/experimental/*
+!/experimental/comfyui_snapshot_worker/
+/experimental/comfyui_snapshot_worker/*
+!/experimental/comfyui_snapshot_worker/__init__.py
 
 /scripts/launcher/remote-private.settings.json
 /workspace-remote-private/

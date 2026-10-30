@@ -74,7 +74,8 @@ def test_failed_bundle_preparation_does_not_retain_an_unsubmitted_transfer(edito
     monkeypatch.setattr(module,'write_bundle',fail)
     with pytest.raises(ValueError,match='quota'):
         mirror.prepare(snapshot.project_id,'e'*32)
-    assert not list(mirror.scratch.glob('*.input.*'))
+    assert not (mirror.scratch / f'{"e"*32}.input.zip').exists()
+    assert not (mirror.scratch / f'{"e"*32}.input.descriptor.json').exists()
 
 
 async def test_cancelled_publication_stays_locked_until_thread_stops(tmp_path,monkeypatch):
@@ -221,7 +222,12 @@ def test_gc_preserves_history_and_releases_only_explicitly_purged_project(editor
     report=mirror.cache_inventory(collect=True,dry_run=False)
     assert report['removed_bytes']==len(data)
     assert mirror.cache_inventory()['retained_bytes']>0
+    history = mirror.scratch / 'history' / snapshot.project_id
+    lock_path = next(history.glob('*.descriptor.json')).with_suffix('.json.write.lock')
+    lock_path.touch(exist_ok=True)
     mirror.forget_project(snapshot.project_id)
+    assert lock_path.exists()
+    assert not list(history.glob('*.descriptor.json'))
     report=mirror.cache_inventory(collect=True,dry_run=False)
     assert report['removed_bytes']>0 and mirror.cache_inventory()['total_bytes']==0
 

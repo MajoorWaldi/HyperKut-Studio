@@ -51,11 +51,12 @@ def test_recorded_prompt_follows_the_video_branch_lazily(keep, check, failed, ex
 def test_exporter_reproduces_recorded_prompt_wiring():
     script = r"""
 const fs = require('node:fs');
-const source = fs.readFileSync('scripts\\export_templates.js', 'utf8');
+const path = require('node:path');
+const source = fs.readFileSync(path.join('scripts', 'export_templates.js'), 'utf8');
 const start = source.indexOf('  const retainRemixPrompts =');
 const end = source.indexOf('  const titleOf =', start);
 const retain = new Function(source.slice(start, end) + '\nreturn retainRemixPrompts;')();
-const graph = JSON.parse(fs.readFileSync('workflows\\remix\\shot.api.json', 'utf8'));
+const graph = JSON.parse(fs.readFileSync(path.join('workflows', 'remix', 'shot.api.json'), 'utf8'));
 const before = JSON.stringify(graph);
 retain(graph);
 if (JSON.stringify(graph) !== before) throw new Error('Exported Remix graph is stale');
