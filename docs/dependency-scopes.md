@@ -10,6 +10,8 @@ ComfyUI uses its own environment for PyTorch, node packs and model loaders. Do n
 
 React/React DOM are bundled by the TypeScript/Vite build. Node.js 22+ and npm build the frontend; an existing `frontend/dist` is served by FastAPI without a separate Node web server. `requirements-dev.txt` adds backend test tools. `requirements-tested.txt` and `constraints-release.txt` record a particular dependency resolution, not a universal engine environment.
 
+Studio's tests also use VideoTools' shared core schema and timeline editor. Keep the Studio checkout directly inside a VideoTools checkout (for example `videotools/HyperKut Studio`); run Python tests from the Studio root and frontend tests from its `frontend` folder. Both CI jobs reproduce this layout with VideoTools pinned to commit `7e32e8b203665f02a0a426a3a22af0f61038bcb6`. Update both pins together when qualifying a newer shared runtime.
+
 ## Generation
 
 The maintained API graphs use Majoor VideoTools, comfyui_controlnet_aux and native ComfyUI model nodes. Visual workflow editing additionally uses KJNodes/Easy-Use. Gemma/H3 drive the maintained planning/video path; YuE2 creates new music. Location plates, pose processing and masks require the models of the selected branch. See the [model inventory](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/models-and-downloads.md).

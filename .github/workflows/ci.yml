@@ -8,16 +8,28 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: videotools/HyperKut Studio
     steps:
+      - name: Check out compatible VideoTools runtime
+        uses: actions/checkout@v4
+        with:
+          repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
+          ref: 7e32e8b203665f02a0a426a3a22af0f61038bcb6
+          path: videotools
+          persist-credentials: false
       - uses: actions/checkout@v4
+        with:
+          path: videotools/HyperKut Studio
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-            constraints-release.txt
+            videotools/HyperKut Studio/requirements.txt
+            videotools/HyperKut Studio/requirements-dev.txt
+            videotools/HyperKut Studio/constraints-release.txt
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -c constraints-release.txt -r requirements-dev.txt
@@ -31,14 +43,23 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: videotools/HyperKut Studio/frontend
     steps:
+      - name: Check out compatible VideoTools editor
+        uses: actions/checkout@v4
+        with:
+          repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
+          ref: 7e32e8b203665f02a0a426a3a22af0f61038bcb6
+          path: videotools
+          persist-credentials: false
       - uses: actions/checkout@v4
+        with:
+          path: videotools/HyperKut Studio
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: videotools/HyperKut Studio/frontend/package-lock.json
       - run: npm ci
       - run: npm test -- --run
       - run: npm run build
