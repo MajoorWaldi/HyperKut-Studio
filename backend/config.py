@@ -78,6 +78,8 @@ class Settings:
     max_workspace_bytes: int = 20 * 1024**3
     min_free_disk_bytes: int = 256 * 1024**2
     sfx_root: Path | None = None
+    jury_visitor_limit: int = 5
+    jury_total_limit: int = 15
 
     def __post_init__(self):
         if not 1 <= self.max_active_jobs <= 8:
@@ -93,7 +95,7 @@ class Settings:
             raise ValueError('Unknown storage backend')
         workspace = Path(_studio_env('WORKSPACE', ROOT / 'workspace'))
         access_mode = _studio_env('ACCESS_MODE', 'local')
-        if access_mode == 'jury' and (not _studio_env('WORKSPACE') or not _studio_env('OUTPUT_DIR')):
+        if access_mode in ('jury', 'jury_open') and (not _studio_env('WORKSPACE') or not _studio_env('OUTPUT_DIR')):
             raise ValueError('Jury access requires explicit dedicated WORKSPACE and OUTPUT_DIR')
         upload_mb = int(_studio_env('MAX_UPLOAD_MB', 1024))
         if not 1 <= upload_mb <= MAX_STUDIO_UPLOAD_BYTES // MIB:
@@ -124,7 +126,8 @@ class Settings:
                    access_username=_studio_env('ACCESS_USERNAME', ''), access_password=_studio_env('ACCESS_PASSWORD', ''),
                    max_workspace_bytes=workspace_mb * MIB,
                    min_free_disk_bytes=min_free_disk_mb * MIB,
-                   sfx_root=Path(_studio_env('SFX_ROOT')).resolve() if _studio_env('SFX_ROOT') else None)
+                   sfx_root=Path(_studio_env('SFX_ROOT')).resolve() if _studio_env('SFX_ROOT') else None,
+                   jury_visitor_limit=int(_studio_env('JURY_VISITOR_LIMIT', 5)), jury_total_limit=int(_studio_env('JURY_TOTAL_LIMIT', 15)))
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)

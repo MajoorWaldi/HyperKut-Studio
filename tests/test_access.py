@@ -75,3 +75,50 @@ def test_project_import_uses_the_workspace_body_limit(settings):
         oversized_for_json = {"Content-Length": str(17 * 1024**2)}
         assert client.post('/api/jobs', content=b'{}', headers=oversized_for_json).status_code == 413
         assert client.post('/api/projects/import', content=b'{}', headers=oversized_for_json).status_code == 422
+
+
+def open_jury(settings, visitor=2, total=3):
+    return replace(settings, access_mode="jury_open", jury_visitor_limit=visitor, jury_total_limit=total)
+
+
+def test_open_jury_needs_tls_but_no_password_and_closes_sensitive_routes(settings):
+    config = open_jury(settings)
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="http://testserver") as client:
+        assert client.get("/api/studio/status").status_code == 403
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        assert client.get("/api/studio/status").status_code == 200
+        for method, path in (("POST", "/api/studio/restart"), ("POST", "/api/projects/import"), ("POST", "/api/storage/cache/gc"),
+                             ("POST", "/api/jobs/abc/free"), ("DELETE", "/api/jobs/abc"), ("POST", "/api/presets"), ("DELETE", "/api/presets/abc")):
+            assert client.request(method, path).status_code == 403, path
+
+
+@pytest.mark.parametrize("changes", [{"allowed_hosts": ("*",)}, {"jury_visitor_limit": 0}, {"jury_visitor_limit": 5, "jury_total_limit": 4}])
+def test_open_jury_settings_fail_closed(settings, changes):
+    with pytest.raises(ValueError):
+        validate_access(replace(open_jury(settings), **changes))
+
+
+def test_open_jury_limits_generations_per_visitor_and_in_total(settings):
+    config = open_jury(settings)
+    request = {"mode": "text", "settings": {"prompt": "a test"}}
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        first = {"CF-Connecting-IP": "203.0.113.1"}
+        second = {"CF-Connecting-IP": "203.0.113.2"}
+        third = {"CF-Connecting-IP": "203.0.113.3"}
+        assert client.post("/api/jobs", json=request, headers=first).status_code == 200
+        assert client.post("/api/jobs", json=request, headers=first).status_code == 200
+        refused = client.post("/api/jobs", json=request, headers=first)
+        assert refused.status_code == 429 and "2 generations" in refused.json()["detail"]
+        assert client.post("/api/jobs", json=request, headers=second).status_code == 200
+        total = client.post("/api/jobs", json=request, headers=third)
+        assert total.status_code == 429 and "3 generations" in total.json()["detail"]
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        assert client.post("/api/jobs", json=request, headers=third).status_code == 429  # the count survives a restart
+    assert "203.0.113" not in (config.workspace / "jury-quota.json").read_text()
+
+
+def test_open_jury_refunds_a_rejected_generation(settings):
+    config = open_jury(settings, visitor=1, total=1)
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        assert client.post("/api/jobs", json={"mode": "bad"}).status_code == 422
+        assert client.post("/api/jobs", json={"mode": "text", "settings": {"prompt": "ok"}}).status_code == 200

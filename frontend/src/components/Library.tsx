@@ -42,7 +42,7 @@ export function presetChips(preset: Preset, lang: 'en' | 'fr' = 'en'): string[] 
 /** A picture or a short loop: a video plays while the pointer is over the card, a picture (a gif included) is always shown. */
 export function Media({ url, playing }: { url: string; playing: boolean }) {
   return isVideo(url)
-    ? (playing ? <video src={url} muted loop autoPlay playsInline /> : null)
+    ? (playing ? <video src={`${url}#t=0.1`} preload="metadata" muted loop autoPlay playsInline /> : null)
     : <img src={url} alt="" loading="lazy" />
 }
 
