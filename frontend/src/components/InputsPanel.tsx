@@ -3,6 +3,7 @@ import type { AudioChoice, Inputs, Mode, Settings } from '../types'
 import { Options } from './Options'
 import { ArtDirection } from './ArtDirection'
 import { CountBadge } from './CountBadge'
+import { Icon } from './Icon'
 import { Slot } from './Slot'
 
 export type SlotName = 'source' | 'refVideo' | 'music' | 'voice' | { ref: number }
@@ -16,6 +17,7 @@ interface Props {
   onClear: (slot: SlotName) => void
   onPreparing?: (value: boolean) => void
   onSettings: (changes: Partial<Settings>) => void
+  onReviewPlan?: () => void  // make the plan only, and approve it before any shot is generated
 }
 
 const AUDIO: AudioChoice[] = ['original', 'new', 'voice']
@@ -27,7 +29,7 @@ const RHYTHMS = [
   { id: 'phrases', en: 'Vocal phrases', fr: 'Phrases vocales', tip: 'rhythmPhrases' },
 ] as const
 
-export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, onSettings, onPreparing }: Props) {
+export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, onSettings, onPreparing, onReviewPlan }: Props) {
   const { t, lang } = useI18n()
   const fr = lang === 'fr'
   // Keep original slot indices when a reference is removed or restored from a project.
@@ -100,6 +102,7 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
         </section>
       )}
       <Options mode={mode} settings={settings} busy={busy} onSettings={onSettings} />
+      {onReviewPlan && <button type="button" className="secondary review-plan" title={t.tip.reviewPlan} disabled={busy} onClick={onReviewPlan}><Icon name="film" size={14} /> {t.reviewPlan}</button>}
     </aside>
   )
 }

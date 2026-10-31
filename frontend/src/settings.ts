@@ -25,7 +25,7 @@ export function restoreSettings(saved: Partial<Settings>): Settings {
 
 export const STYLES = ['viral_aura_farming', 'hype_beat_drop', 'micro_emotion_pov', 'slowed_dream', 'glow_up', 'outfit_change', 'beauty_premium', 'product_advertising', 'narrative_cinematic', 'music_video', 'kinetic_lyrics', 'punch_text_anime', 'editorial_layouts', 'camera_rec_hud', 'cutout_collage', 'lipsync_rap', 'brand_film_noir'] as const
 
-export type Option = 'effects' | 'text' | 'subject_mask' | 'redraw_text' | 'pose_only' | 'places' | 'casting' | 'sound_design' | 'sound_effects' | 'music_sync' | 'retry_bad_takes' | 'quality_check' | 'review_plan'
+export type Option = 'effects' | 'text' | 'subject_mask' | 'redraw_text' | 'pose_only' | 'places' | 'casting' | 'sound_design' | 'sound_effects' | 'music_sync' | 'retry_bad_takes' | 'quality_check'
 
 /** The on/off options each preset of quality sets: the quick settings. The options that only one mode has (mask, text redrawing, pose) are left as they are. */
 export const QUICK: Record<'light' | 'balanced' | 'full', Partial<Record<Option, boolean>>> = {
@@ -35,6 +35,6 @@ export const QUICK: Record<'light' | 'balanced' | 'full', Partial<Record<Option,
 }
 
 /** Every setting that the Options section holds: the ones it puts back to their default. */
-export const OPTION_KEYS = ['music_volume', 'motion_design', 'motion_direction', 'motion_title', 'motion_cues', 'efficient_sources', 'reference_style', 'sfx_library', 'effects', 'text', 'sub_cuts', 'subject_mask', 'redraw_text', 'pose_only', 'places', 'casting', 'camera', 'sound_design', 'sound_effects', 'music_sync', 'bpm', 'mood', 'music_start', 'seed', 'motion_layers', 'retry_bad_takes', 'quality_check', 'review_plan', 'style', 'cut_density', 'transition_intensity', 'cut_every', 'text_allowed', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] as const
+export const OPTION_KEYS = ['music_volume', 'motion_design', 'motion_direction', 'motion_title', 'motion_cues', 'efficient_sources', 'reference_style', 'sfx_library', 'effects', 'text', 'sub_cuts', 'subject_mask', 'redraw_text', 'pose_only', 'places', 'casting', 'camera', 'sound_design', 'sound_effects', 'music_sync', 'bpm', 'mood', 'music_start', 'seed', 'motion_layers', 'retry_bad_takes', 'quality_check', 'style', 'cut_density', 'transition_intensity', 'cut_every', 'text_allowed', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] as const
 
 export const optionDefaults = (): Partial<Settings> => Object.fromEntries(OPTION_KEYS.map(key => [key, DEFAULTS[key]]))

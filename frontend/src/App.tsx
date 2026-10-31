@@ -191,13 +191,13 @@ export default function App() {
     finally { submission.current = false; setSubmitting(false) }
   }
 
-  const generate = async () => {
+  const generate = async (reviewPlan = false) => {
     if (preparing || running || uploading > 0) return
     if (mode === 'music' && !inputs.music) { setActionError(t.noMusic); return }
     if (settings.audio === 'voice' && (!inputs.voice || !settings.dialogue.trim())) { setActionError(t.stepVoice + ': ' + t.dialogue); return }
     if (mode === 'remix' && !inputs.source) { setActionError(t.needSource); return }
     setMessage(null)
-    await submit(() => api.createJob(mode, settings, inputs))
+    await submit(() => api.createJob(mode, { ...settings, review_plan: reviewPlan }, inputs))
   }
 
   const regenerateShots = async (ids: string[], withEdits: boolean) => {
@@ -453,7 +453,7 @@ export default function App() {
             {job?.status === 'review' && planClosed === job.id && <button type="button" className="primary" onClick={() => setPlanClosed(null)}>{lang === 'fr' ? 'Valider le plan' : 'Review the plan'}</button>}
             {job && job.project_id && job.shots.length > 0 && (job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="primary" onClick={resume} disabled={submitting || preparing || uploading > 0}>{t.resume}</button>}
             <button type="button" className="primary stop-generation" title={t.tip.cancel} aria-label={lang==='fr' ? 'Annuler la génération' : 'Cancel generation'} aria-busy={cancelling} disabled={submitting || cancelling || !job || (job.status!=='running' && job.status!=='queued')} onClick={cancel}><Icon name="x" size={18} />{cancelling ? (lang==='fr' ? 'Arrêt…' : 'Stopping…') : 'Stop'}</button>
-            <button type="button" className="primary" title={t.tip.generate} onClick={generate} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
+            <button type="button" className="primary" title={t.tip.generate} onClick={() => generate()} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
           </div>
         </header>
         {health && !health.mock && readinessIssues.length > 0 && <section className="error-notice" role="status">
@@ -473,7 +473,7 @@ export default function App() {
           </button>
           <Toolbar mode={mode} settings={settings} busy={running || preparing} hasReferences={inputs.refs.some(Boolean) || !!inputs.refVideo} onSettings={changeSettings} />
           <div className="left">
-          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} />
+          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
           <Library open={library} onClose={() => setLibrary(false)} jobs={recent} sizes={sizes} presets={presets} mode={mode} currentJob={job?.id ?? null} onOpenJob={openFromLibrary} onDuplicateJob={duplicate} onPatchJob={patchJob}
             onDeleteJob={deleteJob} onFree={freeSpace} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
           </div>

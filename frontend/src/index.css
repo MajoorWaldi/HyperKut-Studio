@@ -899,3 +899,4 @@ html[data-w~="sm"] .transport-seek { min-width: 80px; }
 .plan-shot textarea:disabled { opacity: .5; }
 .plan-review footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .plan-review footer small { color: var(--muted); font-size: 11px; }
+.review-plan { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; }
