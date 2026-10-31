@@ -423,6 +423,7 @@ export default function App() {
   const position = job?.output_url && !job.manual_export && played.duration > 0 ? (played.time * planned) / played.duration : null
   const readinessIssues = [...(health?.missing_nodes ?? []), ...(health?.missing_models ?? [])]
   const status = !health ? t.gpuMissing : health.mock ? t.simulated : !health.comfyui || !health.proxy ? t.gpuMissing : !health.videotools || readinessIssues.length > 0 ? t.packMissing : t.gpuOk
+  const statusTip = !health ? t.tip.statusDown : health.mock ? t.tip.statusMock : !health.comfyui || !health.proxy ? t.tip.statusDown : !health.videotools || readinessIssues.length > 0 ? t.tip.statusPack : t.tip.status
   const ok = health !== null && (health.mock || (health.comfyui && health.proxy && health.videotools && health.output_dir !== null && !(health.missing_models?.length)))
   const advice = { remix: t.adviceRemix, text: t.adviceText, music: t.adviceMusic }[mode]
   const tips = { remix: t.tip.modeRemix, text: t.tip.modeText, music: t.tip.modeMusic }
@@ -437,7 +438,7 @@ export default function App() {
             {MODES.map(m => <button key={m} type="button" title={tips[m]} className={`tab ${mode === m ? 'active' : ''}`} onClick={() => chooseMode(m)} disabled={running || preparing}><span className="sym"><Icon name={MODE_ICON[m]} size={17} /></span> {label[m]}</button>)}
           </nav>
           <div className="head-right">
-            <button type="button" className="chip" title={t.tip.status} onClick={() => { refreshHealth().then(found => { if (!found) return; const issues = [...(found.load_errors ?? []), ...(!found.proxy ? ['Comfy API proxy unavailable'] : []), ...(!found.output_dir ? ['Set HYPERKUT_OUTPUT_DIR'] : [])]; if (issues.length) setActionError(issues.join(' · ')) }).catch(error => setActionError((error as Error).message)) }}><span className={`dot ${ok ? 'on' : ''}`} /> {status}</button>
+            <button type="button" className="chip" title={statusTip} onClick={() => { refreshHealth().then(found => { if (!found) return; const issues = [...(found.load_errors ?? []), ...(!found.proxy ? ['Comfy API proxy unavailable'] : []), ...(!found.output_dir ? ['Set HYPERKUT_OUTPUT_DIR'] : [])]; if (issues.length) setActionError(issues.join(' · ')) }).catch(error => setActionError((error as Error).message)) }}><span className={`dot ${ok ? 'on' : ''}`} /> {status}</button>
             <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? (lang === 'fr' ? 'Redémarrage…' : 'Restarting…') : 'Restart'}</button>
             <Dropdown label={t.language} title={t.tip.language} icon={<Icon name="globe" size={15} />} value={lang} choices={[{ value: 'en', label: 'English', short: 'EN' }, { value: 'fr', label: 'Français', short: 'FR' }]} onChange={i18n.setLang} />
             <Dropdown label={t.zoomPage} title={t.tip.zoomPage} icon={<Icon name="zoom" size={15} />} value={zoom} choices={ZOOMS.map(z => ({ value: z, label: `${Math.round(z * 100)}%` }))} onChange={setZoom} />
@@ -480,9 +481,9 @@ export default function App() {
             </div>
             <div className="bottom">
               <div className="bottom-tabs" role="tablist">
-                <button type="button" role="tab" aria-selected={bottom === 'shots'} className={bottom === 'shots' ? 'on' : ''} onClick={() => setBottom('shots')}><Icon name="film" size={14} /> {t.shotsTab}</button>
+                <button type="button" role="tab" aria-selected={bottom === 'shots'} className={bottom === 'shots' ? 'on' : ''} title={t.tip.tabShots} onClick={() => setBottom('shots')}><Icon name="film" size={14} /> {t.shotsTab}</button>
                 <button type="button" role="tab" aria-selected={bottom === 'style' && canEditAgain(job)} className={bottom === 'style' ? 'on' : ''} disabled={!canEditAgain(job)} title={t.tip.editStyle} onClick={() => setBottom('style')}><Icon name="scissors" size={14} /> {t.editStyle}</button>
-                <button type="button" role="tab" aria-selected={bottom === 'manual'} className={bottom === 'manual' ? 'on' : ''} disabled={!job?.project_id} onClick={() => setBottom('manual')}><Icon name="scissors" size={14} /> {t.manualTitle}</button>
+                <button type="button" role="tab" aria-selected={bottom === 'manual'} className={bottom === 'manual' ? 'on' : ''} disabled={!job?.project_id} title={t.tip.tabManual} onClick={() => setBottom('manual')}><Icon name="scissors" size={14} /> {t.manualTitle}</button>
               </div>
               {bottom === 'manual' && job?.project_id ? <ManualTimeline key={job.id} job={job} onState={watch} /> : bottom === 'style' && canEditAgain(job)
                 ? <EditStyle key={job?.id} job={job} onApply={style => { setBottom('shots'); reEdit(style) }} />

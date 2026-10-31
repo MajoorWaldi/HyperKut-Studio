@@ -3,7 +3,7 @@ import json
 import math
 import re
 
-from .snapshot_schema import motion_contract
+from .snapshot_schema import motion_contract, motion_library
 
 
 def validate_finishing(values, duration):
@@ -33,7 +33,10 @@ def validate_finishing(values, duration):
         if 'accent' in raw and not re.fullmatch(r'#[0-9a-fA-F]{6}',str(raw['accent'])):
             raise ValueError('Motion pack accent must use #RRGGBB')
     rows = raw.get('layers', []) if isinstance(raw, dict) else raw
-    if not isinstance(rows, list) or len(rows) > 120 or any(not isinstance(row, dict) for row in rows):
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise ValueError('Motion layers must contain at most 120 objects')
+    rows = expand_templates(rows)
+    if len(rows) > 120:
         raise ValueError('Motion layers must contain at most 120 objects')
     motion_contract().validate_motion_rows(rows)
     for row in rows:
@@ -52,13 +55,13 @@ def validate_finishing(values, duration):
             if key in row and (not isinstance(row[key],dict) or set(row[key])-{'x','y','scale','rotate'}):
                 raise ValueError('Motion transform keys: x, y, scale, rotate')
         kind = row.get('type', 'text')
-        if kind not in ('text', 'emoji', 'box', 'brackets', 'outline', 'effect', 'track', 'vector'):
+        if kind not in ('text', 'emoji', 'box', 'brackets', 'outline', 'effect', 'track', 'vector', 'lottie'):
             raise ValueError(f'Unknown motion layer type: {kind}')
         if kind == 'vector' and row.get('shape', 'line') not in ('line', 'dot', 'ring'):
             raise ValueError('Motion vector shape must be line, dot or ring')
         if kind in ('text', 'emoji') and not str(row.get('content', '')).strip():
             raise ValueError('Text and emoji layers need content')
-        if kind == 'effect' and row.get('kind', 'chromatic') not in ('chromatic', 'glitch', 'scanlines', 'grid', 'dots', 'grain', 'vignette', 'light_leak', 'pan', 'roll', 'handheld'):
+        if kind == 'effect' and row.get('kind', 'chromatic') not in ('chromatic', 'glitch', 'scanlines', 'grid', 'dots', 'grain', 'vignette', 'light_leak', 'pan', 'roll', 'handheld', 'flash', 'wipe', 'letterbox', 'frame', 'split_diagonal', 'split_stack', 'circle_mask', 'pip', 'zoom_punch', 'echo', 'tiles', 'particles'):
             raise ValueError('Unknown motion effect')
         if kind in ('box', 'brackets') and 'rect' in row and (not isinstance(row['rect'], list) or len(row['rect']) != 4):
             raise ValueError('Motion rect must contain x, y, width and height')
@@ -67,7 +70,8 @@ def validate_finishing(values, duration):
             'emoji': ('size', 'rotate', 'stroke', 'repeat', 'x', 'y'),
             'box': ('thickness', 'arm'), 'brackets': ('thickness', 'arm'),
             'outline': ('width', 'glow'),
-            'effect': ('amount', 'spacing', 'thickness', 'radius', 'flicker', 'speed'),
+            'effect': ('amount', 'spacing', 'thickness', 'radius', 'flicker', 'speed', 'count'),
+            'lottie': (),
             'track': ('size', 'radius'),
             'vector': ('radius','thickness'),
         }[kind]
@@ -124,12 +128,21 @@ def validate_finishing(values, duration):
         raise ValueError('Motion titles must not overlap')
 
 
+def expand_templates(rows):
+    """The rows with every {"template": ...} replaced by its layers (the templates of VideoTools)."""
+    try:
+        return motion_library().expand_rows(rows)
+    except Exception as error:
+        raise ValueError(str(error)) from error
+
+
 def needs_subject_mask(text):
     data=json.loads(text or '[]')
     rows=data.get('layers',[]) if isinstance(data,dict) else data
     if not isinstance(rows,list):
         raise ValueError('Motion layers must be a list')
-    return any(isinstance(row,dict) and (row.get('type')=='outline' or
+    rows=expand_templates(rows)
+    return any(isinstance(row,dict) and (row.get('type')=='outline' or row.get('behind') is True or row.get('kind')=='echo' or
         (row.get('type')=='effect' and row.get('target','frame')!='frame') or
         (row.get('type')=='track' and str(row.get('anchor','')).startswith('subject_'))) for row in rows)
 
@@ -139,6 +152,7 @@ def finishing_layers(manifest, shots, configured, text_on=True, motion_on=True):
     rows=raw.get('layers',[]) if isinstance(raw,dict) else raw
     if not isinstance(rows,list):
         raise ValueError('Motion layers must be a JSON list')
+    rows=expand_templates(rows)
     motion_contract().validate_motion_rows(rows)
     rows=list(rows)
     by_id={row['shot_id']:row for row in manifest.get('shots',[])}

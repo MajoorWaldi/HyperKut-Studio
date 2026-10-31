@@ -26,6 +26,11 @@ def motion_contract():
     return importlib.import_module(models.__package__ + '.motion_contract')
 
 
+def motion_library():
+    models, _, _ = core()
+    return importlib.import_module(models.__package__ + '.motion_library')
+
+
 def shot_list(manifest):
     models, _, errors = core()
     try:

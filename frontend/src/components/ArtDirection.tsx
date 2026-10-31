@@ -7,7 +7,7 @@ import type { DirectionField, Inputs, Mode, Settings } from '../types'
 interface Props { mode: Mode; inputs: Inputs; settings: Settings; busy: boolean; onSettings: (change: Partial<Settings>) => void; onPreparing?: (value: boolean) => void }
 
 export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPreparing }: Props) {
-  const { lang } = useI18n(); const fr = lang === 'fr'
+  const { t, lang } = useI18n(); const fr = lang === 'fr'
   const [open, setOpen] = useState(false)
   const [fields, setFields] = useState<DirectionField[]>([])
   const [draft, setDraft] = useState<string | null>(null); const [context, setContext] = useState('')
@@ -51,7 +51,7 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
     <summary>{fr ? 'Direction artistique' : 'Artistic direction'} <small>{fr ? 'facultatif' : 'optional'}</small></summary>
     <div className="creative-direction-body">
       <p>{fr ? 'Une phrase suffit. Précise seulement les choix qui comptent ; le reste reste automatique.' : 'A short phrase is enough. Choose only what matters; everything else stays automatic.'}</p>
-      <div className="creative-direction-fields">{fields.map(field => <label className="field" key={field.key}>
+      <div className="creative-direction-fields">{fields.map(field => <label className="field" key={field.key} title={{ look: t.tip.artLook, mood: t.tip.artMood, camera: t.tip.artCamera, light: t.tip.artLight }[field.key]}>
         <span>{fr ? field.fr : field.en}</span>
         <select value={settings.art_direction?.[field.key] ?? 'auto'} disabled={busy || working} onChange={event => onSettings({ art_direction: { ...settings.art_direction, [field.key]: event.target.value } })}>
           <option value="auto">{fr ? 'Automatique' : 'Automatic'}</option>

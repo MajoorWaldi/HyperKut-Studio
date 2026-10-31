@@ -23,7 +23,7 @@ export function restoreSettings(saved: Partial<Settings>): Settings {
   return { ...DEFAULTS, ...saved, music_edit_mode: saved.music_edit_mode ?? 'legacy', cut_density: saved.cut_density ?? 'auto', music_cut_variation: saved.music_cut_variation ?? .5 }
 }
 
-export const STYLES = ['viral_aura_farming', 'hype_beat_drop', 'micro_emotion_pov', 'slowed_dream', 'glow_up', 'outfit_change', 'beauty_premium', 'product_advertising', 'narrative_cinematic', 'music_video'] as const
+export const STYLES = ['viral_aura_farming', 'hype_beat_drop', 'micro_emotion_pov', 'slowed_dream', 'glow_up', 'outfit_change', 'beauty_premium', 'product_advertising', 'narrative_cinematic', 'music_video', 'kinetic_lyrics', 'punch_text_anime', 'editorial_layouts', 'camera_rec_hud', 'cutout_collage', 'lipsync_rap', 'brand_film_noir'] as const
 
 export type Option = 'effects' | 'text' | 'subject_mask' | 'redraw_text' | 'pose_only' | 'places' | 'casting' | 'sound_design' | 'sound_effects' | 'music_sync' | 'retry_bad_takes' | 'quality_check'
 

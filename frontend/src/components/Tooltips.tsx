@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 interface Tip { text: string; x: number; y: number; below: boolean }
 
 /** What is already chosen or already there needs no explanation: the pressed, selected and active buttons, and an upload slot that holds a file. */
-const settled = (element: Element) => element.matches('[aria-pressed="true"], [aria-selected="true"], [aria-current], .selected, .active, .on') || (element.matches('.upload') && element.querySelector('img, video, .file-name') !== null)
+const settled = (element: Element) => element.matches('[aria-pressed="true"], [aria-selected="true"], [aria-current], .selected, .active, .on:not(.chip-toggle)') || (element.matches('.upload') && element.querySelector('img, video, .file-name') !== null)
 
 /** Replaces the browser tooltips: on hover or focus the `title` of the element is taken (so the native one never shows) and drawn in the style of the app; it is given back on leave. */
 export function Tooltips() {
