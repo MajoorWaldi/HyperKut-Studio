@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
-          ref: 7e32e8b203665f02a0a426a3a22af0f61038bcb6
+          ref: cdb91317bf0fb4d4379c2f73a191633eaef94f67
           path: videotools
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -37,6 +37,7 @@ jobs:
         run: |
           git ls-files --error-unmatch backend/snapshot_schema.py backend/remote_graph.py backend/artifact_transfer.py
           python -c "import backend.server, backend.unified_motion, backend.remote_graph"
+          python -c "from backend.snapshot_schema import motion_contract, motion_library; motion_contract().validate_motion_rows(motion_library().expand_rows([{'template': 'end_card', 'start': 0, 'end': 2, 'title': 'CI'}]))"
       - run: python -m pytest -q
 
   frontend:
@@ -49,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
-          ref: 7e32e8b203665f02a0a426a3a22af0f61038bcb6
+          ref: cdb91317bf0fb4d4379c2f73a191633eaef94f67
           path: videotools
           persist-credentials: false
       - uses: actions/checkout@v4

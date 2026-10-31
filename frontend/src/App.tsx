@@ -4,6 +4,7 @@ import * as api from './api'
 import { Dropdown } from './components/Dropdown'
 import { Icon, type IconName } from './components/Icon'
 import { CountBadge } from './components/CountBadge'
+import { PlanReview } from './components/PlanReview'
 import { canEditAgain, EditStyle, styleCounts } from './components/EditStyle'
 import { Examples } from './components/Examples'
 import { InputsPanel, type SlotName } from './components/InputsPanel'
@@ -382,6 +383,12 @@ export default function App() {
     finally { setCancelling(false) }
   }
 
+  const [planClosed, setPlanClosed] = useState<string | null>(null)  // the job whose plan window was closed to decide later
+  const approve = async (prompts: Record<string, string>) => {
+    if (!job) return
+    await submit(() => api.approvePlan(job.id, prompts))
+  }
+
   const resume = async () => {
     if (!job) return
     await submit(() => api.resumeJob(job.id))
@@ -443,6 +450,7 @@ export default function App() {
             <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? (lang === 'fr' ? 'Redémarrage…' : 'Restarting…') : 'Restart'}</button>
             <Dropdown label={t.language} title={t.tip.language} icon={<Icon name="globe" size={15} />} value={lang} choices={[{ value: 'en', label: 'English', short: 'EN' }, { value: 'fr', label: 'Français', short: 'FR' }]} onChange={i18n.setLang} />
             <Dropdown label={t.zoomPage} title={t.tip.zoomPage} icon={<Icon name="zoom" size={15} />} value={zoom} choices={ZOOMS.map(z => ({ value: z, label: `${Math.round(z * 100)}%` }))} onChange={setZoom} />
+            {job?.status === 'review' && planClosed === job.id && <button type="button" className="primary" onClick={() => setPlanClosed(null)}>{lang === 'fr' ? 'Valider le plan' : 'Review the plan'}</button>}
             {job && job.project_id && job.shots.length > 0 && (job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="primary" onClick={resume} disabled={submitting || preparing || uploading > 0}>{t.resume}</button>}
             <button type="button" className="primary stop-generation" title={t.tip.cancel} aria-label={lang==='fr' ? 'Annuler la génération' : 'Cancel generation'} aria-busy={cancelling} disabled={submitting || cancelling || !job || (job.status!=='running' && job.status!=='queued')} onClick={cancel}><Icon name="x" size={18} />{cancelling ? (lang==='fr' ? 'Arrêt…' : 'Stopping…') : 'Stop'}</button>
             <button type="button" className="primary" title={t.tip.generate} onClick={generate} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
@@ -492,6 +500,7 @@ export default function App() {
             </div>
           </main>
         </div>
+        {job?.status === 'review' && planClosed !== job.id && <PlanReview key={job.id} job={job} busy={submitting || cancelling} onApprove={approve} onRefuse={cancel} onClose={() => setPlanClosed(job.id)} />}
         <Tooltips />
         <div className="toast-stack" aria-label={lang === 'fr' ? 'Notifications du Studio' : 'Studio notifications'}>
           {job?.status === 'succeeded' && fallbackWarnings.length > 0 && dismissedFallback !== fallbackKey && <Toast tone="warning" lang={lang} onDismiss={() => setDismissedFallback(fallbackKey)}>{fallbackWarnings.map(w => fallbackMessages[w] ?? (lang === 'fr' ? 'Vidéo prête avec une finition facultative désactivée.' : 'Video ready with optional finishing skipped.')).join(' ')}</Toast>}

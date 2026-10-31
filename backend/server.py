@@ -31,7 +31,7 @@ from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
 from .capacity import CapacityError, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
 from .jobs import JobStore
-from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PresetIn, Regenerate, Shot, ShotPatch, Take, TimelineInfo, TimelineShot, TrimTake, Upload
+from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
@@ -242,12 +242,17 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         try:
             await acquire_upload_quota(quota_lock)
             with path.open('wb') as stream:
+                room = None  # the storage is scanned for the first chunk only; the next ones count down from what was left
                 while chunk := await file.read(1024*1024):
                     size += len(chunk)
                     if size > settings.max_upload_bytes:
                         raise HTTPException(413,'The upload exceeds the configured size limit')
                     try:
-                        ensure_capacity(settings, store, len(chunk))
+                        if room is None:
+                            room = ensure_capacity(settings, store, len(chunk))
+                        elif len(chunk) > room:
+                            raise CapacityError('The configured workspace storage budget would be exceeded. Remove unused uploads or projects, or increase MAX_WORKSPACE_MB.')
+                        room -= len(chunk)
                     except CapacityError as error:
                         raise HTTPException(507, str(error)) from error
                     stream.write(chunk)
@@ -640,15 +645,27 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if job.task and not job.task.done():
             job.task.cancel()
             await asyncio.gather(job.task, return_exceptions=True)
-        if job.state.status in ('queued', 'running'):
+        if job.state.status in ('queued', 'running', 'review'):
             job.update(status='cancelled')
         return job.state
+
+    @app.post('/api/jobs/{job_id}/approve', response_model=JobState)
+    async def approve_plan(job_id: str, body: PlanApproval):
+        """Generate the shots of a plan that waited for approval, with the prompts the review changed."""
+        job = _job(job_id)
+        if job.state.status != 'review':
+            raise HTTPException(409, 'This job has no plan waiting for approval')
+        try:
+            await asyncio.to_thread(runner.approve_prompts, job, body.prompts)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        return await resume_job(job_id)
 
     @app.post('/api/jobs/{job_id}/resume', response_model=JobState)
     async def resume_job(job_id: str):
         job = _job(job_id)
         await recover_pending(job)
-        if job.state.status not in ('failed', 'cancelled'):
+        if job.state.status not in ('failed', 'cancelled', 'review'):
             raise HTTPException(409, 'Only a failed or cancelled project can be resumed')
         if job.pending_handle or job.submission_key or job.pending_result:
             raise HTTPException(503, 'A previous GPU result still needs recovery before this project can resume')
@@ -1045,10 +1062,11 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             frames = [p.get("frames", 0) for p in pieces]
             scale = shot.get("target_duration_seconds", 0) * fps / sum(frames) if sum(frames) else 1.0
             cuts = [round(sum(frames[:i]) * scale / fps, 3) for i in range(1, len(frames))]
-            effects = {"zoom" for p in pieces if any(z != 1 for z in p.get("zoom", [1]))} | {k for p in pieces for k in ("speed", "speed_ramp", "flip", "look") if k in p}
-            effects |= {f"transition:{p['transition']['type']}" for p in pieces if "transition" in p}
+            parts = [fx, *pieces]  # what the shot has as a whole, and what each of its cuts has
+            effects = {"zoom" for p in parts if any(z != 1 for z in p.get("zoom", [1]))} | {k for p in parts for k in ("speed", "speed_ramp", "flip", "look") if k in p}
+            effects |= {f"transition:{p['transition']['type']}" for p in parts if p.get("transition")}
             effects |= {"text"} if fx.get("text") else set()
-            shots.append(TimelineShot(id=shot["shot_id"], cuts=cuts, effects=sorted(effects)))
+            shots.append(TimelineShot(id=shot["shot_id"], cuts=cuts, effects=sorted(effects), text=(fx["text"].get("content", "") if isinstance(fx.get("text"), dict) else str(fx.get("text") or ""))))
         return TimelineInfo(bpm=tempo, shots=shots, beat_times=manifest.get('detection',{}).get('beat_times',[]))
 
     waveforms: dict[tuple[str, int, int], list[float]] = {}

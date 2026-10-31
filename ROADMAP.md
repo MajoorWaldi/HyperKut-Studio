@@ -38,7 +38,7 @@ The entire Studio is **beta**. Finishing is **experimental** and disabled by def
 - Dedicated talking-character/lip-sync evaluation, translation and voice-preserving dubbing.
 - Data-driven charts, numeric counters and infographic layouts.
 - Semantic highlights from longer videos and subject-aware reframing of finished edits.
-- Additional selectable video backends, integrated 4K upscaling and project ZIP import.
+- Additional selectable video backends and integrated 4K upscaling.
 - Product/brand URL intake and optional conversational orchestration.
 
 ## Operating limits

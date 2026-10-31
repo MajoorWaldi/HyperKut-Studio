@@ -57,7 +57,12 @@ class JuryQuota:
 
     @staticmethod
     def visitor(scope, headers) -> str:
-        address = headers.get('cf-connecting-ip') or (scope.get('client') or ('unknown', 0))[0]
+        peer = (scope.get('client') or ('unknown', 0))[0]
+        try:
+            behind_tunnel = ipaddress.ip_address(peer).is_loopback  # the tunnel runs on this machine; from anywhere else the header is the caller's own claim
+        except ValueError:
+            behind_tunnel = False
+        address = (headers.get('cf-connecting-ip') if behind_tunnel else None) or peer
         return hashlib.sha256(address.encode()).hexdigest()[:16]
 
     async def reserve(self, visitor: str) -> str | None:

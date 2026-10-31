@@ -2,6 +2,7 @@
 
 ## Current beta
 
+- CI uses a matching VideoTools runtime with motion templates and checks lazy-loaded motion modules before running backend tests.
 - Remix, Text and Music creation through local ComfyUI and the Comfy SDK.
 - Project library, presets, five visual references and English/French interface.
 - Per-shot prompts, regeneration, retained takes, source-window selection and export.

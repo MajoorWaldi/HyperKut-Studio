@@ -1,4 +1,5 @@
 import asyncio
+from comfy_sdk import ComfyError
 import io
 import json
 import subprocess
@@ -140,3 +141,17 @@ async def test_recovery_cancels_only_the_persisted_sdk_job_and_clears_it(tmp_pat
     await ComfyRunner(config, {}, client_factory=lambda:client).recover(job)
     assert calls == ['own-sdk-id','cancelled']
     assert JobStore(config.workspace/'state').get(job.id).pending_handle is None
+
+
+async def test_a_request_the_proxy_no_longer_knows_is_released_instead_of_blocking_the_studio(tmp_path):
+    config = settings(tmp_path)
+    store = JobStore(config.workspace/'state'); job = store.create(JobRequest(mode='text'))
+    job.update(status='failed')
+    job.record_handle('gone-after-proxy-restart')
+    job.pending_result = {'stage': 'shots'}
+    async def get(id):
+        raise ComfyError('No job gone-after-proxy-restart.', http_status=404)
+    client = SimpleNamespace(jobs=SimpleNamespace(get=get), aclose=lambda:asyncio.sleep(0))
+    await ComfyRunner(config, {}, client_factory=lambda:client).recover(job)
+    saved = JobStore(config.workspace/'state').get(job.id)
+    assert saved.pending_handle is None and saved.pending_result is None and saved.state.status == 'cancelled'

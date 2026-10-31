@@ -18,7 +18,7 @@ from .jobs import Job
 from .models import EditStyle, Shot
 from .templates import Template, TemplateError, applied_style, load_templates, reachable_graph
 from .direction import resolved_brief, use_prepared_brief, normalize_media_roles, apply_plan_contract
-from .creative_controls import level as _level, direction as creative_direction
+from .creative_controls import level as _level, direction as creative_direction, strategy_values
 from .export_qc import export_qc
 from .media import media_info, validate_video
 from .storage import SharedProjectRepository
@@ -67,6 +67,8 @@ def _is_optional_music_failure(error: Exception) -> bool:
 
 class Runner(Protocol):
     async def run(self, job: Job) -> None: ...
+
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None: ...
 
     async def regenerate(self, job: Job, shots: list[str], prompts: dict[str, str]) -> None: ...
 
@@ -153,7 +155,7 @@ class ComfyRunner:
                   "pose_strength": round(0.4 + 0.6 * s.structure / 100, 2),  # structure: how firmly the pose of the template holds the positions of the shot
                   "reference_fidelity": _level(s.structure, ("loose", "balanced", "strict")), "creative_freedom": _level(s.creativity, ("faithful", "balanced", "free")),
                   "style": s.style, "cut_density": s.cut_density, "transition_intensity": s.transition_intensity, "narrative_coherence": "auto", "cut_every": s.cut_every, "music_shots": 0,  # candidate musical grid; the planner chooses takes from the brief
-                   "text_allowed": s.text_allowed}
+                   "text_allowed": s.text_allowed, **strategy_values(s)}
         files = {"source": r.source, "music": r.music, "ref_video": r.ref_video, "voice": r.voice, **{f"ref{i + 1}": u for i, u in enumerate(r.refs)}}
         files['energy_reference']=r.ref_video if s.reference_style=='montage' else None
         values.update(music_mood=s.mood,music_bpm=s.bpm,music_seed=s.seed,
@@ -385,7 +387,7 @@ class ComfyRunner:
             return
         info=json.loads(index.read_text(encoding='utf-8'))
         previous={shot.id:shot.model_dump() for shot in job.state.shots}
-        shots=[Shot(**{**previous.get(row['id'],{}),**row,'thumb':f'/api/jobs/{job.id}/shots/{row["id"]}/thumb'}) for row in info['shots']]
+        shots=[Shot(**{**previous.get(row['id'],{}),**{key:value for key,value in row.items() if key!='takes'},'thumb':f'/api/jobs/{job.id}/shots/{row["id"]}/thumb'}) for row in info['shots']]
         seconds=sum((s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots)/24
         retry=job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
         job.update(project_id=info['project_id'],shots=shots,generation_budget={
@@ -439,8 +441,17 @@ class ComfyRunner:
                 if len(found) != 1:
                     raise ComfyError('Submission outcome is uncertain. No automatic resubmission; check the local proxy job history.')
                 job.record_handle(found[0])
-            handle = await client.jobs.get(job.pending_handle)
-            await handle.refresh()
+            try:
+                handle = await client.jobs.get(job.pending_handle)
+                await handle.refresh()
+            except ComfyError as error:
+                if getattr(error, 'http_status', None) != 404:
+                    raise
+                # The proxy was restarted and no longer knows this request: there is no result to fetch, and nothing to keep waiting for.
+                job.pending_result = None
+                job.record_handle(None)
+                job.update(status='cancelled', error='The GPU request is no longer known to the proxy (it was restarted). Saved plan and takes are kept; resume explicitly.')
+                return
             if self.remote is not None and job.pending_remote:
                 if handle.status == 'succeeded':
                     await self._receive_remote(client,job,handle)
@@ -609,7 +620,7 @@ class ComfyRunner:
 
     def _export_qc(self, job: Job, video: Path) -> list[str]:
         r, s = job.request, job.request.settings
-        reference = self.uploads.get(r.ref_video) if r.mode == 'remix' and r.ref_video else None
+        reference = self.uploads.get(r.source) if r.mode == 'remix' and r.source and s.remix_strategy != 'creative' and s.remix_strategy != 'transfer' else None  # the edit being remixed, not the optional style reference; only a preserved edit has to keep its cuts
         try:
             duration = media_info(reference)['video_duration'] if reference else s.duration if r.mode != 'remix' else None
             return export_qc(video, duration=duration, ratio=s.ratio if r.mode != 'remix' else None, audio=s.audio != 'original', reference=reference)
@@ -705,6 +716,9 @@ class ComfyRunner:
                 seconds = sum(frames)/24
                 retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
                 job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
+                if job.request.settings.review_plan:
+                    job.update(status='review', stage='analyze')
+                    return
             remaining = [shot for shot in shots if not shot.done]
             for i, shot in enumerate(remaining):
                 await self._run(client, job, templates['shot' if shot.render_source=='generated' else 'local'], {**values, 'shot_id': shot.id, 'shot_start':shot.start,'shot_duration':shot.duration,'project_id':info['project_id'],'job_name':f'{job.id}_shot'}, 'shots', i/len(remaining),1/len(remaining))
@@ -817,6 +831,16 @@ class ComfyRunner:
             shot['plan'] = {**previous[0], 'prompt': text}
         return previous
 
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None:
+        """Write the prompts changed while the plan was reviewed into the project, then show them in the state."""
+        known = {s.id: s for s in job.state.shots}
+        if unknown := [shot for shot in prompts if shot not in known]:
+            raise ValueError(f'Unknown shots: {unknown}')
+        changed = {shot: text for shot, text in prompts.items() if text != known[shot].prompt}
+        for shot, text in changed.items():
+            self._set_prompt(job.state.project_id, shot, text)
+        job.update(shots=[s.model_copy(update={'prompt': changed[s.id]}) if s.id in changed else s for s in job.state.shots])
+
     def _restore_prompt(self, project_id: str, shot_id: str, text: str, previous) -> None:
         with SharedProjectRepository(self.projects()).edit(project_id) as manifest:
             shot = next(s for s in manifest['shots'] if s['shot_id'] == shot_id)
@@ -830,24 +854,40 @@ class MockRunner:
     def __init__(self, pace: float = 0.4, shots: int = 7):
         self.pace, self.count = pace, shots
 
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None:
+        if unknown := [shot for shot in prompts if shot not in {s.id for s in job.state.shots}]:
+            raise ValueError(f'Unknown shots: {unknown}')
+        job.update(shots=[s.model_copy(update={'prompt': prompts[s.id]}) if s.id in prompts else s for s in job.state.shots])
+
     async def run(self, job: Job) -> None:
         try:
+            if job.state.shots and job.state.status == 'running':  # the plan was approved
+                await self._generate(job)
+                return
             job.update(status="running", stage="analyze", project_id="p_mock")
             for step in range(5):
                 await asyncio.sleep(self.pace)
                 job.update(progress=_overall("analyze", (step + 1) / 5), node="plan", step=step + 1, steps=5)
             length = job.request.settings.duration / self.count
             shots = [Shot(id=f"SHOT_{i + 1:03d}", start=i * length, duration=length, prompt=f"Shot {i + 1}") for i in range(self.count)]
-            job.update(shots=shots, stage="shots")
-            for i in range(self.count):
-                await asyncio.sleep(self.pace)
-                job.update(progress=_overall("shots", (i + 1) / self.count), shots=[s.model_copy(update={"done": True, "takes": 1}) if s.id == shots[i].id else s for s in job.state.shots])
-            job.update(stage="edit")
-            await asyncio.sleep(self.pace)
-            job.update(status="succeeded", stage="done", progress=1.0)
+            job.update(shots=shots, generation_budget={'seconds': round(job.request.settings.duration, 2), 'with_retries': round(job.request.settings.duration, 2), 'final_seconds': round(job.request.settings.duration, 2)})
+            if job.request.settings.review_plan:
+                job.update(status='review')
+                return
+            await self._generate(job)
         except asyncio.CancelledError:
             job.update(status="cancelled")
             raise
+
+    async def _generate(self, job: Job) -> None:
+        job.update(status='running', stage='shots')
+        shots = job.state.shots
+        for i in range(len(shots)):
+            await asyncio.sleep(self.pace)
+            job.update(progress=_overall("shots", (i + 1) / len(shots)), shots=[s.model_copy(update={"done": True, "takes": 1}) if s.id == shots[i].id else s for s in job.state.shots])
+        job.update(stage="edit")
+        await asyncio.sleep(self.pace)
+        job.update(status="succeeded", stage="done", progress=1.0)
 
     async def regenerate(self, job: Job, shots: list[str], prompts: dict[str, str]) -> None:
         try:

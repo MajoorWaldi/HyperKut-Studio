@@ -73,20 +73,21 @@ def _active_reservations(settings, store) -> int:
     return total
 
 
-def ensure_capacity(settings, store, extra_bytes: int) -> None:
+def ensure_capacity(settings, store, extra_bytes: int) -> int:
+    """Raises CapacityError when extra_bytes do not fit; returns the bytes that still fit, so a stream can count down instead of scanning again."""
     if extra_bytes < 0:
         raise ValueError('Capacity reservation must not be negative')
     roots = _storage_roots(settings)
     used = sum(_tree_bytes(root) for root in roots)
     reserved = _active_reservations(settings, store)
-    if used + reserved + extra_bytes > settings.max_workspace_bytes:
+    room = settings.max_workspace_bytes - used - reserved
+    if extra_bytes > room:
         raise CapacityError(
             'The configured workspace storage budget would be exceeded. '
             'Remove unused uploads or projects, or increase MAX_WORKSPACE_MB.'
         )
 
     checked_devices = set()
-    required_free = settings.min_free_disk_bytes + extra_bytes
     for root in roots:
         probe = root
         while not probe.exists():
@@ -95,11 +96,14 @@ def ensure_capacity(settings, store, extra_bytes: int) -> None:
         if device in checked_devices:
             continue
         checked_devices.add(device)
-        if shutil.disk_usage(probe).free < required_free:
+        free = shutil.disk_usage(probe).free - settings.min_free_disk_bytes
+        if free < extra_bytes:
             raise CapacityError(
                 'There is not enough free disk space for this operation. '
                 'Remove temporary files or increase the available disk space.'
             )
+        room = min(room, free)
+    return room
 
 
 def write_reservation(settings, job_id: str, amount: int) -> None:

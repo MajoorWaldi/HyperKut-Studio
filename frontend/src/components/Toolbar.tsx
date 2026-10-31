@@ -26,9 +26,16 @@ function SecondsField({ value, disabled, label, onCommit }: { value: number; dis
     onChange={e => setText(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit() }} />
 }
 
+/** What a remix holds fixed. Empty leaves the pose slider alone. */
+const STRATEGY_CHOICES = [['', 'Sliders only', 'Curseurs seuls'], ['preserve', 'Preserve the edit', 'Préserver le montage'], ['creative', 'Creative remix', 'Remix créatif'], ['transfer', 'Motion transfer', 'Transfert de mouvement']] as const
+const STRATEGY_TIPS = {
+  en: { sliders: 'The pose slider alone decides how close the remix stays.', preserve: 'Same cuts and durations as the source; only the look changes. A different cut structure is reported.', creative: 'The source is an inspiration: staging and cuts may change.', transfer: 'The motion of the source carries another subject.' },
+  fr: { sliders: 'Le curseur de pose décide seul de la proximité du remix.', preserve: 'Mêmes coupes et mêmes durées que la source ; seul le style change. Une structure différente est signalée.', creative: 'La source est une inspiration : mise en scène et coupes peuvent changer.', transfer: 'Le mouvement de la source porte un autre sujet.' },
+} as const
+
 export function Toolbar({ mode, settings, busy, hasReferences = true, onSettings }: Props) {
   const { t, lang } = useI18n()
-  const copy = controlCopy(lang === 'fr'), fidelityId = useId(), freedomId = useId(), scopeId = useId()
+  const copy = controlCopy(lang === 'fr'), fidelityId = useId(), freedomId = useId(), scopeId = useId(), strategyId = useId()
   const poseLabel = poseStrength(settings.structure).toFixed(2).replace('.', lang === 'fr' ? ',' : '.')
   const qualityName = { draft: t.draft, standard: t.standard, max: t.max, xhigh: t.xhigh }
   return (
@@ -45,10 +52,16 @@ export function Toolbar({ mode, settings, busy, hasReferences = true, onSettings
       )}
       <div className="tool" title={t.tip.quality}><label>{t.quality}</label>
         <div className="toggle-row">{QUALITIES.map(q => <button key={q} type="button" disabled={busy} title={t.qualityHint[q]} className={`mini-toggle ${settings.quality === q ? 'selected' : ''}`} onClick={() => onSettings({ quality: q })}>{qualityName[q]}</button>)}</div></div>
-      {mode === 'remix' ? <div className="tool range" title={copy.poseHint}>
+      {mode === 'remix' ? <><div className="tool range" title={copy.poseHint}>
         <label htmlFor={fidelityId}>{copy.pose} · {poseLabel}</label>
         <input id={fidelityId} type="range" min={0.4} max={1} step={0.01} value={poseStrength(settings.structure)} aria-describedby={scopeId} aria-valuetext={`${copy.pose}: ${poseLabel} (${lang==='fr'?'0,40–1,00':'0.40–1.00'})`} disabled={busy} onChange={e => onSettings({structure:Math.max(0,Math.min(100,Math.round((Number(e.target.value)-.4)/.6*100)))})}/>
-      </div> : <>
+      </div>
+        <div className="tool creative-control" title={STRATEGY_TIPS[lang === 'fr' ? 'fr' : 'en'][settings.remix_strategy || 'sliders']}>
+          <label htmlFor={strategyId}>{lang === 'fr' ? 'Stratégie' : 'Strategy'}</label>
+          <select id={strategyId} value={settings.remix_strategy} disabled={busy} onChange={e => onSettings({ remix_strategy: e.target.value as Settings['remix_strategy'] })}>
+            {STRATEGY_CHOICES.map(([value, en, fr]) => <option key={value} value={value}>{lang === 'fr' ? fr : en}</option>)}
+          </select>
+        </div></> : <>
         <div className="tool creative-control" title={hasReferences ? copy.fidelityHint : copy.noRefs}>
           <label htmlFor={fidelityId}>{copy.fidelity}</label>
           <select id={fidelityId} value={levelValue(settings.structure)} disabled={busy || !hasReferences} aria-describedby={scopeId} onChange={e=>onSettings({structure:Number(e.target.value)})}>{[0,50,85].map((value,i)=><option key={value} value={value}>{copy.fidelityLevels[i]}</option>)}</select>

@@ -121,7 +121,7 @@ export function Library(props: Props) {
     .filter(j => (filter === 'all' || j.mode === filter) && (j.title || j.id).toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.created_at - a.created_at), [jobs, filter, search])
   const ordered = useMemo(() => [...presets].sort((a, b) => Number(b.mode === mode) - Number(a.mode === mode)), [presets, mode])
-  const statusName = { queued: t.statusQueued, running: t.statusRunning, succeeded: t.statusDone, failed: t.statusFailed, cancelled: t.statusCancelled }
+  const statusName = { queued: t.statusQueued, running: t.statusRunning, review: t.statusReview, succeeded: t.statusDone, failed: t.statusFailed, cancelled: t.statusCancelled }
   const modeName = { remix: t.modeRemix, text: t.modeText, music: t.modeMusic }
   const date = (seconds: number) => new Date(seconds * 1000).toLocaleString(lang, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 

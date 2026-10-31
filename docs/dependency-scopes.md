@@ -10,7 +10,7 @@ ComfyUI uses its own environment for PyTorch, node packs and model loaders. Do n
 
 React/React DOM are bundled by the TypeScript/Vite build. Node.js 22+ and npm build the frontend; an existing `frontend/dist` is served by FastAPI without a separate Node web server. `requirements-dev.txt` adds backend test tools. `requirements-tested.txt` and `constraints-release.txt` record a particular dependency resolution, not a universal engine environment.
 
-Studio's tests also use VideoTools' shared core schema and timeline editor. Keep the Studio checkout directly inside a VideoTools checkout (for example `videotools/HyperKut Studio`); run Python tests from the Studio root and frontend tests from its `frontend` folder. Both CI jobs reproduce this layout with VideoTools pinned to commit `7e32e8b203665f02a0a426a3a22af0f61038bcb6`. Update both pins together when qualifying a newer shared runtime.
+Studio's tests also use VideoTools' shared core schema, timeline editor and motion templates. Keep the Studio checkout directly inside a VideoTools checkout (for example `videotools/HyperKut Studio`); run Python tests from the Studio root and frontend tests from its `frontend` folder. Both CI jobs reproduce this layout with VideoTools pinned to commit `cdb91317bf0fb4d4379c2f73a191633eaef94f67`, which includes `core/motion_library.py`. Update both pins together when qualifying a newer shared runtime. The backend import check expands and validates a motion template to exercise the lazy-loaded shared modules before running the suite.
 
 ## Generation
 

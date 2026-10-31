@@ -5,7 +5,7 @@ from .direction import validate_direction
 
 Mode = Literal["remix", "text", "music"]
 Stage = Literal["analyze", "shots", "edit", "done"]
-Status = Literal["queued", "running", "succeeded", "failed", "cancelled"]
+Status = Literal["queued", "running", "review", "succeeded", "failed", "cancelled"]  # review: the plan waits for approval, no shot is generated yet
 
 
 class Upload(BaseModel):
@@ -21,6 +21,7 @@ class Settings(BaseModel):
     prompt: str = ""
     art_direction: dict[str, str] = Field(default_factory=dict)
     approved_brief: str = Field('', max_length=5000)
+    review_plan: bool = False  # stop after the plan: the shots, their prompts and the GPU budget are approved before any shot is generated
     approved_brief_context: str = ''
 
     @field_validator('art_direction')
@@ -32,6 +33,7 @@ class Settings(BaseModel):
     ratio: Literal["9:16", "16:9", "1:1", "3:4"] = "9:16"
     quality: Literal["draft", "standard", "max", "xhigh"] = "draft"
     structure: int = Field(85, ge=0, le=100)
+    remix_strategy: Literal['', 'preserve', 'creative', 'transfer'] = ''  # Remix: what is held fixed; empty keeps the sliders alone
     creativity: int = Field(50, ge=0, le=100)
     seed: int = 42
     audio: Literal["original", "new", "voice"] = "original"
@@ -158,6 +160,7 @@ class TimelineShot(BaseModel):
     id: str
     cuts: list[float] = []  # the cuts inside the shot, in seconds from its start
     effects: list[str] = []  # what the plan does to it: zoom, speed, flip, look, text, the transitions
+    text: str = ''  # the text the plan writes on it
 
 
 class TimelineInfo(BaseModel):
@@ -218,6 +221,10 @@ class TrimTake(BaseModel):
 
 class ActiveTake(BaseModel):
     take: str
+
+
+class PlanApproval(BaseModel):
+    prompts: dict[str, str] = {}
 
 
 class Regenerate(BaseModel):

@@ -3,7 +3,9 @@ import subprocess
 
 import pytest
 
-from backend.export_qc import cut_count, export_qc
+from backend.creative_controls import strategy_values
+from backend.export_qc import cut_count, cuts_kept, export_qc
+from backend.models import Settings
 
 pytestmark = pytest.mark.skipif(not shutil.which('ffmpeg'), reason='ffmpeg is required')
 
@@ -41,9 +43,36 @@ def test_remix_cuts_are_compared_with_the_reference(tmp_path):
     assert export_qc(reference, duration=None, ratio=None, audio=True, reference=reference) == []
 
 
+def test_same_number_of_cuts_at_other_moments_is_reported(tmp_path):
+    reference = make(tmp_path / 'ref.mp4', '90x160', 8, colors=('red', 'blue', 'green', 'white'))
+    shifted = tmp_path / 'shifted.mp4'
+    command = ['ffmpeg', '-y', '-v', 'error']
+    for color, seconds in (('red', 1), ('blue', 1), ('green', 1), ('white', 5)):
+        command += ['-f', 'lavfi', '-i', f'color=c={color}:s=90x160:d={seconds}:r=24']
+    command += ['-f', 'lavfi', '-i', 'sine=d=8', '-filter_complex', '[0:v][1:v][2:v][3:v]concat=n=4:v=1[v]', '-map', '[v]', '-map', '4:a', '-pix_fmt', 'yuv420p', str(shifted)]
+    subprocess.run(command, check=True)
+    assert cut_count(shifted) == cut_count(reference) == 3
+    assert export_qc(shifted, duration=None, ratio=None, audio=True, reference=reference) == ['optional:qc:remix_timing']
+    assert export_qc(reference, duration=None, ratio=None, audio=True, reference=reference) == []
+
+
+def test_each_delivered_cut_answers_one_expected_cut():
+    assert cuts_kept([1, 1.1, 1.2], [1.05]) == 1 / 3
+    assert cuts_kept([2, 4], [2.3, 4.5]) == 0.5
+    assert cuts_kept([], [3]) == 1.0
+
+
 @pytest.mark.parametrize('ratio, size', [('9:16', '90x160'), ('16:9', '160x90'), ('1:1', '96x96'), ('3:4', '96x128')])
 def test_every_studio_ratio_is_recognised_and_a_wrong_one_is_reported(tmp_path, ratio, size):
     video = make(tmp_path / 'ratio.mp4', size, 2)
     assert export_qc(video, duration=2, ratio=ratio, audio=True) == []
     other = next(r for r in ('9:16', '16:9', '1:1', '3:4') if r != ratio and abs(eval(r.replace(':', '/')) - eval(ratio.replace(':', '/'))) > 0.1)
     assert export_qc(video, duration=2, ratio=other, audio=True) == ['optional:qc:ratio']
+
+
+def test_a_remix_strategy_sets_what_is_held_fixed():
+    assert strategy_values(Settings()) == {}
+    assert strategy_values(Settings(remix_strategy='preserve'))['pose_strength'] == 1.0
+    creative, transfer = strategy_values(Settings(remix_strategy='creative')), strategy_values(Settings(remix_strategy='transfer'))
+    assert creative['pose_strength'] < 0.5 and creative['reference_fidelity'] == 'loose'
+    assert transfer['force_pose'] is True and transfer['creative_freedom'] == 'free'

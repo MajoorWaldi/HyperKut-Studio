@@ -1,6 +1,6 @@
 export type Mode = 'remix' | 'text' | 'music'
 export type Stage = 'analyze' | 'shots' | 'edit' | 'done'
-export type Status = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type Status = 'queued' | 'running' | 'review' | 'succeeded' | 'failed' | 'cancelled'
 export type Ratio = '9:16' | '16:9' | '1:1' | '3:4'
 export type Quality = 'draft' | 'standard' | 'max' | 'xhigh'
 export type AudioChoice = 'original' | 'new' | 'voice'
@@ -16,6 +16,7 @@ export interface Settings {
   ratio: Ratio
   quality: Quality
   structure: number
+  remix_strategy: '' | 'preserve' | 'creative' | 'transfer'
   creativity: number
   seed: number | null  // null: a random one for every generation
   audio: AudioChoice
@@ -42,6 +43,7 @@ export interface Settings {
   redraw_text: boolean
   pose_only: boolean
   quality_check: boolean
+  review_plan: boolean
   music_energy?: 'peak' | 'calm' | 'balanced' | 'intense'
   music_start: number
   style: string
@@ -141,7 +143,7 @@ export interface AICandidate {
   url: string | null
 }
 
-export interface TimelineInfo { bpm: number | null; beat_times?: number[]; shots: { id: string; cuts: number[]; effects: string[] }[] }
+export interface TimelineInfo { bpm: number | null; beat_times?: number[]; shots: { id: string; cuts: number[]; effects: string[]; text?: string }[] }
 
 export interface Health { mode?: Mode; instance_id?: string; preset_inputs?: boolean; music_rhythm_modes?: boolean; adaptive_editing_modes?: boolean; mock: boolean; comfyui: boolean; proxy: boolean; videotools: boolean; output_dir: string | null; missing_nodes?: string[]; missing_models?: string[]; load_errors?: string[] }
 

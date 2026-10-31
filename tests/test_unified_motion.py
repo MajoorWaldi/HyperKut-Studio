@@ -100,3 +100,20 @@ def test_studio_uses_pure_core_contract_without_loading_comfy():
     assert "hit" in contract.SOUND_EFFECTS
     loaded = set(sys.modules) - before
     assert not any(name == "comfy" or name.startswith("comfy.") for name in loaded)
+
+
+def test_studio_expands_shared_motion_templates_without_loading_comfy():
+    import sys
+
+    configured = json.dumps([{
+        "template": "end_card", "start": 0, "end": 2, "title": "Final",
+        "credit": "Studio", "shot_id": "A",
+    }])
+    before = set(sys.modules)
+    rows = json.loads(finishing_layers({"shots": []}, [], configured))
+    assert [row["content"] for row in rows] == ["Final", "Studio"]
+    assert all(row["type"] == "text" and row["shot_id"] == "A" for row in rows)
+    assert [(row["start"], row["end"]) for row in rows] == [(0, 2), (.2, 2)]
+    assert all("template" not in row for row in rows)
+    loaded = set(sys.modules) - before
+    assert not any(name == "comfy" or name.startswith("comfy.") for name in loaded)

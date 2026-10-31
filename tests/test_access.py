@@ -101,7 +101,7 @@ def test_open_jury_settings_fail_closed(settings, changes):
 def test_open_jury_limits_generations_per_visitor_and_in_total(settings):
     config = open_jury(settings)
     request = {"mode": "text", "settings": {"prompt": "a test"}}
-    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver", client=("127.0.0.1", 50000)) as client:
         first = {"CF-Connecting-IP": "203.0.113.1"}
         second = {"CF-Connecting-IP": "203.0.113.2"}
         third = {"CF-Connecting-IP": "203.0.113.3"}
@@ -115,6 +115,14 @@ def test_open_jury_limits_generations_per_visitor_and_in_total(settings):
     with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
         assert client.post("/api/jobs", json=request, headers=third).status_code == 429  # the count survives a restart
     assert "203.0.113" not in (config.workspace / "jury-quota.json").read_text()
+
+
+def test_open_jury_ignores_the_visitor_header_from_a_remote_caller(settings):
+    config = open_jury(settings, visitor=1, total=5)
+    request = {"mode": "text", "settings": {"prompt": "a test"}}
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver", client=("198.51.100.7", 50000)) as client:
+        assert client.post("/api/jobs", json=request, headers={"CF-Connecting-IP": "203.0.113.1"}).status_code == 200
+        assert client.post("/api/jobs", json=request, headers={"CF-Connecting-IP": "203.0.113.2"}).status_code == 429
 
 
 def test_open_jury_refunds_a_rejected_generation(settings):

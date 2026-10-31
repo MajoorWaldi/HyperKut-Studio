@@ -110,6 +110,8 @@ export const lockShot = (id: string, shot: string, locked: boolean) =>
 
 export const cancelJob = (id: string) => fetch(`/api/jobs/${id}/cancel`, { method: 'POST' }).then(json<JobState>)
 
+export const approvePlan = (id: string, prompts: Record<string, string>) =>
+  fetch(`/api/jobs/${id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompts }) }).then(json<JobState>)
 export const resumeJob = (id: string) => fetch(`/api/jobs/${id}/resume`, { method: 'POST' }).then(json<JobState>)
 
 /** Follow a job: the server sends its whole state every time it changes. Returns the function that stops following. */
