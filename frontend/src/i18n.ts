@@ -94,6 +94,7 @@ const en = {
     retryBad: 'Redo shots that come out black or broken.',
     qualityCheck: 'Check each shot before using it.',
     places: 'Create the places where the story happens.',
+    casting: 'Give each part of the track its own character, with the same look in every shot.',
     subjectMask: 'Separate the subject so graphics can pass behind it.',
     redrawText: 'Redraw the text of the original video.',
     poseOnly: 'Copy only the pose, not the look.',
@@ -162,7 +163,7 @@ const en = {
   stepVoice: 'Voice sample', dialogue: 'Dialogue', dialogueHint: 'The lines the characters say', addVoice: 'Add a voice sample', presets: 'Presets',
   musicSync: 'Music sync', style: 'Style', cutDensity: 'Cut pace', transitions: 'Transitions', textAllowed: 'Text on screen', textAllowedHint: 'e.g. a brand, a slogan', cutEvery: 'Cut every', auto: 'From the style', low: 'Slow', medium: 'Steady', high: 'Fast', subtle: 'Soft', moderate: 'Some', bold: 'Bold', halfBeat: 'Half beat', beat: 'Beat', twoBeats: '2 beats', bar: 'Bar', twoBars: '2 bars', fourBars: '4 bars',
   styles: { viral_aura_farming: 'Viral / aura farming', hype_beat_drop: 'Hype / beat drop', micro_emotion_pov: 'Micro-emotion POV', slowed_dream: 'Slowed dream / VHS', glow_up: 'Glow-up', outfit_change: 'Outfit change', beauty_premium: 'Beauty / premium', product_advertising: 'Product ad', narrative_cinematic: 'Cinematic story', music_video: 'Music video' } as Record<string, string>,
-  places: 'Places', camera: 'Camera look', cameraHint: 'e.g. handheld, 35mm', motionLayers: 'Motion graphics (JSON layers)', subjectMask: 'Subject mask', redrawText: 'Redraw the text', poseOnly: 'Pose only', qualityCheck: 'Quality check',
+  casting: 'Cast characters', places: 'Places', camera: 'Camera look', cameraHint: 'e.g. handheld, 35mm', motionLayers: 'Motion graphics (JSON layers)', subjectMask: 'Subject mask', redrawText: 'Redraw the text', poseOnly: 'Pose only', qualityCheck: 'Quality check',
   musicStart: 'Music start (s, -1 = auto)', notEdited: 'Edit the prompt, then regenerate', locked: 'Locked: kept as it is', take: 'take', updated: 'Result updated',
 }
 
@@ -259,6 +260,7 @@ const fr: Dictionary = {
     retryBad: 'Refait les plans qui sortent noirs ou ratés.',
     qualityCheck: 'Vérifie chaque plan avant de l’utiliser.',
     places: 'Crée les lieux où se passe l’histoire.',
+    casting: 'Donne à chaque partie du morceau son personnage, avec le même look à chaque plan.',
     subjectMask: 'Détache le sujet pour que les graphismes passent derrière.',
     redrawText: 'Redessine le texte de la vidéo d’origine.',
     poseOnly: 'Copie seulement la pose, pas l’apparence.',
@@ -327,7 +329,7 @@ const fr: Dictionary = {
   stepVoice: 'Échantillon de voix', dialogue: 'Dialogue', dialogueHint: 'Les répliques des personnages', addVoice: 'Ajouter une voix', presets: 'Presets',
   musicSync: 'Sync musique', style: 'Style', cutDensity: 'Rythme des coupes', transitions: 'Transitions', textAllowed: 'Texte à l’écran', textAllowedHint: 'ex. une marque, un slogan', cutEvery: 'Couper tous les', auto: 'Selon le style', low: 'Lent', medium: 'Régulier', high: 'Rapide', subtle: 'Douces', moderate: 'Quelques-unes', bold: 'Marquées', halfBeat: 'Demi-temps', beat: 'Temps', twoBeats: '2 temps', bar: 'Mesure', twoBars: '2 mesures', fourBars: '4 mesures',
   styles: { viral_aura_farming: 'Viral / aura farming', hype_beat_drop: 'Hype / drop', micro_emotion_pov: 'Micro-émotion POV', slowed_dream: 'Rêve ralenti / VHS', glow_up: 'Glow-up', outfit_change: 'Changement de tenue', beauty_premium: 'Beauté / premium', product_advertising: 'Pub produit', narrative_cinematic: 'Histoire ciné', music_video: 'Clip musical' } as Record<string, string>,
-  places: 'Décors', camera: 'Style de caméra', cameraHint: 'ex. caméra à l’épaule, 35 mm', motionLayers: 'Motion graphics (calques JSON)', subjectMask: 'Masque du sujet', redrawText: 'Redessiner le texte', poseOnly: 'Pose seule', qualityCheck: 'Contrôle qualité',
+  casting: 'Casting de personnages', places: 'Décors', camera: 'Style de caméra', cameraHint: 'ex. caméra à l’épaule, 35 mm', motionLayers: 'Motion graphics (calques JSON)', subjectMask: 'Masque du sujet', redrawText: 'Redessiner le texte', poseOnly: 'Pose seule', qualityCheck: 'Contrôle qualité',
   musicStart: 'Début de la musique (s, -1 = auto)', notEdited: 'Modifie le prompt, puis régénère', locked: 'Verrouillé : conservé tel quel', take: 'prise', updated: 'Résultat mis à jour',
 }
 

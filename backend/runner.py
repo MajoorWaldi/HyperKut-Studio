@@ -197,7 +197,7 @@ class ComfyRunner:
     def _absent(job: Job) -> tuple[str, ...]:
         """What was not given: the pictures, the reference video, the voice. Their nodes are taken out of the prompt, with the nodes that only they fed."""
         r = job.request
-        return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None)) if not given))
+        return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None),('casting',r.settings.casting or None)) if not given))
 
     async def _run(self, client, job: Job, template, values: dict, stage: str, base: float = 0.0, span: float = 1.0, *, result_context: dict | None = None):
         """Submit one prompt and follow it: the progress of the job moves with the nodes of the prompt."""

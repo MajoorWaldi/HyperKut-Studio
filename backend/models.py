@@ -46,6 +46,7 @@ class Settings(BaseModel):
     retry_bad_takes: bool = True
     dialogue: str = ""
     places: bool = True
+    casting: bool = False
     camera: str = ""
     motion_design: bool = False
     music_volume: float = Field(1.0, ge=0, le=4)
@@ -63,7 +64,7 @@ class Settings(BaseModel):
     cut_density: Literal["auto", "low", "medium", "high"] = "auto"
     transition_intensity: Literal["auto", "subtle", "moderate", "bold"] = "auto"
     cut_every: Literal["half_beat", "beat", "2_beats", "bar", "2_bars", "4_bars"] = "2_beats"  # the grid of the cuts on your music
-    music_edit_mode: Literal["legacy", "adaptive", "random", "regular", "free"] = "legacy"
+    music_edit_mode: Literal["legacy", "adaptive", "random", "regular", "free", "phrases"] = "legacy"
     music_cut_variation: float = Field(0.5, ge=0, le=1)
     music_cut_sync: float = Field(1.0, ge=0, le=1)
     text_allowed: str = ""  # the words the edit may write on the screen

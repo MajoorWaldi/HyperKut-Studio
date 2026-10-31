@@ -17,10 +17,10 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
   const [group, setGroup] = useState<Group | null>(null)
   const remix = mode === 'remix'
   const musicalEditing = !remix || settings.audio === 'new'
-  const label: Record<Option, string> = { effects: t.effects, text: t.textOverlays, subject_mask: t.subjectMask, redraw_text: t.redrawText, pose_only: t.poseOnly, places: t.places, sound_design: t.soundDesign, sound_effects: t.soundEffects, music_sync: t.musicSync, retry_bad_takes: t.retryBad, quality_check: t.qualityCheck }
-  const tip: Record<Option, string> = { effects: t.tip.effects, text: t.tip.text, subject_mask: t.tip.subjectMask, redraw_text: t.tip.redrawText, pose_only: t.tip.poseOnly, places: t.tip.places, sound_design: t.tip.soundDesign, sound_effects: t.tip.soundEffects, music_sync: t.tip.musicSync, retry_bad_takes: t.tip.retryBad, quality_check: t.tip.qualityCheck }
+  const label: Record<Option, string> = { effects: t.effects, text: t.textOverlays, subject_mask: t.subjectMask, redraw_text: t.redrawText, pose_only: t.poseOnly, places: t.places, casting: t.casting, sound_design: t.soundDesign, sound_effects: t.soundEffects, music_sync: t.musicSync, retry_bad_takes: t.retryBad, quality_check: t.qualityCheck }
+  const tip: Record<Option, string> = { effects: t.tip.effects, text: t.tip.text, subject_mask: t.tip.subjectMask, redraw_text: t.tip.redrawText, pose_only: t.tip.poseOnly, places: t.tip.places, casting: t.tip.casting, sound_design: t.tip.soundDesign, sound_effects: t.tip.soundEffects, music_sync: t.tip.musicSync, retry_bad_takes: t.tip.retryBad, quality_check: t.tip.qualityCheck }
   const toggles: Record<Group, Option[]> = {
-    look: remix ? ['effects', 'text', 'redraw_text', 'pose_only'] : ['effects', 'text', 'places'],
+    look: remix ? ['effects', 'text', 'redraw_text', 'pose_only'] : ['effects', 'text', 'places', ...(mode === 'music' ? ['casting' as const] : [])],
     sound: remix ? ['sound_design', 'sound_effects'] : ['sound_design', 'sound_effects', 'music_sync'],
     expert: ['retry_bad_takes', 'quality_check'],
   }
@@ -88,6 +88,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
                         ['adaptive', lang === 'fr' ? 'Adaptatif musical' : 'Adaptive musical'],
                         ['random', lang === 'fr' ? 'Aléatoire musical' : 'Random musical'],
                         ['regular', lang === 'fr' ? 'Régulier' : 'Regular'],
+                        ['phrases', lang === 'fr' ? 'Phrases vocales' : 'Vocal phrases'],
                         ['free', lang === 'fr' ? 'Libre' : 'Free']])}
                     {(settings.music_edit_mode === 'regular' || settings.music_edit_mode === 'legacy') &&
                       select('cut_every', t.cutEvery, t.tip.cutEvery, [['half_beat', t.halfBeat], ['beat', t.beat], ['2_beats', t.twoBeats], ['bar', t.bar], ['2_bars', t.twoBars], ['4_bars', t.fourBars]])}
