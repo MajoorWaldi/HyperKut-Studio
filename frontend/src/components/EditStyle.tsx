@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from '../i18n'
+import { CountBadge } from './CountBadge'
 import { Icon } from './Icon'
 import { MotionGallery } from './MotionGallery'
+import { parseRows } from '../motionLayers'
 import type { EditStyle as Style, JobState } from '../types'
 
 const prettyJson = (value: string | undefined, fallback = '[]') => {
@@ -11,6 +13,13 @@ const prettyJson = (value: string | undefined, fallback = '[]') => {
 const DIRECTIONS = ['minimal', 'editorial', 'energetic'] as const
 
 interface Props { job: JobState | null; onApply: (style: Style) => void }
+
+/** What is switched on in a style: the cuts, effects and text, the sound effects, and the animated design with each of its layers. */
+export const styleCounts = (style: Style) => ({
+  editing: (['sub_cuts', 'effects', 'text'] as const).filter(key => style[key]).length,
+  sound: style.auto_sfx ? 1 : 0,
+  design: (style.motion_design ? 1 : 0) + (parseRows(style.motion_layers ?? '[]')?.length ?? 0),
+})
 
 /** The edit can be made again once every shot has its take and nothing runs. */
 export const canEditAgain = (job: JobState | null) => job !== null && job.status !== 'queued' && job.status !== 'running' && job.shots.length > 0 && job.shots.every(s => s.done)
@@ -45,6 +54,8 @@ export function EditStyle({ job, onApply }: Props) {
   const direction = changes.motion_direction ?? job.style.motion_direction ?? 'editorial'
   const custom = direction.trim().startsWith('{')
   const layers = changes.motion_layers ?? job.style.motion_layers ?? '[]'
+  const active = fr ? 'actif(s)' : 'active'
+  const counts = styleCounts({ ...job.style, ...changes })
   const directionLabel: Record<(typeof DIRECTIONS)[number], string> = fr ? { minimal: 'Sobre', editorial: 'Éditorial', energetic: 'Énergique' } : { minimal: 'Minimal', editorial: 'Editorial', energetic: 'Energetic' }
   const directionTip: Record<(typeof DIRECTIONS)[number], string> = fr
     ? { minimal: 'Peu de graphismes, discrets.', editorial: 'Titres posés, rythme calme.', energetic: 'Titres qui réagissent à la musique, rythme vif.' }
@@ -61,7 +72,7 @@ export function EditStyle({ job, onApply }: Props) {
       </header>
       <div className="es-groups">
         <section className="es-group">
-          <h4>{fr ? 'Montage' : 'Editing'}</h4>
+          <h4>{fr ? 'Montage' : 'Editing'}<CountBadge count={counts.editing} label={active} /></h4>
           <div className="adv-toggles">
             {toggle('sub_cuts', t.subCuts, t.tip.subCuts)}
             {toggle('effects', t.effects, t.tip.editEffects)}
@@ -69,7 +80,7 @@ export function EditStyle({ job, onApply }: Props) {
           </div>
         </section>
         <section className="es-group">
-          <h4>{fr ? 'Son' : 'Sound'}</h4>
+          <h4>{fr ? 'Son' : 'Sound'}<CountBadge count={counts.sound} label={active} /></h4>
           <div className="adv-toggles">{toggle('auto_sfx', t.soundEffects, t.tip.editSfx)}</div>
           <div className="es-sliders">
             {slider('shot_volume', t.shotVolume, t.tip.shotVolume, 1, 2)}
@@ -78,7 +89,7 @@ export function EditStyle({ job, onApply }: Props) {
           </div>
         </section>
         <section className="es-group wide">
-          <h4>{fr ? 'Habillage animé' : 'Animated design'}</h4>
+          <h4>{fr ? 'Habillage animé' : 'Animated design'}<CountBadge count={counts.design} label={active} /></h4>
           <div className="es-design">
             <label className={`chip-toggle ${designOn ? 'on' : ''}`} title={t.tip.designToggle}>
               <input type="checkbox" checked={designOn} onChange={e => set({ motion_design: e.target.checked })} />

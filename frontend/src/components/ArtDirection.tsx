@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { artDirectionCatalog, prepareBrief, approveBrief } from '../api'
 import { levelValue } from '../creativeControls'
 import { useI18n } from '../i18n'
+import { CountBadge } from './CountBadge'
 import type { DirectionField, Inputs, Mode, Settings } from '../types'
 
 interface Props { mode: Mode; inputs: Inputs; settings: Settings; busy: boolean; onSettings: (change: Partial<Settings>) => void; onPreparing?: (value: boolean) => void }
@@ -47,8 +48,9 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
     }catch(cause){if(current.current===started)setError((cause as Error).message)}
     finally{setWorking(false);onPreparing?.(false)}
   }
+  const chosen = Object.values(settings.art_direction ?? {}).filter(value => value && value !== 'auto').length + (settings.approved_brief ? 1 : 0)
   return <details className="creative-direction" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>{fr ? 'Direction artistique' : 'Artistic direction'} <small>{fr ? 'facultatif' : 'optional'}</small></summary>
+    <summary>{fr ? 'Direction artistique' : 'Artistic direction'}{chosen > 0 ? <CountBadge count={chosen} label={fr ? 'actif(s)' : 'active'} /> : <> <small>{fr ? 'facultatif' : 'optional'}</small></>}</summary>
     <div className="creative-direction-body">
       <p>{fr ? 'Une phrase suffit. Précise seulement les choix qui comptent ; le reste reste automatique.' : 'A short phrase is enough. Choose only what matters; everything else stays automatic.'}</p>
       <div className="creative-direction-fields">{fields.map(field => <label className="field" key={field.key} title={{ look: t.tip.artLook, mood: t.tip.artMood, camera: t.tip.artCamera, light: t.tip.artLight }[field.key]}>

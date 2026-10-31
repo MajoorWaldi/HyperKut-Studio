@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import * as api from './api'
 import { Dropdown } from './components/Dropdown'
 import { Icon, type IconName } from './components/Icon'
-import { canEditAgain, EditStyle } from './components/EditStyle'
+import { CountBadge } from './components/CountBadge'
+import { canEditAgain, EditStyle, styleCounts } from './components/EditStyle'
 import { Examples } from './components/Examples'
 import { InputsPanel, type SlotName } from './components/InputsPanel'
 import { Library, megabytes } from './components/Library'
@@ -482,8 +483,8 @@ export default function App() {
             <div className="bottom">
               <div className="bottom-tabs" role="tablist">
                 <button type="button" role="tab" aria-selected={bottom === 'shots'} className={bottom === 'shots' ? 'on' : ''} title={t.tip.tabShots} onClick={() => setBottom('shots')}><Icon name="film" size={14} /> {t.shotsTab}</button>
-                <button type="button" role="tab" aria-selected={bottom === 'style' && canEditAgain(job)} className={bottom === 'style' ? 'on' : ''} disabled={!canEditAgain(job)} title={t.tip.editStyle} onClick={() => setBottom('style')}><Icon name="scissors" size={14} /> {t.editStyle}</button>
-                <button type="button" role="tab" aria-selected={bottom === 'manual'} className={bottom === 'manual' ? 'on' : ''} disabled={!job?.project_id} title={t.tip.tabManual} onClick={() => setBottom('manual')}><Icon name="scissors" size={14} /> {t.manualTitle}</button>
+                <button type="button" role="tab" aria-selected={bottom === 'style' && canEditAgain(job)} className={bottom === 'style' ? 'on' : ''} disabled={!canEditAgain(job)} title={t.tip.editStyle} onClick={() => setBottom('style')}><Icon name="scissors" size={14} /> {t.editStyle}{job && canEditAgain(job) && <CountBadge count={Object.values(styleCounts(job.style)).reduce((sum, n) => sum + n, 0)} label={lang === 'fr' ? 'actif(s)' : 'active'} />}</button>
+                <button type="button" role="tab" aria-selected={bottom === 'manual'} className={bottom === 'manual' ? 'on' : ''} disabled={!job?.project_id} title={t.tip.tabManual} onClick={() => setBottom('manual')}><Icon name="scissors" size={14} /> {t.manualTitle}<CountBadge count={job?.manual_export?.clips ?? 0} label="clips" /></button>
               </div>
               {bottom === 'manual' && job?.project_id ? <ManualTimeline key={job.id} job={job} onState={watch} /> : bottom === 'style' && canEditAgain(job)
                 ? <EditStyle key={job?.id} job={job} onApply={style => { setBottom('shots'); reEdit(style) }} />

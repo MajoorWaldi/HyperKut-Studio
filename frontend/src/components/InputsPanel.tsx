@@ -2,6 +2,7 @@ import { useI18n } from '../i18n'
 import type { AudioChoice, Inputs, Mode, Settings } from '../types'
 import { Options } from './Options'
 import { ArtDirection } from './ArtDirection'
+import { CountBadge } from './CountBadge'
 import { Slot } from './Slot'
 
 export type SlotName = 'source' | 'refVideo' | 'music' | 'voice' | { ref: number }
@@ -19,8 +20,16 @@ interface Props {
 
 const AUDIO: AudioChoice[] = ['original', 'new', 'voice']
 
+/** The ways to cut on a music that the Music tab offers; the other modes stay in the options of Remix and Text. */
+const RHYTHMS = [
+  { id: 'adaptive', en: 'Adaptive', fr: 'Adaptatif', tip: 'rhythmAdaptive' },
+  { id: 'regular', en: 'Regular', fr: 'Régulier', tip: 'rhythmRegular' },
+  { id: 'phrases', en: 'Vocal phrases', fr: 'Phrases vocales', tip: 'rhythmPhrases' },
+] as const
+
 export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, onSettings, onPreparing }: Props) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const fr = lang === 'fr'
   // Keep original slot indices when a reference is removed or restored from a project.
   const nextRef = inputs.refs.findIndex(ref => ref === null)
   const visibleRefs: { ref: Inputs['refs'][number]; index: number }[] = inputs.refs.flatMap((ref, index) => ref ? [{ ref, index }] : [])
@@ -46,7 +55,7 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
         <p className="tiny-label">{t.refsHint}</p>
       </section>
       <details className="secondary-settings" key={`ref-video-${mode}`}>
-        <summary>{t.stepRefVideo} <small>{inputs.refVideo?.name ?? t.stepOptional}</small></summary>
+        <summary>{t.stepRefVideo}<CountBadge count={inputs.refVideo ? 1 : 0} label={fr ? 'actif(s)' : 'active'} /> <small>{inputs.refVideo?.name ?? t.stepOptional}</small></summary>
         <div className="secondary-settings-body">
           <Slot value={inputs.refVideo} accept="video/*" icon="video" label={t.addVideo} tip={t.tip.refVideo} compact busy={busy} onFile={f => onUpload('refVideo', f)} onClear={() => onClear('refVideo')} />
         </div>
@@ -61,6 +70,13 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
         <section className="section">
           <h3 className="section-head">{t.stepMusic}</h3>
           <Slot value={inputs.music} accept="audio/*" icon="music" label={t.addMusic} tip={t.tip.music} compact busy={busy} onFile={f => onUpload('music', f)} onClear={() => onClear('music')} />
+          <div className="rhythm-choice">
+            <span className="rhythm-label" title={t.tip.rhythmHeading}>{fr ? 'Rythme de montage' : 'Editing rhythm'}</span>
+            <div className="segmented" role="group" aria-label={fr ? 'Rythme de montage' : 'Editing rhythm'}>
+              {RHYTHMS.map(rhythm => <button type="button" key={rhythm.id} aria-pressed={settings.music_edit_mode === rhythm.id} disabled={busy} title={t.tip[rhythm.tip]} onClick={() => onSettings({ music_edit_mode: rhythm.id })}>{fr ? rhythm.fr : rhythm.en}</button>)}
+              {!RHYTHMS.some(rhythm => rhythm.id === settings.music_edit_mode) && <button type="button" aria-pressed disabled title={t.tip.rhythmMode}>{fr ? 'Personnalisé' : 'Custom'}</button>}
+            </div>
+          </div>
           {!inputs.music && <p className="tiny-label">{t.noMusic}</p>}
           <p className="tiny-label rights">{t.rightsMusic}</p>
         </section>

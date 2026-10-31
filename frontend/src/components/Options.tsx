@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useI18n } from '../i18n'
 import { Icon } from './Icon'
+import { CountBadge } from './CountBadge'
 import { MotionGallery } from './MotionGallery'
-import { RECIPE_TIPS } from '../motionLayers'
+import { parseRows, RECIPE_TIPS } from '../motionLayers'
 import { DEFAULTS, optionDefaults, QUICK, STYLES, type Option } from '../settings'
 import type { Mode, Settings } from '../types'
 
@@ -30,8 +31,15 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
   const descriptions: Record<Group, string> = lang === 'fr'
     ? { look: 'Montage, effets et détourage du sujet.', sound: 'Ambiance musicale, synchronisation et bruitages.', expert: 'Vérifications, variations et outils spécifiques.' }
     : { look: 'Editing, effects and subject separation.', sound: 'Music mood, synchronization and sound effects.', expert: 'Checks, variations and specific tools.' }
-  const all = Object.values(toggles).flat()
-  const changed = ['efficient_sources', 'reference_style', 'sfx_library', 'camera', 'bpm', 'mood', 'music_start', 'seed', 'motion_layers', 'motion_design', 'motion_direction', 'motion_title', ...(remix ? [] : ['style', 'transition_intensity', 'text_allowed']), ...(musicalEditing ? ['cut_density', 'cut_every', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] : []), ...all].filter(key => dirty(settings, key as keyof Settings)).length
+  const others: Record<Group, string[]> = {
+    look: ['efficient_sources', 'reference_style', 'motion_layers', 'motion_design', 'motion_direction', 'motion_title', ...(remix ? [] : ['style', 'transition_intensity', 'text_allowed'])],
+    sound: ['bpm', 'mood', 'music_start', ...(musicalEditing ? ['cut_density', 'cut_every', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] : [])],
+    expert: ['sfx_library', 'camera', 'seed'],
+  }
+  const groupChanged = Object.fromEntries((['look', 'sound', 'expert'] as const).map(g => [g, [...toggles[g], ...others[g]].filter(key => dirty(settings, key as keyof Settings)).length])) as Record<Group, number>
+  const changed = groupChanged.look + groupChanged.sound + groupChanged.expert
+  const layerCount = parseRows(settings.motion_layers)?.length ?? 0
+  const designCount = (settings.motion_design ? 1 : 0) + (settings.motion_title ? 1 : 0) + layerCount
 
   const toggle = (key: Option) => (
     <label key={key} className={`chip-toggle ${settings[key] ? 'on' : ''} ${busy ? 'disabled' : ''}`}>
@@ -56,7 +64,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
     <details className="options advanced-options" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
       <summary className="advanced-options-summary" title={t.tip.options}>
         <span>{t.options}</span>
-        <small>{changed > 0 ? `${changed} ${t.changed}` : (lang === 'fr' ? 'facultatif' : 'optional')}</small>
+        {changed > 0 ? <CountBadge count={changed} label={t.changed} /> : <small>{lang === 'fr' ? 'facultatif' : 'optional'}</small>}
       </summary>
       {open && (
         <div className="options-body">
@@ -69,7 +77,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
           {(['look', 'sound', 'expert'] as const).map(g => (
             <div key={g} className={`group ${group === g ? 'open' : ''}`}>
               <button type="button" className="group-head" aria-expanded={group === g} onClick={() => setGroup(group === g ? null : g)}>
-                <span className="advanced-group-copy"><b>{names[g]}</b><small>{descriptions[g]}</small></span><Icon name={group === g ? 'chevron-up' : 'chevron-down'} size={14} />
+                <span className="advanced-group-copy"><b>{names[g]}<CountBadge count={groupChanged[g]} label={t.changed} /></b><small>{descriptions[g]}</small></span><Icon name={group === g ? 'chevron-up' : 'chevron-down'} size={14} />
               </button>
               {group === g && (
                 <div className="group-body">
@@ -87,7 +95,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
                     <label className="field" title={t.tip.referenceStyle}><span>{lang === 'fr' ? 'Utiliser la vidéo de référence pour' : 'Use reference video for'}</span><select value={settings.reference_style ?? 'camera'} disabled={busy} onChange={e => onSettings({reference_style:e.target.value as 'camera'|'montage'})}><option value="camera">{lang === 'fr' ? 'Le regard caméra' : 'Camera look'}</option><option value="montage">{lang === 'fr' ? 'Le style de montage' : 'Editing style'}</option></select></label>
                   </>}
                   {g === 'sound' && musicalEditing && <>
-                    {select('music_edit_mode', lang === 'fr' ? 'Rythme de montage' : 'Editing rhythm',
+                    {mode !== 'music' && select('music_edit_mode', lang === 'fr' ? 'Rythme de montage' : 'Editing rhythm',
                       t.tip.rhythmMode,
                       [...(settings.music_edit_mode === 'legacy' ? [['legacy', lang === 'fr' ? 'Ancien projet' : 'Legacy project'] as [Settings['music_edit_mode'], string]] : []),
                         ['adaptive', lang === 'fr' ? 'Adaptatif musical' : 'Adaptive musical'],
@@ -97,7 +105,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
                         ['free', lang === 'fr' ? 'Libre' : 'Free']])}
                     {(settings.music_edit_mode === 'regular' || settings.music_edit_mode === 'legacy') &&
                       select('cut_every', t.cutEvery, t.tip.cutEvery, [['half_beat', t.halfBeat], ['beat', t.beat], ['2_beats', t.twoBeats], ['bar', t.bar], ['2_bars', t.twoBars], ['4_bars', t.fourBars]])}
-                    {settings.music_edit_mode !== 'regular' && select('cut_density', t.cutDensity, t.tip.cutDensity, [['auto', t.auto], ['low', t.low], ['medium', t.medium], ['high', t.high]])}
+                    {settings.music_edit_mode !== 'regular' && settings.music_edit_mode !== 'phrases' && select('cut_density', t.cutDensity, t.tip.cutDensity, [['auto', t.auto], ['low', t.low], ['medium', t.medium], ['high', t.high]])}
                     {(settings.music_edit_mode === 'adaptive' || settings.music_edit_mode === 'random') &&
                       (['music_cut_variation', 'music_cut_sync'] as const).map(key => (
                         <label className="field" key={key} title={key === 'music_cut_variation' ? t.tip.rhythmVariation : t.tip.rhythmSync}><span>{key === 'music_cut_variation'
@@ -118,7 +126,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
                   {g === 'sound' && settings.audio === 'new' && field('mood', t.mood, t.tip.mood)}
                   {g === 'sound' && mode === 'music' && number('music_start', t.musicStart, t.tip.musicStart, { min: -1, step: 0.5 })}
                   {g === 'look' && <details className="advanced-technical">
-                    <summary>{lang === 'fr' ? 'Habillage animé' : 'Animated design'} <small>{lang === 'fr' ? 'facultatif' : 'optional'}</small></summary>
+                    <summary>{lang === 'fr' ? 'Habillage animé' : 'Animated design'}{designCount > 0 ? <CountBadge count={designCount} label={lang === 'fr' ? 'actif(s)' : 'active'} /> : <> <small>{lang === 'fr' ? 'facultatif' : 'optional'}</small></>}</summary>
                     <div className="advanced-technical-body">
                       <small>{lang === 'fr' ? 'Les masques sont calculés automatiquement pour les contours et les effets ciblant le sujet.' : 'Masks are computed automatically for outlines and subject-aware effects.'}</small>
                       <label className="field" title={t.tip.designToggle}><span>{lang === 'fr' ? 'Activer l’habillage' : 'Enable animated design'}</span><input type="checkbox" checked={settings.motion_design ?? true} disabled={busy} onChange={e => onSettings({motion_design:e.target.checked})}/></label>

@@ -19,7 +19,7 @@ async function show(changes: Partial<Settings> = {}, busy = false) {
 
 test('new music defaults to adaptive with variation and synchronization', async () => {
   const {onSettings} = await show()
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('adaptive')
+  expect(screen.queryByLabelText('Editing rhythm')).toBeNull()  // the Music tab picks the mode under the uploader
   expect(screen.queryByLabelText('Cut every')).toBeNull()
   expect((screen.getByLabelText('Cut pace') as HTMLSelectElement).value).toBe('auto')
   const variation = screen.getByLabelText('Duration variation · 100%')
@@ -33,8 +33,7 @@ test('regular reveals grid and free hides synchronization', async () => {
   const {rerender, props, onSettings} = await show({music_edit_mode: 'regular'})
   expect(screen.getByLabelText('Cut every')).toBeTruthy()
   expect(screen.queryByRole('slider')).toBeNull()
-  await userEvent.selectOptions(screen.getByLabelText('Editing rhythm'), 'free')
-  expect(onSettings).toHaveBeenLastCalledWith({music_edit_mode: 'free'})
+  expect(onSettings).not.toHaveBeenCalled()
   rerender(<Options {...props} settings={{...props.settings, music_edit_mode: 'free'}}/>)
   expect(screen.queryByLabelText('Cut every')).toBeNull()
   expect(screen.queryByRole('slider')).toBeNull()
@@ -42,17 +41,22 @@ test('regular reveals grid and free hides synchronization', async () => {
 
 test('legacy settings remain visible and reset includes the new fields', async () => {
   await show({music_edit_mode: 'legacy'})
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('legacy')
   expect(screen.getByLabelText('Cut every')).toBeTruthy()
   expect(optionDefaults()).toMatchObject({music_edit_mode: 'adaptive', music_cut_sync: 1, music_cut_variation: 1})
 })
 
 test('busy controls cannot be changed and Text also defaults to adaptive', async () => {
   const {rerender, props} = await show({}, true)
-  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).disabled).toBe(true)
   expect(screen.getAllByRole('slider').every(el => (el as HTMLInputElement).disabled)).toBe(true)
   rerender(<Options {...props} mode="text"/>)
+  expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).disabled).toBe(true)
   expect((screen.getByLabelText('Editing rhythm') as HTMLSelectElement).value).toBe('adaptive')
+})
+
+test('vocal phrases have no cut pace to choose: they cut in the pauses of the voice', async () => {
+  await show({music_edit_mode: 'phrases'})
+  expect(screen.queryByLabelText('Cut pace')).toBeNull()
+  expect(screen.queryByLabelText('Cut every')).toBeNull()
 })
 
 test('Remix shows random controls only with new music', async () => {
