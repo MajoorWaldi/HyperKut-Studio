@@ -387,7 +387,7 @@ html[data-w~="sm"] .left { display: contents; }
 .shot-lock { position: absolute; left: 6px; bottom: 6px; font-size: 10px; padding: 3px 8px; border-radius: 20px; background: #130e17cc; border: 1px solid #ffffff26; }
 .takes { display: flex; gap: 6px; flex-wrap: wrap; }
 .take { position: relative; width: 62px; height: 40px; padding: 0; border-radius: 7px; overflow: hidden; border: 2px solid #4d4156; background: #0d0a10; }
-.take video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.take img, .take video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .take i { position: absolute; right: 2px; top: 1px; font-style: normal; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; }
 .take.active { border-color: var(--soft-line); } .take.viewing, .take:hover { border-color: var(--lime); }
 .take-use { padding: 8px; border-radius: 8px; background: var(--lime); color: #241c28; font-size: 12px; font-weight: 750; border: 0; }

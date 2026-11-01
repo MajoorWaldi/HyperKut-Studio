@@ -13,6 +13,7 @@ import { Preview } from './components/Preview'
 import { ShotPanel } from './components/ShotPanel'
 import { Timeline } from './components/Timeline'
 import { ManualTimeline } from './components/ManualTimeline'
+import { ReviewPanel } from './components/ReviewPanel'
 import { Toolbar } from './components/Toolbar'
 import { Tooltips } from './components/Tooltips'
 import { Toast, type ToastTone } from './components/Toast'
@@ -69,7 +70,7 @@ export default function App() {
   const [selection, setSelection] = useState<string[]>([])
   const [primary, setPrimary] = useState(0)
   const [edits, setEdits] = useState<Record<string, string>>({})
-  const [bottom, setBottom] = useState<'shots' | 'style' | 'manual'>('shots')
+  const [bottom, setBottom] = useState<'shots' | 'style' | 'manual' | 'review'>('shots')
   const [sizes, setSizes] = useState<Record<string, number>>({})
   const [undo, setUndo] = useState<{ label: string; run: () => void } | null>(null)
   const [message, setMessageState] = useState<string | null>(null)
@@ -232,20 +233,14 @@ export default function App() {
   const chooseTake = async (shot: string, take: string) => {
     if (!job) return
     setMessage(null)
-    const chosen = await submit(async () => {
-      await api.chooseTake(job.id, shot, take)
-      return api.reEdit(job.id, {})
-    })
+    const chosen = await submit(() => api.takeEdit(job.id, shot, take))
     if (chosen) setMessage(t.takeChosen)
   }
 
   const trimTake = async (shot: string, take: string, start: number) => {
     if (!job) return
     setMessage(null)
-    await submit(async () => {
-      await api.trimTake(job.id, shot, take, start)
-      return api.reEdit(job.id, {})
-    })
+    await submit(() => api.takeEdit(job.id, shot, take, start))
   }
 
   const seek = (seconds: number) => {
@@ -505,9 +500,10 @@ export default function App() {
               <div className="bottom-tabs" role="tablist">
                 <button type="button" role="tab" aria-selected={bottom === 'shots'} className={bottom === 'shots' ? 'on' : ''} title={t.tip.tabShots} onClick={() => setBottom('shots')}><Icon name="film" size={14} /> {t.shotsTab}</button>
                 <button type="button" role="tab" aria-selected={bottom === 'style' && canEditAgain(job)} className={bottom === 'style' ? 'on' : ''} disabled={!canEditAgain(job)} title={t.tip.editStyle} onClick={() => setBottom('style')}><Icon name="scissors" size={14} /> {t.editStyle}{job && canEditAgain(job) && <CountBadge count={Object.values(styleCounts(job.style)).reduce((sum, n) => sum + n, 0)} label={lang === 'fr' ? 'actif(s)' : 'active'} />}</button>
+                <button type="button" role="tab" aria-selected={bottom === 'review' && !!job?.output_url} className={bottom === 'review' ? 'on' : ''} disabled={!job?.output_url || running} title={t.tip.tabReview} onClick={() => setBottom('review')}><Icon name="check" size={14} /> {t.reviewTab}</button>
                 <button type="button" role="tab" aria-selected={bottom === 'manual'} className={bottom === 'manual' ? 'on' : ''} disabled={!job?.project_id} title={t.tip.tabManual} onClick={() => setBottom('manual')}><Icon name="scissors" size={14} /> {t.manualTitle}<CountBadge count={job?.manual_export?.clips ?? 0} label="clips" /></button>
               </div>
-              {bottom === 'manual' && job?.project_id ? <ManualTimeline key={job.id} job={job} onState={watch} /> : bottom === 'style' && canEditAgain(job)
+              {bottom === 'review' && job?.output_url && !running ? <ReviewPanel key={`${job.id}-${job.operation}`} jobId={job.id} energy={job.energy} onSeek={seconds => { if (videoRef.current) videoRef.current.currentTime = seconds }} /> : bottom === 'manual' && job?.project_id ? <ManualTimeline key={job.id} job={job} onState={watch} /> : bottom === 'style' && canEditAgain(job)
                 ? <EditStyle key={job?.id} job={job} onApply={style => { setBottom('shots'); reEdit(style) }} />
                 : <Timeline job={job} position={position} onSeek={seek} selection={selection} primary={primary} edits={edits} onSelect={(chosen, main) => { setSelection(chosen); setPrimary(main) }} onRegenerate={ids => regenerateShots(ids, true)} onLock={lock} activeShots={activeShots} />}
             </div>

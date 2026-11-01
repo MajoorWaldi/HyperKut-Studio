@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useI18n } from '../i18n'
 import type { Mode, Preset } from '../types'
 import { Icon, type IconName } from './Icon'
@@ -17,18 +18,19 @@ export function Examples({ presets, applied, onApply }: Props) {
   const { t, lang } = useI18n()
   const name = { remix: t.modeRemix, text: t.modeText, music: t.modeMusic }
   const chosen = presets.find(p => p.id === applied)
+  const [active, setActive] = useState<string | null>(null)  // only the card under the pointer or the focus plays its loop
   return (
     <section className="examples" aria-label={t.startTitle}>
       <h2>{t.startTitle}</h2>
       <p>{chosen ? (chosen.mode === 'remix' ? t.startNextRemix : chosen.mode === 'music' ? t.startNextMusic : t.startNextText) : t.startHint}</p>
       <div className={`example-grid ${presets.length > 4 ? 'three' : ''}`}>
         {presets.map(preset => (
-          <button key={preset.id} type="button" className={`example-card ${preset.preview ? 'has-preview' : ''} ${preset.id === applied ? 'selected' : ''}`} title={preset.prompt} onClick={() => onApply(preset.id)} aria-pressed={preset.id === applied}>
-            {preset.preview && <span className="example-backdrop" aria-hidden="true"><Media url={`/api/presets/media/${preset.preview}`} playing /></span>}
+          <button key={preset.id} type="button" className={`example-card ${preset.preview ? 'has-preview' : ''} ${preset.id === applied ? 'selected' : ''}`} title={preset.prompt} onClick={() => onApply(preset.id)} onMouseEnter={() => setActive(preset.id)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(preset.id)} onBlur={() => setActive(null)} aria-pressed={preset.id === applied}>
+            {preset.preview && <span className="example-backdrop" aria-hidden="true"><Media url={`/api/presets/media/${preset.preview}`} playing={active === preset.id} /></span>}
             <span className={`example-media ${preset.mode}`}>
               {!preset.preview && <Icon name={MODE_ICON[preset.mode]} size={34} />}
               {preset.reference && <img className="example-reference" src={`/api/presets/media/${preset.reference}`} alt="" />}
-              <PresetInputs preset={preset} playing />
+              <PresetInputs preset={preset} playing={active === preset.id} />
               <span className="lib-mode">{name[preset.mode]}</span>
               {preset.id === applied && <span className="example-check" aria-hidden><Icon name="check" size={14} /></span>}
             </span>

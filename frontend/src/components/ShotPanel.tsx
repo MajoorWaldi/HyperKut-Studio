@@ -94,7 +94,7 @@ export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRe
         <div className="takes" title={t.tip.takes}>
           {takes.map(take => (
             <button key={take.id} type="button" className={`take ${take.active ? 'active' : ''} ${shown?.id === take.id ? 'viewing' : ''}`} onClick={() => setViewing(take.active ? null : take)}>
-              <video src={`${take.url}#t=0.1`} preload="metadata" muted playsInline />{take.active && <i><Icon name="check" size={11} /></i>}
+              {take.thumb ? <img src={take.thumb} alt="" loading="lazy" /> : <video src={`${take.url}#t=0.1`} preload="metadata" muted playsInline />}{take.active && <i><Icon name="check" size={11} /></i>}
             </button>
           ))}
         </div>

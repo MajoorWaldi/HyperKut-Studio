@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import * as api from '../api'
 import { useI18n } from '../i18n'
 import type { EnergyReport, ReviewReport } from '../types'
 
@@ -16,7 +17,7 @@ export function ReferenceEnergy({energy}:{energy:EnergyReport|null|undefined}) {
   </details>
 }
 
-export function ReviewPanel({jobId,onSeek}:{jobId:string;onSeek?:(seconds:number)=>void}) {
+export function ReviewPanel({jobId,energy,onSeek}:{jobId:string;energy?:EnergyReport|null;onSeek?:(seconds:number)=>void}) {
   const {lang}=useI18n()
   const fr=lang==='fr'
   const [report,setReport]=useState<ReviewReport|null>(null)
@@ -25,13 +26,11 @@ export function ReviewPanel({jobId,onSeek}:{jobId:string;onSeek?:(seconds:number
   const load=async()=>{
     setLoading(true);setError('')
     try {
-      const response=await fetch(`/api/jobs/${jobId}/review`)
-      const body=await response.json()
-      if(!response.ok)throw new Error(body.detail??'Review unavailable')
-      setReport(body)
-    }catch(e){setError(String(e))}finally{setLoading(false)}
+      setReport(await api.reviewJob(jobId))
+    }catch(e){setError((e as Error).message||(fr?'Relecture indisponible.':'Review unavailable.'))}finally{setLoading(false)}
   }
-  return <section className="review-panel">
+  return <section className="review-panel" key={jobId}>
+    <ReferenceEnergy energy={energy} />
     <button type="button" onClick={load} disabled={loading}>{loading?(fr?'Préparation…':'Preparing…'):(fr?'Relire le résultat':'Review result')}</button>
     {error&&<p role="alert">{error}</p>}
     {report&&<><p>{fr?'Identité, texte et voix : vérification manuelle':'Identity, text and voice: manual review'}</p>
