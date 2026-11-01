@@ -1,4 +1,4 @@
-import { BRAND, readPreference, writePreference } from './brand'
+import { BRAND, readPreference, removeDraft, writePreference } from './brand'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import * as api from './api'
 import { Dropdown } from './components/Dropdown'
@@ -124,7 +124,11 @@ export default function App() {
     void refreshHealth().catch(() => {})
     return () => { healthRequest.current += 1 }
   }, [refreshHealth])
-  useEffect(() => { api.recentJobs().then(setRecent).catch(() => setRecent([])) }, [job?.status])
+  useEffect(() => {
+    let current = true  // a slower, older answer must not replace a newer list
+    api.recentJobs().then(list => { if (current) setRecent(list) }).catch(() => { if (current) setRecent([]) })
+    return () => { current = false }
+  }, [job?.status])
   useEffect(() => { api.presets().then(setPresets).catch(() => setPresets([])) }, [])
   useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, recent])
   useEffect(() => {
@@ -252,11 +256,11 @@ export default function App() {
 
   const lock = async (shots: string[], locked: boolean) => {
     if (!job) return
+    let state = job
     try {
-      let state = job
       for (const shot of shots) state = await api.lockShot(job.id, shot, locked)
-      setJob(state)
     } catch (error) { setActionError((error as Error).message) }
+    finally { if (state !== job) setJob(current => current?.id === state.id ? state : current) }  // also after a partial failure: the shots already locked show as such
   }
 
   const openRecent = async (id: string) => {
@@ -326,6 +330,7 @@ export default function App() {
   const deleteJob = async (id: string, withFiles: boolean) => {
     try {
       await api.deleteJob(id, withFiles)
+      removeDraft(`secator.timeline.${id}`)  // the manual montage draft of a forgotten project
       if (job?.id === id) { stopFollowing.current(); setJob(null) }
       await refreshJobs()
       setMessage(t.deleted)
@@ -367,8 +372,9 @@ export default function App() {
 
   const importPreset = async (file: File) => {
     try {
+      if (file.size > 20 * 1024 * 1024) { setActionError(t.presetBad); return }
       const found = JSON.parse(await file.text())
-      if (typeof found.name !== 'string' || !MODES.includes(found.mode)) { setActionError(t.presetBad); return }
+      if (!found || typeof found.name !== 'string' || !MODES.includes(found.mode)) { setActionError(t.presetBad); return }
       if (found.inputs && !health?.preset_inputs) {
         setActionError(lang === 'fr' ? 'Redémarre le serveur du Studio après les générations en cours pour importer les médias du preset.' : 'Restart the Studio server after active generations finish to import preset media.')
         return
@@ -454,12 +460,12 @@ export default function App() {
           </nav>
           <div className="head-right">
             <button type="button" className="chip" title={statusTip} onClick={() => { refreshHealth().then(found => { if (!found) return; const issues = [...(found.load_errors ?? []), ...(!found.proxy ? ['Comfy API proxy unavailable'] : []), ...(!found.output_dir ? ['Set HYPERKUT_OUTPUT_DIR'] : [])]; if (issues.length) setActionError(issues.join(' · ')) }).catch(error => setActionError((error as Error).message)) }}><span className={`dot ${ok ? 'on' : ''}`} /> {status}</button>
-            <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? (lang === 'fr' ? 'Redémarrage…' : 'Restarting…') : 'Restart'}</button>
+            <button type="button" className="chip studio-restart" onClick={restartStudio} disabled={restarting || running || preparing || uploading > 0} aria-busy={restarting} aria-label={lang === 'fr' ? 'Redémarrer le Studio' : 'Restart Studio'} title={lang === 'fr' ? 'Redémarrer uniquement le Studio. Attends la fin des générations.' : 'Restart only the Studio. Wait for generations to finish.'}><Icon name="refresh" size={14} />{restarting ? t.restarting : t.restart}</button>
             <Dropdown label={t.language} title={t.tip.language} icon={<Icon name="globe" size={15} />} value={lang} choices={[{ value: 'en', label: 'English', short: 'EN' }, { value: 'fr', label: 'Français', short: 'FR' }]} onChange={i18n.setLang} />
             <Dropdown label={t.zoomPage} title={t.tip.zoomPage} icon={<Icon name="zoom" size={15} />} value={zoom} choices={ZOOMS.map(z => ({ value: z, label: `${Math.round(z * 100)}%` }))} onChange={setZoom} />
             {job?.status === 'review' && planClosed === job.id && <button type="button" className="primary" onClick={() => setPlanClosed(null)}>{lang === 'fr' ? 'Valider le plan' : 'Review the plan'}</button>}
             {job && job.project_id && job.shots.length > 0 && (job.status === 'failed' || job.status === 'cancelled') && <button type="button" className="primary" onClick={resume} disabled={submitting || preparing || uploading > 0}>{t.resume}</button>}
-            <button type="button" className="primary stop-generation" title={t.tip.cancel} aria-label={lang==='fr' ? 'Annuler la génération' : 'Cancel generation'} aria-busy={cancelling} disabled={submitting || cancelling || !job || (job.status!=='running' && job.status!=='queued')} onClick={cancel}><Icon name="x" size={18} />{cancelling ? (lang==='fr' ? 'Arrêt…' : 'Stopping…') : 'Stop'}</button>
+            <button type="button" className="primary stop-generation" title={t.tip.cancel} aria-label={lang==='fr' ? 'Annuler la génération' : 'Cancel generation'} aria-busy={cancelling} disabled={submitting || cancelling || !job || (job.status!=='running' && job.status!=='queued')} onClick={cancel}><Icon name="x" size={18} />{cancelling ? t.stopping : t.stop}</button>
             <button type="button" className="primary" title={t.tip.generate} onClick={() => generate()} disabled={running || preparing || uploading > 0 || (!!settings.approved_brief && !settings.approved_brief_context)}>{running ? t.generating : `▶ ${t.generate}`}</button>
           </div>
         </header>
@@ -507,7 +513,7 @@ export default function App() {
             </div>
           </main>
         </div>
-        {job?.status === 'review' && planClosed !== job.id && <PlanReview key={job.id} job={job} busy={submitting || cancelling} onApprove={approve} onRefuse={cancel} onClose={() => setPlanClosed(job.id)} />}
+        {job?.status === 'review' && <PlanReview key={job.id} job={job} hidden={planClosed === job.id} busy={submitting || cancelling} onApprove={approve} onRefuse={cancel} onClose={() => setPlanClosed(job.id)} />}
         <Tooltips />
         <div className="toast-stack" aria-label={lang === 'fr' ? 'Notifications du Studio' : 'Studio notifications'}>
           {job?.status === 'succeeded' && fallbackWarnings.length > 0 && dismissedFallback !== fallbackKey && <Toast tone="warning" lang={lang} onDismiss={() => setDismissedFallback(fallbackKey)}>{fallbackWarnings.map(w => fallbackMessages[w] ?? (lang === 'fr' ? 'Vidéo prête avec une finition facultative désactivée.' : 'Video ready with optional finishing skipped.')).join(' ')}</Toast>}

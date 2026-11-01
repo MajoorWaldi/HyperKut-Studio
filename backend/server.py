@@ -60,6 +60,15 @@ MEDIA_SUFFIXES = {
 }
 
 
+SECURITY_HEADERS = {
+    # the interface and its media come from this origin only; nothing may frame it
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+}
+
+
 class SameOriginMiddleware:
     def __init__(self, app):
         self.app = app
@@ -115,6 +124,13 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     app.state.restarting = False
     app.state.mutations = 0
     app.state.artifact_gc = False
+
+    @app.middleware('http')
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
 
     @app.middleware('http')
     async def restart_admission(request, call_next):

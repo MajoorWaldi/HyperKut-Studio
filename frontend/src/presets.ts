@@ -15,5 +15,6 @@ export function translatePresetSettings(current: Settings, preset: Preset, lang:
   for (const key of ['mood', 'camera'] as const) {
     if (variants.some(p => p.settings?.[key] === current[key])) patch[key] = target.settings?.[key] ?? ''
   }
+  if (Object.keys(patch).length === 0) return current  // nothing translated: the approved brief stays
   return {...current, ...patch, approved_brief: '', approved_brief_context: ''}
 }

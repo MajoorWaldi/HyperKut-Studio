@@ -32,6 +32,13 @@ export function Timeline({ job, position, onSeek, selection, primary, edits, onS
   const [info, setInfo] = useState<TimelineInfo | null>(null)
   const [wave, setWave] = useState<number[]>([])
   const inner = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(600)
+  useEffect(() => {  // the ruler follows the real width after a zoom or a resize, never a stale one read while rendering
+    const measure = () => { if (inner.current?.clientWidth) setWidth(inner.current.clientWidth) }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [zoom, job?.shots.length])
   const shots = job?.shots ?? []
   const working=workingShots(job,activeShots)
   const total = shots.reduce((sum, shot) => sum + shot.duration, 0)
@@ -41,7 +48,7 @@ export function Timeline({ job, position, onSeek, selection, primary, edits, onS
   const chosen = shots.filter(s => selection.includes(s.id) || (selection.length === 0 && s === shot))
   const regenerable = chosen.filter(s => !s.locked)
   const playing = position !== null ? starts.reduce((found, start, i) => (start <= position ? i : found), 0) : -1
-  const filled = (i: number) => (position === null ? 0 : Math.max(0, Math.min(1, (position - starts[i]) / shots[i].duration)))
+  const filled = (i: number) => (position === null ? 0 : Math.max(0, Math.min(1, (position - starts[i]) / Math.max(shots[i].duration, 1e-6))))
   const edited = (id: string) => edits[id] !== undefined && edits[id] !== shots.find(s => s.id === id)?.prompt
 
   useEffect(() => {
@@ -83,7 +90,7 @@ export function Timeline({ job, position, onSeek, selection, primary, edits, onS
   const scrubbing = { onPointerDown: (event: PointerEvent<Element>) => { event.currentTarget.setPointerCapture(event.pointerId); scrub(event) }, onPointerMove: scrub }
 
   const allLocked = chosen.length > 0 && chosen.every(s => s.locked)
-  const step = rulerStep(total, (inner.current?.clientWidth ?? 600))
+  const step = rulerStep(total, width)
   const marks = Array.from({ length: Math.ceil(total / step) }, (_, i) => i * step)
   const waveform = wave.length ? `M0 50 ${wave.map((v, i) => `M${i + 0.5} ${50 - v * 48} V${50 + v * 48}`).join(' ')}` : ''
 
@@ -95,7 +102,7 @@ export function Timeline({ job, position, onSeek, selection, primary, edits, onS
         <label className="tl-zoom" title={t.tip.zoom}>{t.zoom}<input type="range" min={1} max={8} step={0.5} value={zoom} onChange={e => setZoom(Number(e.target.value))} /></label>
       {shots.length > 1 && over && (
         <details className="timeline-actions" open={chosen.length>1 ? true : undefined}>
-          <summary>Actions</summary>
+          <summary>{t.actions}</summary>
         <div className="tl-select" title={t.tip.multiSelect}>
           <span>{chosen.length} {t.selected}</span>
           <button type="button" disabled={regenerable.length === 0} onClick={() => onRegenerate(regenerable.map(s => s.id))}>{t.regenerate} ({regenerable.length})</button>
@@ -132,7 +139,7 @@ export function Timeline({ job, position, onSeek, selection, primary, edits, onS
               </div>
               {rhythm && (
                 <div className="rhythm" title={t.tip.rhythm} {...scrubbing}>
-                  {rhythm.grid?.ticks.map(tick => <span key={`b${tick}`} className="beat" style={{ left: `${(tick / total) * 100}%` }} />)}
+                  {rhythm.grid?.ticks.map((tick, i) => <span key={`b${i}-${tick}`} className="beat" style={{ left: `${(tick / total) * 100}%` }} />)}
                   {rhythm.cuts.map(cut => <span key={`c${cut}`} className="cut" style={{ left: `${(cut / total) * 100}%` }} />)}
                 </div>
               )}

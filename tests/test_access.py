@@ -193,3 +193,12 @@ def test_cross_origin_check_accepts_a_forwarded_https_scheme(settings):
         headers = {"Origin": "https://testserver", "Host": "testserver", "X-Forwarded-Proto": "https"}
         assert client.post("/api/brief-approve", json={}, headers=headers).status_code != 403
         assert client.post("/api/brief-approve", json={}, headers={**headers, "Origin": "https://evil.example"}).status_code == 403
+
+
+def test_every_response_forbids_framing_and_foreign_scripts(settings):
+    with TestClient(create_app(settings, MockRunner(pace=0)), client=("127.0.0.1", 1234)) as client:
+        headers = client.get("/api/studio/status").headers
+        assert headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+        assert "script-src 'self'" in headers["Content-Security-Policy"]
+        assert headers["X-Content-Type-Options"] == "nosniff"

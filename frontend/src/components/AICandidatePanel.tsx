@@ -51,7 +51,7 @@ export function AICandidatePanel({ job, shot, take, prompt, onState }: Props) {
     if (controlsDisabled || !take?.active || !prompt.trim()) return
     setBusy(true); setError(null)
     try {
-      const result = await api.startAICandidate(job.id, shot.id, { operation, take: take.id, prompt, seconds, seed: 42 })
+      const result = await api.startAICandidate(job.id, shot.id, { operation, take: take.id, prompt, seconds, seed: Math.floor(Math.random() * 2 ** 31) })
       onState(result.job)
       if (mounted.current) setRefresh(value => value + 1)
     } catch (reason) { if (mounted.current) setError((reason as Error).message) }

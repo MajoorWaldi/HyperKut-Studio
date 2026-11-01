@@ -871,6 +871,7 @@ html[data-w~="sm"] .transport-seek { min-width: 80px; }
 .slot-play { position: absolute; z-index: 2; top: 4px; right: 28px; width: 20px; height: 20px; border-radius: 50%; background: #130f18cc; color: var(--text); line-height: 1; display: inline-grid; place-items: center; cursor: pointer; border: 0; }
 .slot-play:hover { background: var(--lime); color: #201722; }
 .upload-progress { position: absolute; top: 6px; bottom: 21px; width: 2px; background: #fff; opacity: .85; pointer-events: none; }
+[hidden].plan-backdrop { display: none; }
 .plan-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: #130f18cc; padding: 16px; }
 .plan-review { width: min(1100px, 100%); max-height: 100%; overflow: auto; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 12px 38px #0008; display: grid; gap: 12px; }
 .plan-review header { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; }

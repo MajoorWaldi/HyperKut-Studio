@@ -59,7 +59,7 @@ export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRe
 
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
-      if (document.querySelector('dialog.mjr-edit[open]')) return
+      if (event.repeat || document.querySelector('dialog.mjr-edit[open], [role="dialog"][aria-modal="true"]:not([hidden]), .library-block')) return
       const target = event.target as HTMLElement
       if (target.closest('input, textarea, select, [contenteditable], [role="slider"]') || event.ctrlKey || event.metaKey || event.altKey) return
       if (event.key === 'ArrowLeft') onStep(-1)

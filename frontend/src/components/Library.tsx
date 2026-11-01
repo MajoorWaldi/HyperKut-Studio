@@ -130,9 +130,9 @@ export function Library(props: Props) {
     const { id: _id, user: _user, ...clean } = preset
     const link = document.createElement('a')
     link.href = URL.createObjectURL(new Blob([JSON.stringify(clean, null, 1)], { type: 'application/json' }))
-    link.download = `${preset.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`
+    link.download = `${preset.name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset'}.json`
     link.click()
-    URL.revokeObjectURL(link.href)
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000)  // a browser may start the download after click() returns
   }
 
   if (!open) return null

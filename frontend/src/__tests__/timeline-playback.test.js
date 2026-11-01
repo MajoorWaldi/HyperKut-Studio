@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
-import { openTimelineEditor } from '../../../../web/timeline_edit_panel.js'
+import { openTimelineEditor } from '@videotools-web/timeline_edit_panel.js'
 
 let close
 afterEach(async () => {
