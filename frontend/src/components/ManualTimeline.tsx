@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as api from '../api'
 import { useI18n } from '../i18n'
 import { Icon } from './Icon'
+import { readDraft, removeDraft, writeDraft } from '../brand'
 import type { JobState, ManualTimelinePayload, TimelineDocument } from '../types'
 
 interface Props { job: JobState; onState: (state: JobState) => void }
@@ -45,16 +46,15 @@ export function ManualTimeline({ job, onState }: Props) {
     finally { pending.current = false; if (mounted.current) setBusy(false) }
   }
   const remember = (document: TimelineDocument, expected: string | null) => {
-    localStorage.setItem(key, JSON.stringify({ document, expected }))
+    if (!writeDraft(key, { document, expected })) setNotice(t.manualDraftNotKept)
   }
   const open = () => void action(async () => {
     const fresh = await api.manualTimeline(job.id)
     if (fresh.stale) { setPayload(fresh); throw new Error(t.manualStale) }
-    const raw = localStorage.getItem(key)
+    const draft = readDraft<Draft>(key)
     let document = fresh.document
-    if (raw) {
-      const draft: Draft = JSON.parse(raw)
-      if (draft.expected !== fresh.etag || draft.document.source_signature !== fresh.initial.source_signature) {
+    if (draft) {
+      if (!draft.document || draft.expected !== fresh.etag || draft.document.source_signature !== fresh.initial.source_signature) {
         throw new Error(t.manualDraftConflict)
       }
       document = draft.document
@@ -66,7 +66,7 @@ export function ManualTimeline({ job, onState }: Props) {
     const save = async (next: TimelineDocument) => {
       const result = await api.saveManualTimeline(job.id, next, expected, true)
       expected = result.etag
-      localStorage.removeItem(key)
+      removeDraft(key)
       if (mounted.current) {
         setPayload({ ...fresh, document: next, etag: expected, enabled: true })
         setNotice(t.manualSaved)
@@ -105,13 +105,12 @@ export function ManualTimeline({ job, onState }: Props) {
     if (!window.confirm(t.manualResetConfirm)) return
     const fresh = await api.manualTimeline(job.id)
     await api.saveManualTimeline(job.id, fresh.initial, fresh.etag, true)
-    localStorage.removeItem(key)
+    removeDraft(key)
     setNotice(t.manualSaved); setRevision(value => value + 1)
   })
 
   const download = () => void action(async () => {
-    const raw = localStorage.getItem(key)
-    const savedDocument = raw ? JSON.parse(raw).document : payload?.document
+    const savedDocument = readDraft<Draft>(key)?.document ?? payload?.document
     if (!savedDocument) throw new Error(t.manualUnavailable)
     const url = URL.createObjectURL(new Blob([JSON.stringify(savedDocument, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a')
@@ -141,7 +140,7 @@ export function ManualTimeline({ job, onState }: Props) {
       <button type="button" className="secondary" disabled={disabled || !payload} onClick={download}><Icon name="download" size={14} />{t.manualDownload}</button>
       <button type="button" className="secondary manual-discard" disabled={disabled || !payload} onClick={() => void action(async () => {
         if (!window.confirm(t.manualDiscardDraft)) return
-        localStorage.removeItem(key); setRevision(value => value + 1); setNotice(''); setError(null)
+        removeDraft(key); setRevision(value => value + 1); setNotice(''); setError(null)
       })}><Icon name="eraser" size={14} />{t.manualDiscard}</button>
     </div>
     {payload && <small className="manual-metrics"><Icon name="film" size={13} />{payload.document.clips.length} clips <span>·</span><Icon name="clock" size={13} />{(payload.document.clips.reduce((sum, clip) => sum + clip.out_frame - clip.in_frame, 0) * payload.document.fps_den / payload.document.fps_num).toFixed(2)} s</small>}

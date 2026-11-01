@@ -207,6 +207,7 @@ class Take(BaseModel):
     active: bool
     generation_prompt: str = ""
     url: str
+    thumb: str | None = None  # a small still of the take: the list of takes shows pictures, not one video each
     duration: float = 0.0
     start: float = 0.0
     window: float = 0.0
@@ -221,6 +222,12 @@ class TrimTake(BaseModel):
 
 class ActiveTake(BaseModel):
     take: str
+
+
+class TakeEdit(BaseModel):
+    """Choose a take, optionally move its source window, and make the edit again: one step, or nothing."""
+    take: str = Field(min_length=1)
+    start: float | None = Field(None, ge=0, allow_inf_nan=False)
 
 
 class PlanApproval(BaseModel):

@@ -4,9 +4,10 @@ import hashlib
 import importlib
 import importlib.util
 import json
+import os
 import sys
-from functools import lru_cache
 from pathlib import Path
+from functools import lru_cache
 
 from filelock import FileLock
 
@@ -15,7 +16,7 @@ from .media import audio_waveform, media_info
 from .storage import write_json
 from .templates import Template
 
-PACK = ROOT.parent
+PACK = Path(os.environ.get('HYPERKUT_VIDEOTOOLS_DIR') or ROOT.parent)  # the node pack: by default the folder that contains Studio
 EDIT_FILE = 'editor/timeline.json'
 EDITOR_MODULES = {'timeline_edit_panel.js', 'timeline_edit_logic.js'}
 

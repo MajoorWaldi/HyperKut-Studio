@@ -51,7 +51,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
     <label className="field" key={key} title={hint}><span>{text}</span><input type="text" placeholder={placeholder} value={settings[key]} disabled={busy} onChange={e => onSettings({ [key]: e.target.value })} /></label>
   )
   const number = (key: 'bpm' | 'music_start', text: string, hint: string, extra: { min: number; max?: number; step?: number }) => (
-    <label className="field" key={key} title={hint}><span>{text}</span><input type="number" {...extra} value={settings[key]} disabled={busy} onChange={e => onSettings({ [key]: Number(e.target.value) })} /></label>
+    <label className="field" key={key} title={hint}><span>{text}</span><input type="number" {...extra} value={settings[key]} disabled={busy} onChange={e => { if (e.target.value !== '' && Number.isFinite(Number(e.target.value))) onSettings({ [key]: Number(e.target.value) }) }} /></label>
   )
 
   const select = <K extends 'style' | 'cut_density' | 'transition_intensity' | 'cut_every' | 'music_edit_mode'>(key: K, text: string, hint: string, choices: [Settings[K], string][]) => (

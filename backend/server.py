@@ -31,7 +31,7 @@ from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
 from .capacity import CapacityError, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
 from .jobs import JobStore
-from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TimelineInfo, TimelineShot, TrimTake, Upload
+from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
@@ -40,7 +40,7 @@ from .take_retention import free_unused_takes
 from .runner import ComfyRunner, MockRunner, Runner, _failure_message
 from .media import audio_waveform, validate_media
 from .review import build_review_frames
-from .storage import SharedProjectRepository, project_path, write_json
+from .storage import SharedProjectRepository, write_json
 from .templates import TemplateError, load_templates
 from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
@@ -60,6 +60,15 @@ MEDIA_SUFFIXES = {
 }
 
 
+SECURITY_HEADERS = {
+    # the interface and its media come from this origin only; nothing may frame it
+    'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+}
+
+
 class SameOriginMiddleware:
     def __init__(self, app):
         self.app = app
@@ -71,7 +80,7 @@ class SameOriginMiddleware:
             if origin:
                 try:
                     parsed = urlsplit(origin)
-                    allowed = parsed.scheme in ('http', 'https') and parsed.netloc.lower() == headers.get('host', '').lower() and parsed.scheme == scope.get('scheme', 'http')
+                    allowed = parsed.scheme in ('http', 'https') and parsed.netloc.lower() == headers.get('host', '').lower() and parsed.scheme == (headers.get('x-forwarded-proto', '').split(',')[0].strip().lower() or scope.get('scheme', 'http'))
                 except ValueError:
                     allowed = False
                 if not allowed:
@@ -115,6 +124,13 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     app.state.restarting = False
     app.state.mutations = 0
     app.state.artifact_gc = False
+
+    @app.middleware('http')
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
 
     @app.middleware('http')
     async def restart_admission(request, call_next):
@@ -857,11 +873,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             job.update(warnings=list(dict.fromkeys([*job.state.warnings, warning])))
         return job.state
 
-    @app.post("/api/jobs/{job_id}/re-edit", response_model=JobState)
-    async def re_edit(job_id: str, style: EditStyle):
-        job = _job(job_id)
-        await recover_pending(job)
-        refresh_shots(job)
+    def check_re_edit(job, style):
+        """Everything that must hold for the edit to be made again; raises before anything is changed."""
         _exclusive(job)
         if job.state.status in ("queued", "running"):
             raise HTTPException(409, "The job is still running")
@@ -876,9 +889,19 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             validate_finishing(values, sum(s.duration for s in job.state.shots))
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
+
+    def start_re_edit(job, style):
         begin_operation(job, 'edit', sum(s.duration for s in job.state.shots))
         job.task = asyncio.create_task(runner.re_edit(job, style))
         return job.state
+
+    @app.post("/api/jobs/{job_id}/re-edit", response_model=JobState)
+    async def re_edit(job_id: str, style: EditStyle):
+        job = _job(job_id)
+        await recover_pending(job)
+        refresh_shots(job)
+        check_re_edit(job, style)
+        return start_re_edit(job, style)
 
     @app.patch("/api/jobs/{job_id}/shots/{shot_id}", response_model=JobState)
     async def patch_shot(job_id: str, shot_id: str, body: ShotPatch):
@@ -889,12 +912,16 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return job.state
 
     @app.get("/api/jobs/{job_id}/shots/{shot_id}/thumb")
-    async def thumb(job_id: str, shot_id: str):
-        """The first picture of the active take of the shot, else the picture of the template it replaces."""
+    async def thumb(job_id: str, shot_id: str, take: str | None = None):
+        """The first picture of the active take of the shot (or of the generated take `take`), else the picture of the template it replaces."""
         job = _job(job_id)
         project, manifest = _manifest(job)
         shot = _manifest_shot(manifest, shot_id)
-        take = next((r for r in shot.get("revisions", []) if r["revision_id"] == shot.get("active_revision_id")), None)
+        requested = take
+        wanted = requested or shot.get("active_revision_id")
+        take = next((r for r in shot.get("revisions", []) if r["revision_id"] == wanted and (requested is None or r.get("media_range") is None)), None)
+        if take is None and requested is not None:
+            raise HTTPException(404, "Unknown take")
         target = (project / (take["media_ref"] if take else shot.get("thumbnail_ref") or "")).resolve()
         if project not in target.parents or not target.is_file():
             raise HTTPException(404, "No picture")
@@ -925,9 +952,31 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         fps = source.get('fps_num',24) / (source.get('fps_den',1) or 1)
         style = {**job.request.settings.model_dump(), **job.state.style.model_dump(exclude_none=True)}
         return [Take(id=r["revision_id"], active=r["revision_id"] == shot.get("active_revision_id"), url=f"/api/jobs/{job_id}/shots/{shot_id}/takes/{r['revision_id']}/video",
+                     thumb=f"/api/jobs/{job_id}/shots/{shot_id}/thumb?take={r['revision_id']}&v={int(r.get('source_start_seconds', 0) * 1000)}",
                      generation_prompt=r.get('generation_prompt', ''),
                      **trim_bounds(shot,r,style,fps))
                 for r in shot.get("revisions", []) if r.get("media_range") is None]
+
+    def _choose_in(manifest, shot_id, take):
+        shot = _manifest_shot(manifest, shot_id)
+        if not any(r["revision_id"] == take and r.get("media_range") is None for r in shot.get("revisions", [])):
+            raise HTTPException(404, "Unknown take")
+        shot['active_revision_id'] = take
+
+    def _trim_in(manifest, job, shot_id, take, start):
+        shot = _manifest_shot(manifest, shot_id)
+        revision = next((r for r in shot.get('revisions', []) if r['revision_id'] == take and r.get('media_range') is None), None)
+        if revision is None:
+            raise HTTPException(404, 'Unknown generated take')
+        if shot.get('active_revision_id') != take:
+            raise HTTPException(409, 'Choose this take before moving its source window')
+        source = manifest.get('source', {})
+        fps = source.get('fps_num', 24) / (source.get('fps_den', 1) or 1)
+        style = {**job.request.settings.model_dump(), **job.state.style.model_dump(exclude_none=True)}
+        bounds = trim_bounds(shot, revision, style, fps)
+        if bounds['duration'] <= 0 or start > bounds['max_start'] + 1e-6:
+            raise HTTPException(422, 'The selected portion extends past the end of this take')
+        revision['source_start_seconds'] = min(bounds['max_start'], round(start * fps) / fps)
 
     @app.post("/api/jobs/{job_id}/shots/{shot_id}/trim", response_model=list[Take])
     async def trim_take(job_id: str, shot_id: str, body: TrimTake):
@@ -941,19 +990,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         project, _ = _manifest(job)
         def select():
             with SharedProjectRepository(project.parent).edit(project.name) as manifest:
-                shot = _manifest_shot(manifest,shot_id)
-                revision = next((r for r in shot.get('revisions',[]) if r['revision_id']==body.take and r.get('media_range') is None),None)
-                if revision is None:
-                    raise HTTPException(404,'Unknown generated take')
-                if shot.get('active_revision_id') != body.take:
-                    raise HTTPException(409,'Choose this take before moving its source window')
-                source = manifest.get('source',{})
-                fps = source.get('fps_num',24)/(source.get('fps_den',1) or 1)
-                style = {**job.request.settings.model_dump(), **job.state.style.model_dump(exclude_none=True)}
-                bounds = trim_bounds(shot,revision,style,fps)
-                if bounds['duration'] <= 0 or body.start > bounds['max_start'] + 1e-6:
-                    raise HTTPException(422,'The selected portion extends past the end of this take')
-                revision['source_start_seconds'] = min(bounds['max_start'],round(body.start*fps)/fps)
+                _trim_in(manifest, job, shot_id, body.take, body.start)
         await update_project(job,select)
         return await takes(job_id,shot_id)
 
@@ -986,6 +1023,26 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         await update_project(job, select)
         refresh_shots(job)
         return await takes(job_id, shot_id)
+
+    @app.post("/api/jobs/{job_id}/shots/{shot_id}/take-edit", response_model=JobState)
+    async def take_edit(job_id: str, shot_id: str, body: TakeEdit):
+        """Choose a take (and optionally move its source window) and make the edit again, as one step: when any check fails, nothing is changed."""
+        job = _job(job_id)
+        await recover_pending(job)
+        refresh_shots(job)
+        if any(s.id == shot_id and s.locked for s in job.state.shots):
+            raise HTTPException(409, 'Unlock the shot before choosing a different take')
+        style = EditStyle()
+        check_re_edit(job, style)  # the edit must be possible before the project is touched
+        project, _ = _manifest(job)
+        def select():
+            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
+                _choose_in(manifest, shot_id, body.take)
+                if body.start is not None:
+                    _trim_in(manifest, job, shot_id, body.take, body.start)
+        await update_project(job, select)
+        refresh_shots(job)
+        return start_re_edit(job, style)
 
     def idle_timeline(job):
         _exclusive(job)

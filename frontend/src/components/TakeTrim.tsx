@@ -26,7 +26,7 @@ export function TakeTrim({ take, video, disabled, onApply }: Props) {
   const track = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; start: number } | null>(null)
   const length = take.duration ?? 0
-  const window = take.window ?? 0
+  const span = take.window ?? 0
   const maximum = take.max_start ?? 0
   const step = take.step ?? 1 / 24
   const blocked = disabled || saving || !take.active
@@ -40,26 +40,26 @@ export function TakeTrim({ take, video, disabled, onApply }: Props) {
 
   useEffect(() => {
     const element = video.current
-    if (!element || window <= 0) return
+    if (!element || span <= 0) return
     const seek = () => seekMedia(video, start)
     const loop = () => {
-      if (element.currentTime >= start + window - .015 || element.currentTime < start - .02) seek()
+      if (element.currentTime >= start + span - .015 || element.currentTime < start - .02) seek()
     }
     element.addEventListener('loadedmetadata', seek)
     element.addEventListener('timeupdate', loop)
     if (element.readyState) seek()
     return () => { element.removeEventListener('loadedmetadata', seek); element.removeEventListener('timeupdate', loop) }
-  }, [video, start, window])
+  }, [video, start, span])
 
-  if (!(length > 0) || !(window > 0)) return null
+  if (!(length > 0) || !(span > 0)) return null
   return <section className="take-trim" aria-label={fr ? 'Portion conservée' : 'Selected portion'}>
-    <div className="trim-heading"><span>{fr ? 'Portion conservée' : 'Selected portion'}</span><output>{format(start)} – {format(start + window)} s <small>/ {format(length)} s</small></output></div>
+    <div className="trim-heading"><span>{fr ? 'Portion conservée' : 'Selected portion'}</span><output>{format(start)} – {format(start + span)} s <small>/ {format(length)} s</small></output></div>
     <div className="trim-track" ref={track}>
       <VideoFilmstrip url={take.url} duration={length} />
       <button type="button" role="slider" className="trim-window"
         aria-label={fr ? 'Déplacer la portion' : 'Move selected portion'} aria-valuemin={0} aria-valuemax={maximum} aria-valuenow={start}
-        aria-valuetext={`${format(start)} – ${format(start + window)} s`} disabled={blocked || maximum <= 0}
-        style={{ left: `${100 * start / length}%`, width: `${Math.min(100, 100 * window / length)}%` }}
+        aria-valuetext={`${format(start)} – ${format(start + span)} s`} disabled={blocked || maximum <= 0}
+        style={{ left: `${100 * start / length}%`, width: `${Math.min(100, 100 * span / length)}%` }}
         onKeyDown={event => {
           const values: Record<string, number> = { ArrowLeft:start-step, ArrowRight:start+step, ArrowDown:start-step, ArrowUp:start+step, Home:0, End:maximum, PageDown:start-10*step, PageUp:start+10*step }
           if (event.key in values) { event.preventDefault(); event.stopPropagation(); change(values[event.key]) }

@@ -18,11 +18,13 @@ from starlette.responses import JSONResponse
 
 from .storage import write_json
 
-GENERATION_ROUTE = re.compile(r'^/api/jobs(/[^/]+/(resume|regenerate|approve))?$')
+GENERATION_ROUTE = re.compile(r'^/api/jobs(/[^/]+/(resume|regenerate|approve)|/[^/]+/shots/[^/]+/ai-candidates)?$')
+FORWARDING_HEADERS = ('cf-connecting-ip', 'x-forwarded-for', 'x-forwarded-host', 'forwarded', 'x-real-ip')
 CLOSED_ROUTES = (
     ('POST', re.compile(r'^/api/(studio/restart|projects/import|storage/worker/cleanup|storage/cache/gc|storage/caches/clean)$')),
     ('POST', re.compile(r'^/api/jobs/[^/]+/free$')),
     ('DELETE', re.compile(r'^/api/(jobs|presets)/[^/]+$')),
+    ('PATCH', re.compile(r'^/api/jobs/[^/]+$')),
     ('POST', re.compile(r'^/api/presets$')),
 )
 
@@ -126,6 +128,8 @@ class AccessMiddleware:
                 local = ipaddress.ip_address(host).is_loopback
             except ValueError:
                 local = host == "testclient"
+            if local and any(name in headers for name in FORWARDING_HEADERS):
+                local = False  # a local tunnel or reverse proxy makes remote callers look like loopback
             if not local:
                 status, message = 403, "Remote access is disabled. Configure a dedicated authenticated jury instance."
         elif scope.get("scheme") not in ("https", "wss"):

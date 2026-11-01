@@ -59,7 +59,7 @@ export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRe
 
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
-      if (document.querySelector('dialog.mjr-edit[open]')) return
+      if (event.repeat || document.querySelector('dialog.mjr-edit[open], [role="dialog"][aria-modal="true"]:not([hidden]), .library-block')) return
       const target = event.target as HTMLElement
       if (target.closest('input, textarea, select, [contenteditable], [role="slider"]') || event.ctrlKey || event.metaKey || event.altKey) return
       if (event.key === 'ArrowLeft') onStep(-1)
@@ -94,7 +94,7 @@ export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRe
         <div className="takes" title={t.tip.takes}>
           {takes.map(take => (
             <button key={take.id} type="button" className={`take ${take.active ? 'active' : ''} ${shown?.id === take.id ? 'viewing' : ''}`} onClick={() => setViewing(take.active ? null : take)}>
-              <video src={`${take.url}#t=0.1`} preload="metadata" muted playsInline />{take.active && <i><Icon name="check" size={11} /></i>}
+              {take.thumb ? <img src={take.thumb} alt="" loading="lazy" /> : <video src={`${take.url}#t=0.1`} preload="metadata" muted playsInline />}{take.active && <i><Icon name="check" size={11} /></i>}
             </button>
           ))}
         </div>

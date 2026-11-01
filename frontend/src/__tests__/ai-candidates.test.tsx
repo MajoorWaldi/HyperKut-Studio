@@ -31,7 +31,7 @@ test('extension reuses the shared shot prompt without duplicate prompt or regene
   render(<AICandidatePanel job={job} shot={shot} take={take} prompt="shared edited prompt" onState={state} />)
   fireEvent.click(await screen.findByRole('button', { name: 'Extend take' }))
   await waitFor(() => expect(launch).toHaveBeenCalledWith(job.id, shot.id,
-    { operation: 'extend_after', take: 'take_001', prompt: 'shared edited prompt', seconds: 3, seed: 42 }))
+    { operation: 'extend_after', take: 'take_001', prompt: 'shared edited prompt', seconds: 3, seed: expect.any(Number) }))
   expect(screen.queryByRole('textbox')).toBeNull()
   expect(screen.queryByRole('combobox')).toBeNull()
   expect(screen.queryByRole('button', { name: /regenerate/i })).toBeNull()

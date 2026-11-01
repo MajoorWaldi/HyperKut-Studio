@@ -16,7 +16,7 @@ from comfy_sdk import AsyncComfy, CancelRefused, ComfyError, JobFailed, Preview,
 from .config import Settings
 from .jobs import Job
 from .models import EditStyle, Shot
-from .templates import Template, TemplateError, applied_style, load_templates, reachable_graph
+from .templates import Template, applied_style, load_templates, reachable_graph
 from .direction import resolved_brief, use_prepared_brief, normalize_media_roles, apply_plan_contract
 from .creative_controls import level as _level, direction as creative_direction, strategy_values
 from .export_qc import export_qc

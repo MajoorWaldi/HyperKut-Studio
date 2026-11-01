@@ -107,6 +107,12 @@ export const chooseTake = (id: string, shot: string, take: string) =>
 export const trimTake = (id: string, shot: string, take: string, start: number) =>
   fetch(`/api/jobs/${id}/shots/${shot}/trim`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ take, start }) }).then(json<Take[]>)
 
+/** Choose a take (optionally with a new source window) and make the edit again: one request, all or nothing. */
+export const takeEdit = (id: string, shot: string, take: string, start?: number) =>
+  fetch(`/api/jobs/${id}/shots/${shot}/take-edit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(start === undefined ? { take } : { take, start }) }).then(json<JobState>)
+
+export const reviewJob = (id: string) => fetch(`/api/jobs/${id}/review`).then(json<import('./types').ReviewReport>)
+
 export const lockShot = (id: string, shot: string, locked: boolean) =>
   fetch(`/api/jobs/${id}/shots/${shot}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked }) }).then(json<JobState>)
 

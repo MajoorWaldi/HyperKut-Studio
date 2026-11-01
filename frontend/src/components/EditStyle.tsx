@@ -108,7 +108,7 @@ export function EditStyle({ job, onApply }: Props) {
             <summary>{fr ? 'JSON avancé' : 'Advanced JSON'}</summary>
             <div className="advanced-technical-body">
               <label className="field wide" title={t.tip.motionLayers}><span>{t.motionLayers}</span>
-                <textarea rows={6} spellCheck={false} value={prettyJson(layers)} onChange={e => set({ motion_layers: e.target.value })} /></label>
+                <textarea rows={6} spellCheck={false} value={changes.motion_layers ?? prettyJson(job.style.motion_layers)} onChange={e => set({ motion_layers: e.target.value })} /></label>
               <label className="field wide"><span>{fr ? 'Consignes par plan' : 'Per-shot cues'}</span><textarea rows={5} spellCheck={false} value={changes.motion_cues ?? prettyJson(job.style.motion_cues)} onChange={e => set({ motion_cues: e.target.value })} /></label>
               <label className="field wide"><span>{fr ? 'Direction globale' : 'Global direction'}</span><textarea rows={4} spellCheck={false} value={changes.motion_direction ?? prettyJson(custom ? direction : JSON.stringify({ preset: direction, title: job.style.motion_title ?? '' }), '{}')} onChange={e => set({ motion_direction: e.target.value })} /></label>
               {job.style.rendered_layers && <label className="field wide"><span>{fr ? 'Calques effectivement rendus' : 'Rendered layers'}</span><textarea rows={6} readOnly value={prettyJson(job.style.rendered_layers)} /></label>}

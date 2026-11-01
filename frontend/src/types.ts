@@ -93,7 +93,7 @@ export interface ReviewReport { frames: {seconds:number;url:string}[]; energy?: 
 
 export interface JobInputs { mode: Mode; settings: Settings; source: Upload | null; refs: Upload[]; ref_video: Upload | null; music: Upload | null; voice: Upload | null }
 
-export interface Take { id: string; active: boolean; url: string; generation_prompt?: string; duration?: number; start?: number; window?: number; max_start?: number; step?: number }
+export interface Take { id: string; active: boolean; url: string; thumb?: string | null; generation_prompt?: string; duration?: number; start?: number; window?: number; max_start?: number; step?: number }
 
 export interface TimelineClip { id: string; shot_id: string; revision_id: string; in_frame: number; out_frame: number }
 export interface TimelineDocument {

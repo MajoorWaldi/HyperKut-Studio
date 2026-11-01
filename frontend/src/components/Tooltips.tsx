@@ -24,6 +24,7 @@ export function Tooltips() {
       hide()
       const title = element.getAttribute('title') ?? ''
       if (!title) return
+      if (!element.hasAttribute('aria-label') && !element.hasAttribute('aria-labelledby') && !element.textContent?.trim()) element.setAttribute('aria-label', title)  // the title was the only name: keep it for screen readers
       element.removeAttribute('title')
       current.current = { element, title }
       if (settled(element)) return

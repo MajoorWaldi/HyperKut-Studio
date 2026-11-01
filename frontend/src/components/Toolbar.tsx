@@ -14,12 +14,12 @@ const MIN_SECONDS = 2
 const MAX_SECONDS = 120
 
 /** The length in seconds, typed: it is kept while the field is edited and set (between 2 and 120) when the field is left or Enter is pressed. */
-function SecondsField({ value, disabled, label, onCommit }: { value: number; disabled: boolean; label: string; onCommit: (seconds: number) => void }) {
+export function SecondsField({ value, disabled, label, onCommit }: { value: number; disabled: boolean; label: string; onCommit: (seconds: number) => void }) {
   const [text, setText] = useState(String(value))
   useEffect(() => setText(String(value)), [value])
   const commit = () => {
     const seconds = Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, Math.round(Number(text))))
-    if (Number.isFinite(seconds) && text.trim() !== '') onCommit(seconds)
+    if (Number.isFinite(seconds) && text.trim() !== '') { setText(String(seconds)); onCommit(seconds) }  // the field shows what was kept, even when it equals the current value
     else setText(String(value))
   }
   return <input className="seconds-field" type="number" inputMode="numeric" min={MIN_SECONDS} max={MAX_SECONDS} step={1} value={text} disabled={disabled} aria-label={label} title={label}

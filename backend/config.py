@@ -21,6 +21,14 @@ def _studio_env(suffix, default=None):
     return os.environ.get('HYPERKUT_' + suffix, os.environ.get('SECATOR_' + suffix, default))
 
 
+def _studio_int(suffix, default):
+    value = _studio_env(suffix, default)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'HYPERKUT_{suffix} must be an integer, received {value!r}') from None
+
+
 def configuration_identity(
     comfyui_url: str,
     workspace: Path | str,
@@ -97,26 +105,26 @@ class Settings:
         access_mode = _studio_env('ACCESS_MODE', 'local')
         if access_mode in ('jury', 'jury_open') and (not _studio_env('WORKSPACE') or not _studio_env('OUTPUT_DIR')):
             raise ValueError('Jury access requires explicit dedicated WORKSPACE and OUTPUT_DIR')
-        upload_mb = int(_studio_env('MAX_UPLOAD_MB', 1024))
+        upload_mb = _studio_int('MAX_UPLOAD_MB', 1024)
         if not 1 <= upload_mb <= MAX_STUDIO_UPLOAD_BYTES // MIB:
             raise ValueError('MAX_UPLOAD_MB must be between 1 and 1024 (Studio uploads are capped at 1 GiB)')
-        max_active_jobs = int(_studio_env('MAX_ACTIVE_JOBS', 1))
+        max_active_jobs = _studio_int('MAX_ACTIVE_JOBS', 1)
         if not 1 <= max_active_jobs <= 8:
             raise ValueError('MAX_ACTIVE_JOBS must be between 1 and 8')
-        workspace_mb = int(_studio_env('MAX_WORKSPACE_MB', 20480))
-        min_free_disk_mb = int(_studio_env('MIN_FREE_DISK_MB', 256))
+        workspace_mb = _studio_int('MAX_WORKSPACE_MB', 20480)
+        min_free_disk_mb = _studio_int('MIN_FREE_DISK_MB', 256)
         if workspace_mb < 1 or min_free_disk_mb < 0:
             raise ValueError('MAX_WORKSPACE_MB must be positive and MIN_FREE_DISK_MB cannot be negative')
         output = _studio_env('OUTPUT_DIR')
         if backend == 'remote_artifacts':
             output = str(workspace / 'remote-output')
-        local_comfy = Path(_studio_env('COMFYUI_DIR',ROOT.parents[2]))
+        local_comfy = Path(_studio_env('COMFYUI_DIR', ROOT.parents[2] if len(ROOT.parents) > 2 else ROOT))
         detected = _output_directory(comfyui) if not output else None
         if detected is None and (local_comfy/'main.py').is_file():
             detected = local_comfy/'output'
         return cls(comfyui, os.environ.get("COMFY_BASE_URL", "http://127.0.0.1:8189").rstrip("/"), Path(output).resolve() if output else detected,
                    workspace, Path(_studio_env('TEMPLATES', ROOT / "workflows")), _studio_env('MOCK') == "1",
-                   max_media_seconds=int(_studio_env('MAX_MEDIA_SECONDS',3600)), max_media_pixels=int(_studio_env('MAX_MEDIA_PIXELS',4096*4096)),
+                   max_media_seconds=_studio_int('MAX_MEDIA_SECONDS', 3600), max_media_pixels=_studio_int('MAX_MEDIA_PIXELS', 4096*4096),
                    max_active_jobs=max_active_jobs,
                    allowed_hosts=tuple(x.strip() for x in _studio_env('ALLOWED_HOSTS', '127.0.0.1,localhost,[::1]').split(',') if x.strip()),
                    job_metadata_labels=_studio_env('JOB_METADATA_LABELS') == '1',
@@ -127,7 +135,7 @@ class Settings:
                    max_workspace_bytes=workspace_mb * MIB,
                    min_free_disk_bytes=min_free_disk_mb * MIB,
                    sfx_root=Path(_studio_env('SFX_ROOT')).resolve() if _studio_env('SFX_ROOT') else None,
-                   jury_visitor_limit=int(_studio_env('JURY_VISITOR_LIMIT', 5)), jury_total_limit=int(_studio_env('JURY_TOTAL_LIMIT', 15)))
+                   jury_visitor_limit=_studio_int('JURY_VISITOR_LIMIT', 5), jury_total_limit=_studio_int('JURY_TOTAL_LIMIT', 15))
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)
