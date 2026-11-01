@@ -172,3 +172,24 @@ def test_open_jury_takes_the_generation_when_the_plan_is_approved(settings):
         assert json.loads((config.workspace / "jury-quota.json").read_text())["total"] == 1
         refused = client.post(f"/api/jobs/{waiting[1]}/approve", json={"prompts": {}}, headers=me)
         assert refused.status_code == 429 and "1 generations" in refused.json()["detail"]
+
+
+def test_local_mode_rejects_loopback_requests_forwarded_by_a_tunnel(settings):
+    with TestClient(create_app(settings, MockRunner(pace=0)), client=("127.0.0.1", 1234)) as client:
+        assert client.get("/api/studio/status").status_code == 200
+        for header in ("CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP"):
+            assert client.get("/api/studio/status", headers={header: "203.0.113.9"}).status_code == 403
+
+
+def test_jury_quota_covers_every_route_that_starts_gpu_work():
+    from backend.access import CLOSED_ROUTES, GENERATION_ROUTE
+    assert GENERATION_ROUTE.match("/api/jobs/abc/shots/s1/ai-candidates")
+    assert not GENERATION_ROUTE.match("/api/jobs/abc/cancel")
+    assert any(method == "PATCH" and route.match("/api/jobs/abc") for method, route in CLOSED_ROUTES)
+
+
+def test_cross_origin_check_accepts_a_forwarded_https_scheme(settings):
+    with TestClient(create_app(settings, MockRunner(pace=0)), client=("127.0.0.1", 1234)) as client:
+        headers = {"Origin": "https://testserver", "Host": "testserver", "X-Forwarded-Proto": "https"}
+        assert client.post("/api/brief-approve", json={}, headers=headers).status_code != 403
+        assert client.post("/api/brief-approve", json={}, headers={**headers, "Origin": "https://evil.example"}).status_code == 403

@@ -4,13 +4,14 @@ import hashlib
 import importlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 
 
 @lru_cache(maxsize=1)
 def core():
-    directory = Path(__file__).resolve().parents[2] / 'core'
+    directory = Path(os.environ.get('HYPERKUT_VIDEOTOOLS_DIR') or Path(__file__).resolve().parents[2]) / 'core'
     if not (directory/'timeline_edit.py').is_file():
         raise ValueError('Snapshot runtime requires the packaged VideoTools core schema')
     name = 'hyperkut_snapshot_core_' + hashlib.sha256(str(directory).encode()).hexdigest()[:12]

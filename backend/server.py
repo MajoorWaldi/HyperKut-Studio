@@ -40,7 +40,7 @@ from .take_retention import free_unused_takes
 from .runner import ComfyRunner, MockRunner, Runner, _failure_message
 from .media import audio_waveform, validate_media
 from .review import build_review_frames
-from .storage import SharedProjectRepository, project_path, write_json
+from .storage import SharedProjectRepository, write_json
 from .templates import TemplateError, load_templates
 from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
@@ -71,7 +71,7 @@ class SameOriginMiddleware:
             if origin:
                 try:
                     parsed = urlsplit(origin)
-                    allowed = parsed.scheme in ('http', 'https') and parsed.netloc.lower() == headers.get('host', '').lower() and parsed.scheme == scope.get('scheme', 'http')
+                    allowed = parsed.scheme in ('http', 'https') and parsed.netloc.lower() == headers.get('host', '').lower() and parsed.scheme == (headers.get('x-forwarded-proto', '').split(',')[0].strip().lower() or scope.get('scheme', 'http'))
                 except ValueError:
                     allowed = False
                 if not allowed:

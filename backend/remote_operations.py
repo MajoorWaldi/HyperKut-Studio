@@ -3,6 +3,7 @@
 This transport service is not the H3 generation runner. Callers must run its SDK
 client in the dedicated endpoint process described by RemoteConnection.
 """
+import logging
 import asyncio
 import hashlib
 import json
@@ -15,6 +16,9 @@ from .remote_connection import probe_capabilities, require_capabilities
 from .snapshot_repository import RevisionConflict
 from .artifact_contract import ProjectSnapshot
 from .project_snapshot import validate_snapshot
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubmissionUncertain(RuntimeError):
@@ -63,7 +67,7 @@ async def run_snapshot_edit(client, *, operation_id, input_bundle, operation, jo
                 await asyncio.shield(handle.cancel())
                 await asyncio.shield(handle.wait(timeout=10))
             except Exception:
-                pass  # Persisted handle remains available for reconciliation.
+                logger.warning('Could not cancel remote handle %s; it stays persisted for reconciliation', handle.id, exc_info=True)
             else:
                 if handle.status == 'canceled':
                     journal.transition(operation_id,'submitted','cancelled')
@@ -83,7 +87,7 @@ async def run_snapshot_edit(client, *, operation_id, input_bundle, operation, jo
                 await asyncio.shield(handle.cancel())
                 await asyncio.shield(handle.wait(timeout=10))
             except Exception:
-                pass
+                logger.warning('Could not cancel remote handle %s', handle.id, exc_info=True)
             else:
                 if handle.status == 'canceled':
                     journal.transition(operation_id,'submitted','cancelled')

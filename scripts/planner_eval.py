@@ -4,6 +4,7 @@
     python scripts/planner_eval.py --run [--runs 3]           ask the planner of the ComfyUI that runs for each brief (the language model generates: not while the GPU is busy)
 
 The report is written to workspace/planner_eval.json and printed as one line per brief."""
+import os
 import argparse
 import json
 import hashlib
@@ -14,7 +15,7 @@ import uuid
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1]
-PACK = APP.parent
+PACK = Path(os.environ.get('HYPERKUT_VIDEOTOOLS_DIR') or APP.parent)
 BRIEFS = PACK / "tests" / "fixtures" / "planner_briefs.json"
 
 package = types.ModuleType("majoor_videotools")  # the checks are plain Python: the pack is read as a package without starting ComfyUI
@@ -159,7 +160,7 @@ def main() -> int:
     args.output.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding='utf-8')
     fingerprints = {}
     for path in [BRIEFS, APP / 'backend' / 'direction.py', APP / 'backend' / 'runner.py', Path(__file__), *sorted((PACK / 'examples' / 'prompts').glob('*.txt')), *sorted((APP / 'workflows' / 'text').glob('*.json'))]:
-        fingerprints[str(path.relative_to(PACK))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        fingerprints[os.path.relpath(path, PACK) if not path.is_relative_to(PACK) else str(path.relative_to(PACK))] = hashlib.sha256(path.read_bytes()).hexdigest()
     args.output.with_suffix('.metadata.json').write_text(json.dumps({'seed_base': args.seed, 'runs': runs,
         'source': 'live_planner' if args.run else 'saved_plans_unknown_generation_seed',
         'seconds': round(time.monotonic() - started, 3), 'fingerprints': fingerprints}, indent=2), encoding='utf-8')

@@ -30,7 +30,7 @@ def main() -> int:
     parser.add_argument("--audio", default=None, choices=["original", "new", "voice"])
     parser.add_argument("--url", default="http://127.0.0.1:8090")
     args = parser.parse_args()
-    with httpx.Client(base_url=args.url, timeout=None) as client:
+    with httpx.Client(base_url=args.url, timeout=httpx.Timeout(30.0, read=600.0)) as client:
         body = {"mode": args.mode, "source": upload(client, args.source) if args.source else None, "refs": [upload(client, r) for r in args.ref], "music": upload(client, args.music) if args.music else None,
                 "settings": {"prompt": args.prompt, "quality": args.quality, "duration": args.duration, "audio": args.audio or ("original" if args.mode == "remix" else "new")}}
         response = client.post("/api/jobs", json=body)
