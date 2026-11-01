@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 
 import pytest
@@ -130,3 +131,44 @@ def test_open_jury_refunds_a_rejected_generation(settings):
     with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
         assert client.post("/api/jobs", json={"mode": "bad"}).status_code == 422
         assert client.post("/api/jobs", json={"mode": "text", "settings": {"prompt": "ok"}}).status_code == 200
+
+
+def test_open_jury_does_not_count_the_analysis_of_a_plan_to_review(settings):
+    config = open_jury(settings, visitor=1, total=5)
+    me = {"CF-Connecting-IP": "203.0.113.9"}
+    review = {"mode": "text", "settings": {"prompt": "a test", "review_plan": True}}
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver", client=("127.0.0.1", 50000)) as client:
+        assert client.post("/api/jobs", json=review, headers=me).status_code == 200
+        assert client.post("/api/jobs", json=review, headers=me).status_code == 200  # two analyses, nothing counted
+        assert json.loads((config.workspace / "jury-quota.json").read_text())["total"] == 0
+        plain = {"mode": "text", "settings": {"prompt": "a test"}}
+        assert client.post("/api/jobs", json=plain, headers=me).status_code == 200
+        assert json.loads((config.workspace / "jury-quota.json").read_text())["total"] == 1
+        assert client.post("/api/jobs", json=review, headers=me).status_code == 429  # the visitor has used the generation of the jury: no more plans either
+
+
+def test_open_jury_takes_the_generation_when_the_plan_is_approved(settings):
+    from backend.jobs import JobStore
+    from backend.models import JobRequest, Shot
+    from backend.runner import ComfyRunner
+    from test_resume import _saved_project
+
+    config = open_jury(settings, visitor=1, total=5)
+    store = JobStore(config.workspace / "state")
+    waiting = []
+    for _ in range(2):
+        job = store.create(JobRequest(mode="text"))
+        job.update(status="review", project_id=f"p_abcdef12345{len(waiting)}", shots=[Shot(id="SHOT_001", start=0, duration=1, prompt="one")])
+        _saved_project(config, job.id, job.state.project_id)
+        waiting.append(job.id)
+
+    class Runner(ComfyRunner):
+        async def run(self, current):
+            current.update(status="succeeded", stage="done")
+
+    me = {"CF-Connecting-IP": "203.0.113.9"}
+    with TestClient(create_app(config, Runner(config, {})), base_url="https://testserver", client=("127.0.0.1", 50000)) as client:
+        assert client.post(f"/api/jobs/{waiting[0]}/approve", json={"prompts": {}}, headers=me).status_code == 200
+        assert json.loads((config.workspace / "jury-quota.json").read_text())["total"] == 1
+        refused = client.post(f"/api/jobs/{waiting[1]}/approve", json={"prompts": {}}, headers=me)
+        assert refused.status_code == 429 and "1 generations" in refused.json()["detail"]

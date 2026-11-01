@@ -340,6 +340,13 @@ export default function App() {
     } catch (error) { fail(error) }
   }
 
+  const cleanCaches = async () => {
+    try {
+      const { freed } = await api.cleanCaches()
+      setMessage(`${megabytes(freed)} ${t.freed}`)
+    } catch (error) { fail(error) }
+  }
+
   const savePreset = async (name: string, description: string) => {
     if ((inputs.source || inputs.refs.some(Boolean) || inputs.refVideo || inputs.music || inputs.voice) && !health?.preset_inputs) {
       setActionError(lang === 'fr' ? 'Le serveur du Studio doit être redémarré après les générations en cours pour enregistrer les médias des presets.' : 'Restart the Studio server after active generations finish to save preset media.')
@@ -475,7 +482,7 @@ export default function App() {
           <div className="left">
           <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
           <Library open={library} onClose={() => setLibrary(false)} jobs={recent} sizes={sizes} presets={presets} mode={mode} currentJob={job?.id ?? null} onOpenJob={openFromLibrary} onDuplicateJob={duplicate} onPatchJob={patchJob}
-            onDeleteJob={deleteJob} onFree={freeSpace} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
+            onDeleteJob={deleteJob} onFree={freeSpace} onCleanCaches={cleanCaches} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
           </div>
           <main className="workarea">
             <p className="mode-advice">{advice}</p>

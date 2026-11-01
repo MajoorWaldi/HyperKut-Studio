@@ -24,6 +24,7 @@ interface Props {
   onDeletePreset: (id: string) => void
   onImportPreset: (file: File) => void
   onImportProject: (file: File) => void
+  onCleanCaches: () => void
 }
 
 const MODES: Mode[] = ['remix', 'text', 'music']
@@ -146,6 +147,7 @@ export function Library(props: Props) {
           <div className="lib-tools">
             <input type="search" placeholder={t.search} aria-label={t.search} value={search} onChange={e => setSearch(e.target.value)} />
             <button type="button" onClick={() => projectFile.current?.click()}>{t.importProject}</button>
+            <button type="button" title={t.cleanCachesTip} onClick={props.onCleanCaches}>{t.cleanCaches}</button>
             <input ref={projectFile} type="file" accept=".zip,application/zip" hidden onChange={event => {
               const file = event.currentTarget.files?.[0]
               event.currentTarget.value = ''

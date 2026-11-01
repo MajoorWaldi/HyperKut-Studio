@@ -18,9 +18,9 @@ from starlette.responses import JSONResponse
 
 from .storage import write_json
 
-GENERATION_ROUTE = re.compile(r'^/api/jobs(/[^/]+/(resume|regenerate))?$')
+GENERATION_ROUTE = re.compile(r'^/api/jobs(/[^/]+/(resume|regenerate|approve))?$')
 CLOSED_ROUTES = (
-    ('POST', re.compile(r'^/api/(studio/restart|projects/import|storage/worker/cleanup|storage/cache/gc)$')),
+    ('POST', re.compile(r'^/api/(studio/restart|projects/import|storage/worker/cleanup|storage/cache/gc|storage/caches/clean)$')),
     ('POST', re.compile(r'^/api/jobs/[^/]+/free$')),
     ('DELETE', re.compile(r'^/api/(jobs|presets)/[^/]+$')),
     ('POST', re.compile(r'^/api/presets$')),
@@ -169,13 +169,14 @@ class AccessMiddleware:
         if scope["method"] in ("POST", "PUT", "PATCH") and shutil.disk_usage(settings.workspace).free < settings.min_free_disk_bytes:
             await JSONResponse({"detail": "Not enough free disk space."}, status_code=507)(scope, receive, send)
             return
-        reserved = None
+        hold: dict = {}  # the generation this request holds: the endpoint of a plan that waits for approval gives it back
         if self.quota and scope["method"] == "POST" and GENERATION_ROUTE.match(scope["path"]):
-            reserved = self.quota.visitor(scope, headers)
-            reason = await self.quota.reserve(reserved)
+            hold = {"visitor": self.quota.visitor(scope, headers), "quota": self.quota}
+            reason = await self.quota.reserve(hold["visitor"])
             if reason:
                 await JSONResponse({"detail": reason}, status_code=429)(scope, receive, send)
                 return
+            scope["jury_hold"] = hold
         received, started = 0, False
         async def limited_receive():
             nonlocal received
@@ -189,14 +190,14 @@ class AccessMiddleware:
             nonlocal started
             if event["type"] == "http.response.start":
                 started = True
-                if reserved and event["status"] >= 400:
-                    await self.quota.refund(reserved)
+                if hold.get("visitor") and event["status"] >= 400:
+                    await self.quota.refund(hold.pop("visitor"))
             await send(event)
         try:
             await self.app(scope, limited_receive, tracked_send)
         except RequestTooLarge:
             if started:
                 raise
-            if reserved:
-                await self.quota.refund(reserved)
+            if hold.get("visitor"):
+                await self.quota.refund(hold.pop("visitor"))
             await JSONResponse({"detail": "Request body exceeds its limit."}, status_code=413)(scope, receive, send)

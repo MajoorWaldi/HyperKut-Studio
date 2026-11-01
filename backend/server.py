@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 import httpx
 import anyio
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
@@ -391,7 +391,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return {'context':brief_context(clean)}
 
     @app.post("/api/jobs", response_model=JobState)
-    async def create_job(request: JobRequest):
+    async def create_job(request: JobRequest, http: Request):
         validate_request(request)
         job = None
         try:
@@ -410,6 +410,9 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(507, str(error)) from error
         job.update(title=(request.settings.prompt.strip() or request.mode)[:60])
         job.task = asyncio.create_task(runner.run(job))
+        hold = http.scope.get("jury_hold")
+        if request.settings.review_plan and hold and hold.get("visitor"):  # the analysis alone is free on the jury: the approval of the plan takes the generation
+            await hold["quota"].refund(hold.pop("visitor"))
         return job.state
 
     def _manifest(job) -> tuple[Path, dict]:
@@ -510,6 +513,31 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             out['cache']['collection_available']=cache_idle()
             out['worker_cleanup_pending']=len(list(remote.scratch.glob('*.cleanup.json')))
         return out
+
+    def regenerable_caches() -> list[Path]:
+        """What the pack rebuilds on demand: the trimmed clips, text, render sources, timeline and sound effects of every project, and the HyperFrames renders. Takes, sources, exports and thumbnails are never in it."""
+        root = settings.output_dir / 'MajoorVideoTools' if settings.output_dir else None
+        if not root or not root.is_dir():
+            return []
+        found = [root / 'hyperframes' / name for name in os.listdir(root / 'hyperframes')] if (root / 'hyperframes').is_dir() else []
+        for project in root.glob('p_*'):
+            cache = project / 'cache'
+            found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline')] + list(cache.glob('sfx_*.wav'))
+        return [path for path in found if path.is_dir() and not path.is_symlink() or path.is_file()]
+
+    @app.post('/api/storage/caches/clean')
+    async def clean_caches(dry_run: bool = False):
+        """Delete the caches that can be rebuilt and say how much room that makes; with `dry_run`, only say it."""
+        if not cache_idle():
+            raise HTTPException(409, 'Wait for active operations before cleaning the caches')
+        def clean():
+            freed = 0
+            for path in regenerable_caches():
+                freed += _size(path)
+                if not dry_run:
+                    shutil.rmtree(path) if path.is_dir() else path.unlink()
+            return {'freed': freed}
+        return await asyncio.to_thread(clean)
 
     @app.post('/api/storage/worker/cleanup')
     async def retry_worker_cleanup():
