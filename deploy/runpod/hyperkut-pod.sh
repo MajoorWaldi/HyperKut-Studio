@@ -3,7 +3,7 @@
 # The Studio stays on 127.0.0.1 and is reached only through a Cloudflare tunnel, so the pod exposes no port.
 # Set these as pod environment variables, never in this file:
 #   COMFY_BASE_URL, COMFY_API_KEY, CLOUDFLARE_TUNNEL_TOKEN
-# Usage: bash hyperkut-pod.sh setup | start | stop | update | status | clean
+# Usage: bash hyperkut-pod.sh setup | start | stop | update | status | clean | serve
 set -euo pipefail
 
 ROOT=${HYPERKUT_ROOT:-/workspace/hyperkut}
@@ -33,7 +33,7 @@ setup() {
     [ -d /workspace ] || { echo 'No /workspace volume on this pod' >&2; exit 1; }
     mkdir -p "$ROOT" "$LOGS"
     apt-get update -qq
-    apt-get install -y -qq ffmpeg git curl xz-utils libgl1 libglib2.0-0 >/dev/null
+    apt-get install -y -qq ffmpeg git curl xz-utils python3-venv libgl1 libglib2.0-0 >/dev/null
     ffmpeg -version | head -1
 
     checkout https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools "$PACK" "$BRANCH"
@@ -114,7 +114,13 @@ clean() {
     echo "Removed $ROOT"
 }
 
+serve() { # the pod's main process: it lives as long as the logs are followed
+    setup
+    start
+    exec tail -F "$LOGS/studio.log" "$LOGS/tunnel.log"
+}
+
 case "${1:-}" in
-    setup|start|stop|update|status|clean) "$1" ;;
-    *) echo 'Usage: bash hyperkut-pod.sh setup | start | stop | update | status | clean' >&2; exit 2 ;;
+    setup|start|stop|update|status|clean|serve) "$1" ;;
+    *) echo 'Usage: bash hyperkut-pod.sh setup | start | stop | update | status | clean | serve' >&2; exit 2 ;;
 esac
