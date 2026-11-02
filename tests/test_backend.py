@@ -588,3 +588,14 @@ def test_the_edit_controls_show_what_the_final_prompt_applies():
     text = applied_style(load_templates(templates, "text")["final"], {})
     assert remix["duck"] == 0.0 and remix["auto_sfx"] is False and text["shot_volume"] == 0.8
     assert applied_style(load_templates(templates, "text")["final"], {"edit_duck": 0.2, "edit_effects": False}) | {} == {**text, "duck": 0.2, "effects": False}
+
+
+def test_an_unreadable_voice_only_loses_the_length_warning(tmp_path):
+    from backend.runner import MockRunner
+    from backend.server import create_app
+    from fastapi.testclient import TestClient
+    with TestClient(create_app(_settings(tmp_path), MockRunner(pace=0))) as client:
+        voice = client.post("/api/uploads", files={"file": ("voice.wav", b"not audio", "audio/wav")}).json()
+        response = client.post("/api/jobs", json={"mode": "text", "voice": voice["id"], "settings": {"prompt": "an ad", "audio": "voice"}})
+        assert response.status_code == 200, response.text  # ffprobe fails on this file: the job is still created
+        assert not any("The voice lasts" in w for w in response.json()["warnings"])

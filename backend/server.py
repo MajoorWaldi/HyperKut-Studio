@@ -427,7 +427,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         validate_request(request)
         voice_warning = ''
         if request.mode == 'text' and request.settings.audio == 'voice' and request.voice and not request.settings.dialogue.strip():
-            seconds = media_info(uploads[request.voice])['duration']
+            try:  # ffprobe off the event loop; a voice that cannot be read here only loses the warning, the job reports the real error
+                seconds = (await asyncio.to_thread(media_info, uploads[request.voice]))['duration']
+            except (ValueError, OSError, KeyError, subprocess.TimeoutExpired):
+                seconds = 0.0
             if seconds > request.settings.duration + .05:  # the lines come from the voice: what comes after the end of the edit is left out, and the job says so
                 voice_warning = f'The voice lasts {seconds:.1f} s and the edit {request.settings.duration:g} s: the words after the end are left out. Set a longer duration to keep them.'
         job = None
