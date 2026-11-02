@@ -42,6 +42,7 @@ desktop.ini
 !/experimental/comfyui_snapshot_worker/
 /experimental/comfyui_snapshot_worker/*
 !/experimental/comfyui_snapshot_worker/__init__.py
+!/experimental/comfyui_snapshot_worker/prestartup_script.py
 
 /scripts/launcher/remote-private.settings.json
 /workspace-remote-private/

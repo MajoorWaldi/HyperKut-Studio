@@ -2,6 +2,7 @@
 import asyncio
 from pathlib import Path
 import httpx
+from .deployment import brief_texts
 from .direction import brief_context, resolved_brief, normalize_media_roles
 from .jobs import Job
 from .runner import ComfyRunner
@@ -56,6 +57,12 @@ async def prepare_briefs(request,settings,uploads,language,angles):
         graph['brief_preview_output']={'class_type':'PreviewAny','inputs':{'source':[target,0]}}
         graphs.append(branch(graph,'brief_preview_output'))
     files={k:v for k,v in values.items() if isinstance(v,Path) and k in template.slots}
+    if getattr(settings,'comfy_api',False):
+        client=runner.client_factory()
+        try:texts=await brief_texts(client,template.slots,graphs,files,'brief_preview_output')
+        finally:await client.aclose()
+        context=brief_context(clean)
+        return [{'brief':text,'context':context} for text in texts]
     async with httpx.AsyncClient(base_url=settings.comfyui_url,timeout=60) as client:
         queue=(await client.get('/queue')).json()
         if queue['queue_running'] or queue['queue_pending']:raise ValueError('The GPU is busy. Prepare the direction after the current generation finishes.')

@@ -45,6 +45,7 @@ from .templates import TemplateError, load_templates
 from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
 from .brief_preview import prepare_brief, prepare_treatments
+from .deployment import cached_schemas, reachable
 from .unified_motion import validate_finishing
 from .access import AccessMiddleware, acquire_upload_quota, validate_access
 from .project_import import extract_project_archive
@@ -213,11 +214,20 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         out['instance_id'] = app.state.boot_id
         out['mode'] = mode
         async with httpx.AsyncClient(timeout=3) as client:
+            deployment = getattr(settings, 'comfy_api', False)
             try:
-                out["comfyui"] = (await client.get(f"{settings.comfyui_url}/system_stats")).status_code == 200
-                response = await client.get(f'{settings.comfyui_url}/object_info')
-                response.raise_for_status()
-                schemas = response.json()
+                if deployment:
+                    # The first job reads the schemas: a status check must not start a GPU worker.
+                    out['comfyui'] = out['proxy'] = await reachable(settings, client)
+                    schemas = cached_schemas(settings)
+                    if schemas is None:
+                        out['videotools'] = out['comfyui']
+                        return out
+                else:
+                    out["comfyui"] = (await client.get(f"{settings.comfyui_url}/system_stats")).status_code == 200
+                    response = await client.get(f'{settings.comfyui_url}/object_info')
+                    response.raise_for_status()
+                    schemas = response.json()
                 if not isinstance(schemas, dict):
                     raise ValueError("Invalid object_info response")
                 templates = load_templates(settings.templates_dir, mode)
@@ -238,6 +248,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 out['videotools'] = not out['missing_nodes']
             except (httpx.HTTPError, ValueError, OSError, TemplateError):
                 pass
+            if deployment:
+                return out
             try:
                 response = await client.get(f'{settings.proxy_url}/api/v2/health')
                 payload=response.json()
