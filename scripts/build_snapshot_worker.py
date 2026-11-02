@@ -10,7 +10,7 @@ BACKEND = ('artifact_contract.py','artifact_store.py','artifact_bundle.py','proj
 CORE = ('__init__.py','models.py','errors.py','fingerprints.py','timeline.py','timeline_edit.py','editorial_graph.py')
 
 
-def build(target):
+def build(target, comfy_api=False):
     studio = Path(__file__).resolve().parents[1]
     target = Path(target)
     if target.exists():
@@ -27,7 +27,12 @@ def build(target):
         shutil.copy2(studio.parent/'core'/name, target/'runtime/core'/name)
     shutil.copy2(studio/'LICENSE', target/'LICENSE')
     (target/'README.md').write_text('Experimental HyperKut snapshot transport worker. Tested with ComfyUI 0.42.5 and 0.43.0.\nStandalone CPU Transform supports verify and set_prompt (generation=false).\nGraph transport v2 provides Workspace, SnapshotImport, SnapshotExport and WorkspaceRelease for native VideoTools workflows. H3 and music generation require their separately installed nodes and weights.\nIncludes MIT-licensed HyperKut Studio and VideoTools core source. No models or media bundled.\n', encoding='utf-8')
-    (target/'requirements.txt').write_text('filelock>=3.16,<4\n', encoding='utf-8')
+    requirements = 'filelock>=3.16,<4\n'
+    if comfy_api:
+        # A Comfy API Build installs only what a pack requires, and its worker is the one pack owned here.
+        shutil.copy2(studio/'experimental/comfyui_snapshot_worker/prestartup_script.py', target/'prestartup_script.py')
+        requirements += 'faster-whisper>=1.1,<2\n'
+    (target/'requirements.txt').write_text(requirements, encoding='utf-8')
     hashes = {p.relative_to(target).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
               for p in target.rglob('*') if p.is_file()}
     (target/'build-manifest.json').write_text(json.dumps({'protocol':1,'generation':False,'graph_transport':2,'files':hashes}, indent=2), encoding='utf-8')
@@ -37,4 +42,6 @@ def build(target):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('target')
-    print(build(parser.parse_args().target))
+    parser.add_argument('--comfy-api', action='store_true', help='Add what a Comfy API Build needs: faster-whisper and the controlnet_aux weight path')
+    args = parser.parse_args()
+    print(build(args.target, args.comfy_api))

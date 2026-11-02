@@ -88,6 +88,7 @@ class Settings:
     sfx_root: Path | None = None
     jury_visitor_limit: int = 5
     jury_total_limit: int = 15
+    comfy_api: bool = False  # COMFY_BASE_URL is a Comfy API deployment, which has no ComfyUI routes
 
     def __post_init__(self):
         if not 1 <= self.max_active_jobs <= 8:
@@ -115,6 +116,11 @@ class Settings:
         min_free_disk_mb = _studio_int('MIN_FREE_DISK_MB', 256)
         if workspace_mb < 1 or min_free_disk_mb < 0:
             raise ValueError('MAX_WORKSPACE_MB must be positive and MIN_FREE_DISK_MB cannot be negative')
+        comfy_api = _studio_env('COMFY_API') == '1'
+        if comfy_api and backend != 'remote_artifacts':
+            raise ValueError('A Comfy API deployment needs STORAGE_BACKEND=remote_artifacts')
+        if comfy_api and not os.environ.get('COMFY_API_KEY', '').strip():
+            raise ValueError('A Comfy API deployment needs COMFY_API_KEY')
         output = _studio_env('OUTPUT_DIR')
         if backend == 'remote_artifacts':
             output = str(workspace / 'remote-output')
@@ -135,7 +141,7 @@ class Settings:
                    max_workspace_bytes=workspace_mb * MIB,
                    min_free_disk_bytes=min_free_disk_mb * MIB,
                    sfx_root=Path(_studio_env('SFX_ROOT')).resolve() if _studio_env('SFX_ROOT') else None,
-                   jury_visitor_limit=_studio_int('JURY_VISITOR_LIMIT', 5), jury_total_limit=_studio_int('JURY_TOTAL_LIMIT', 15))
+                   jury_visitor_limit=_studio_int('JURY_VISITOR_LIMIT', 5), jury_total_limit=_studio_int('JURY_TOTAL_LIMIT', 15), comfy_api=comfy_api)
 
     def config_identity(self) -> dict:
         return configuration_identity(self.comfyui_url, self.workspace, self.storage_backend, self.proxy_url)

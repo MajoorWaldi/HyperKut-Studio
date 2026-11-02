@@ -1,10 +1,12 @@
 """Experimental CPU snapshot transport nodes; no H3 graph integration yet."""
 import json
 import hashlib
+import importlib.util
 import os
 import re
 import shutil
 import stat
+import subprocess
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -289,6 +291,55 @@ class HyperKutSnapshotTransform(io.ComfyNode):
             {'filename':p.name,'subfolder':'hyperkut_artifacts','type':'output'} for p in (bundle, descriptor)]})
 
 
+class HyperKutNodeSchemas(io.ComfyNode):
+    """The object_info of this worker as a file: a Comfy API deployment does not expose the route."""
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(node_id='HyperKutNodeSchemas', display_name='Node Schemas (Experimental)',
+            category='HyperKut/Experimental', is_output_node=True, inputs=[], outputs=[])
+
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        return float('nan')
+
+    @classmethod
+    def execute(cls):
+        import nodes
+        from comfy_api.internal import _ComfyNodeInternal
+        schemas = {}
+        with folder_paths.cache_helper:
+            for name, node in nodes.NODE_CLASS_MAPPINGS.items():
+                try:
+                    schemas[name] = node.GET_NODE_INFO_V1() if issubclass(node, _ComfyNodeInternal) else {
+                        'input': node.INPUT_TYPES(), 'output': node.RETURN_TYPES, 'output_node': getattr(node, 'OUTPUT_NODE', False)}
+                except Exception:
+                    continue
+        output = _private_root('hyperkut_artifacts', folder_paths.get_output_directory())
+        path = output/'node-schemas.json'
+        path.write_text(json.dumps(schemas, default=str), encoding='utf-8')
+        return io.NodeOutput(ui={'files':[{'filename':path.name,'subfolder':'hyperkut_artifacts','type':'output'}]})
+
+
+def _diagnostics():
+    """What only the real image can tell, reported instead of raised."""
+    try:
+        _private_root('hyperkut_artifacts', folder_paths.get_output_directory())
+        worker_paths = 'ok'
+    except (OSError, ValueError) as error:
+        worker_paths = str(error)
+    def version(name):
+        found = shutil.which(name)
+        if not found:
+            return None
+        try:
+            return subprocess.run([found,'-version'],capture_output=True,text=True,timeout=20).stdout.split('\n')[0]
+        except (OSError, subprocess.SubprocessError) as error:
+            return f'{found}: {error}'
+    return {'ffmpeg':version('ffmpeg'), 'ffprobe':version('ffprobe'), 'worker_paths':worker_paths,
+            'faster_whisper':importlib.util.find_spec('faster_whisper') is not None,
+            'aux_ckpts':os.environ.get('AUX_ANNOTATOR_CKPTS_PATH')}
+
+
 class HyperKutSnapshotCapabilities(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -301,13 +352,14 @@ class HyperKutSnapshotCapabilities(io.ComfyNode):
         output.mkdir(parents=True, exist_ok=True)
         path = output/'capabilities.json'
         path.write_text(json.dumps({'protocol':1,'outputs':'file','operations':['verify','set_prompt'],
-                                    'generation':False,'graph_transport':2,'isolated_workspace':True}), encoding='utf-8')
+                                    'generation':False,'graph_transport':2,'isolated_workspace':True,
+                                    'diagnostics':_diagnostics()}), encoding='utf-8')
         return io.NodeOutput(ui={'files':[{'filename':path.name,'subfolder':'hyperkut_artifacts','type':'output'}]})
 
 
 class SnapshotExtension(ComfyExtension):
     async def get_node_list(self):
-        return [HyperKutSnapshotTransform, HyperKutSnapshotCapabilities, HyperKutWorkspace, HyperKutSnapshotImport, HyperKutSnapshotExport, HyperKutWorkspaceRelease]
+        return [HyperKutSnapshotTransform, HyperKutSnapshotCapabilities, HyperKutNodeSchemas, HyperKutWorkspace, HyperKutSnapshotImport, HyperKutSnapshotExport, HyperKutWorkspaceRelease]
 
 
 async def comfy_entrypoint():

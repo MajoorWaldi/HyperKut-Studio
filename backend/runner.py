@@ -113,7 +113,9 @@ class ComfyRunner:
             from .remote_graph import RemoteMirror
             self.remote = RemoteMirror(settings)
         os.environ["COMFY_BASE_URL"] = settings.proxy_url  # the SDK reads its address from this variable: without it, it talks to Comfy Cloud
-        self.client_factory = client_factory or (lambda: AsyncComfy(api_key="local"))
+        self.client_factory = client_factory or (lambda: AsyncComfy(api_key=os.environ.get('COMFY_API_KEY') or 'local'))
+        self.deployment = getattr(settings, 'comfy_api', False)
+        self._schema_lock = asyncio.Lock()
 
     async def ai_candidate(self, job: Job, candidate: dict) -> None:
         from .ai_edits import generate_candidate
@@ -124,11 +126,15 @@ class ComfyRunner:
         import httpx
         client = None
         try:
-            async with httpx.AsyncClient(timeout=10) as probe:
-                response = await probe.get(f'{self.settings.comfyui_url}/object_info/MajoorTimelineEdit')
-                response.raise_for_status()
-                if 'MajoorTimelineEdit' not in response.json():
-                    raise ValueError('ComfyUI has not loaded Timeline Edit yet. Restart ComfyUI to load the updated VideoTools pack, then retry; the saved montage is preserved.')
+            if self.deployment:
+                loaded = await self._deployment_schemas()
+            else:
+                async with httpx.AsyncClient(timeout=10) as probe:
+                    response = await probe.get(f'{self.settings.comfyui_url}/object_info/MajoorTimelineEdit')
+                    response.raise_for_status()
+                    loaded = response.json()
+            if 'MajoorTimelineEdit' not in loaded:
+                raise ValueError('ComfyUI has not loaded Timeline Edit yet. Restart ComfyUI to load the updated VideoTools pack, then retry; the saved montage is preserved.')
             client = self.client_factory()
             await render_saved_timeline(self, client, job)
         except asyncio.CancelledError:
@@ -205,9 +211,27 @@ class ComfyRunner:
         r = job.request
         return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None),('casting',r.settings.casting or None)) if not given))
 
+    async def _deployment_schemas(self) -> dict:
+        """The node schemas of the deployment: one job the first time, then the copy on disk."""
+        from .deployment import cached_schemas, fetch_schemas
+        async with self._schema_lock:
+            schemas = cached_schemas(self.settings)
+            if schemas is not None:
+                return schemas
+            client = self.client_factory()
+            try:
+                return await fetch_schemas(client, self.settings)
+            finally:
+                await client.aclose()
+
     async def _schemas(self) -> dict:
         """The object_info of ComfyUI, or {} when it cannot be read: not knowing what is installed is not a reason to cut anything."""
         import httpx
+        if self.deployment:
+            try:
+                return await self._deployment_schemas()
+            except (ComfyError, ValueError):
+                return {}
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=0.5), trust_env=False) as probe:
                 response = await probe.get(f'{self.settings.comfyui_url}/object_info')
@@ -245,11 +269,15 @@ class ComfyRunner:
                     manual_dialogue |= isinstance(document, dict) and 'dialogue' in document
         if rhythm_nodes or dialogue_required or manual_dialogue:
             import httpx
+            known = await self._deployment_schemas() if self.deployment else None
             async with httpx.AsyncClient(timeout=10) as probe:
                 for node_type in sorted(rhythm_nodes | ({'MajoorShotAssemble'} if dialogue_required or manual_dialogue else set())):
-                    response = await probe.get(f'{self.settings.comfyui_url}/object_info/{node_type}')
-                    response.raise_for_status()
-                    schema = response.json().get(node_type, {}).get('input', {})
+                    if known is None:
+                        response = await probe.get(f'{self.settings.comfyui_url}/object_info/{node_type}')
+                        response.raise_for_status()
+                        schema = response.json().get(node_type, {}).get('input', {})
+                    else:
+                        schema = known.get(node_type, {}).get('input', {})
                     if node_type in rhythm_nodes and 'music_edit_mode' not in schema.get('optional', {}):
                         raise ValueError('ComfyUI has not loaded the music rhythm modes yet. Restart ComfyUI to load the updated VideoTools pack, then retry. No generation has been submitted.')
                     if node_type == 'MajoorShotAssemble' and (dialogue_required or manual_dialogue) and not {'dialogue', 'preserve_dialogue'} <= schema.get('optional', {}).keys():
@@ -262,11 +290,14 @@ class ComfyRunner:
         if self.remote is not None:
             from .remote_graph import compile_graph,validate_remote_graph
             import httpx
-            async with httpx.AsyncClient(timeout=20,trust_env=False) as probe:
-                response=await probe.get(f'{self.settings.comfyui_url}/object_info')
-                response.raise_for_status()
-                schemas=response.json()
-                validate_remote_graph(prompt,schemas)
+            if self.deployment:
+                schemas=await self._deployment_schemas()
+            else:
+                async with httpx.AsyncClient(timeout=20,trust_env=False) as probe:
+                    response=await probe.get(f'{self.settings.comfyui_url}/object_info')
+                    response.raise_for_status()
+                    schemas=response.json()
+            validate_remote_graph(prompt,schemas)
             token = uuid.uuid4().hex
             initial = stage == 'analyze' and not values.get('project_id')
             project_id = values.get('project_id') or values.get('fork_project_id')
@@ -575,11 +606,14 @@ class ComfyRunner:
             import httpx
             schemas = None
             try:
-                async with httpx.AsyncClient(timeout=15, trust_env=False) as probe_client:
-                    response = await probe_client.get(f'{self.settings.comfyui_url}/object_info')
-                    response.raise_for_status()
-                    schemas = response.json()
-            except (httpx.HTTPError, ValueError):
+                if self.deployment:
+                    schemas = await self._deployment_schemas()
+                else:
+                    async with httpx.AsyncClient(timeout=15, trust_env=False) as probe_client:
+                        response = await probe_client.get(f'{self.settings.comfyui_url}/object_info')
+                        response.raise_for_status()
+                        schemas = response.json()
+            except (httpx.HTTPError, ComfyError, ValueError):
                 # Unknown availability is not proof a dependency is absent.
                 # Normal submission still reports a connection failure.
                 pass
