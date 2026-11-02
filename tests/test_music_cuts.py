@@ -35,6 +35,24 @@ def test_actual_final_graph_routes_every_control(mode):
     assert "MUSIC CUT POLICY" in g["planner"]["inputs"]["extra_instructions"]
 
 
+@pytest.mark.parametrize("mode", ["adaptive", "random", "phrases"])
+def test_the_grid_the_planner_reads_varies_with_the_music_too(mode):
+    g = graph()
+    apply_plan_contract(g, Settings(music_edit_mode=mode, music_cut_variation=.8, seed=5))
+    guide = g["guide"]["inputs"]
+    assert guide["music_edit_mode"] == mode and guide["music_cut_variation"] == .8 and guide["music_cut_seed"] == 5
+    assert guide["rhythm_reference_only"] is True
+
+
+def test_the_grid_stays_regular_for_spoken_dialogue_and_old_settings():
+    g = graph()
+    apply_plan_contract(g, Settings(music_edit_mode="adaptive", dialogue="Hello there"))
+    assert "music_edit_mode" not in g["guide"]["inputs"]
+    g = graph()
+    apply_plan_contract(g, Settings())
+    assert "music_edit_mode" not in g["guide"]["inputs"]
+
+
 def test_old_settings_keep_old_graph_and_roundtrip_new_controls():
     g = graph()
     apply_plan_contract(g, Settings())

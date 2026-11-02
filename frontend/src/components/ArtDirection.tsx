@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { artDirectionCatalog, prepareBrief, approveBrief } from '../api'
+import { artDirectionCatalog, prepareBrief, prepareTreatments, approveBrief } from '../api'
 import { levelValue } from '../creativeControls'
 import { useI18n } from '../i18n'
 import { CountBadge } from './CountBadge'
@@ -13,7 +13,8 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
   const [fields, setFields] = useState<DirectionField[]>([])
   const [draft, setDraft] = useState<string | null>(null); const [context, setContext] = useState('')
   const [working, setWorking] = useState(false); const [error, setError] = useState('')
-  const { approved_brief: _brief, approved_brief_context: _context, seed: _seed, ...creative } = settings
+  const [treatments, setTreatments] = useState<{ name: string; brief: string; context: string }[]>([])
+  const { approved_brief: _brief, approved_brief_context: _context, seed: _seed, idea_seed: _idea, ...creative } = settings
   const {structure:_structure,creativity:_creativity,...baseCreative}=creative
   const baseKey=JSON.stringify({mode,creative:baseCreative,inputs})
   const key = JSON.stringify({baseKey,structure:levelValue(creative.structure),creativity:levelValue(creative.creativity)})
@@ -26,15 +27,32 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
     artDirectionCatalog().then(data => { if (active && Array.isArray(data.fields)) setFields(data.fields) }).catch(() => { if (active) setError(fr ? 'Les choix sont indisponibles. Tu peux toujours décrire ton style dans la phrase.' : 'Choices are unavailable. You can still describe the style in your brief.') })
     return () => { active = false }
   }, [open, fr])
-  const prepare = async () => {
+  const prepare = async (asked: Settings = settings) => {
     if (working || busy) return
     const started = key; setWorking(true); onPreparing?.(true); setError('')
     try {
-      const result = await prepareBrief(mode, settings, inputs, lang)
+      const result = await prepareBrief(mode, asked, inputs, lang)
       if (current.current !== started) return
       setDraft(result.brief); setContext(result.context)
     } catch (cause) { if (current.current === started) setError((cause as Error).message) }
     finally { setWorking(false); onPreparing?.(false) }
+  }
+  const three = async () => {
+    if (working || busy) return
+    const started = key; setWorking(true); onPreparing?.(true); setError(''); setTreatments([])
+    try {
+      const result = await prepareTreatments(mode, settings, inputs, lang)
+      if (current.current !== started) return
+      setTreatments(result.treatments)
+    } catch (cause) { if (current.current === started) setError((cause as Error).message) }
+    finally { setWorking(false); onPreparing?.(false) }
+  }
+  const pick = (item: { brief: string; context: string }) => { setDraft(item.brief); setContext(item.context); setTreatments([]) }
+  const another = () => {
+    if (working || busy) return
+    const idea_seed = (settings.idea_seed ?? 0) + 1
+    onSettings({ idea_seed, approved_brief: '', approved_brief_context: '' })
+    void prepare({ ...settings, idea_seed, approved_brief: '', approved_brief_context: '' })
   }
   const useBrief=async()=>{
     const text=(draft ?? settings.approved_brief ?? '').trim()
@@ -61,7 +79,14 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
         </select>
       </label>)}</div>
       {mode !== 'remix' ? <>
-        <button type="button" className="secondary" onClick={prepare} disabled={busy || working || settings.prompt.trim().length < 3}>{working ? (fr ? 'Préparation du brief…' : 'Preparing the brief…') : (fr ? 'Voir la direction retenue' : 'Preview the creative brief')}</button>
+        <div className="prepared-actions"><button type="button" className="secondary" onClick={() => prepare()} disabled={busy || working || settings.prompt.trim().length < 3}>{working ? (fr ? 'Préparation du brief…' : 'Preparing the brief…') : (fr ? 'Voir la direction retenue' : 'Preview the creative brief')}</button>
+        <button type="button" className="secondary" title={fr ? 'Une autre idée pour la même demande : le plan, l’histoire et le casting changent.' : 'Another idea for the same request: the plan, the story and the cast change.'} onClick={another} disabled={busy || working || settings.prompt.trim().length < 3}>{fr ? `Autre idée (n° ${(settings.idea_seed ?? 0) + 1})` : `Another idea (no. ${(settings.idea_seed ?? 0) + 1})`}</button>
+        <button type="button" className="secondary" title={fr ? 'Trois versions de la même demande : directe, avec un retournement, portée par l’image. Tu gardes celle que tu préfères.' : 'Three versions of the same request: direct, with a twist, image-led. You keep the one you like.'} onClick={three} disabled={busy || working || settings.prompt.trim().length < 3}>{fr ? 'Trois traitements' : 'Three treatments'}</button></div>
+        {treatments.length > 0 && <div className="treatments">{treatments.map(item => <article className="treatment" key={item.name}>
+          <h4>{{ direct: fr ? 'Direct' : 'Direct', twist: fr ? 'Retournement' : 'Twist', visual: fr ? 'Porté par l’image' : 'Image-led' }[item.name] ?? item.name}</h4>
+          <p>{item.brief.length > 420 ? item.brief.slice(0, 420) + '…' : item.brief}</p>
+          <button type="button" className="secondary" onClick={() => pick(item)}>{fr ? 'Choisir' : 'Choose'}</button>
+        </article>)}</div>}
         <small>{fr ? 'Prépare uniquement le texte avec le modèle local. Aucune vidéo ni musique ne sera générée.' : 'Uses the local model to prepare text only. No video or music will be generated.'}</small>
       </> : <p>{fr ? 'En Remix, ces choix accompagnent la référence sans remplacer son découpage.' : 'In Remix, these choices accompany the reference without replacing its cut timing.'}</p>}
       {(draft !== null || settings.approved_brief) && <div className="prepared-brief">

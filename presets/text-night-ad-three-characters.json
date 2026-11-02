@@ -1,0 +1,65 @@
+{
+  "name": "Night ad, three characters",
+  "mode": "text",
+  "description": "Three characters, one night ad: each gets their own place and moment, and the energy rises to the last shot.",
+  "prompt": "Night ad for an energy drink, 10 seconds: a skater in a yellow jacket on a bridge, a DJ with red headphones in an empty club, a dancer in a silver dress on a rooftop. Each has their own moment, medium shots and close-ups, the energy rises to the last shot.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "new",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "duration": 10,
+    "structure": 35,
+    "creativity": 75,
+    "casting": true,
+    "art_direction": {
+      "look": "graphic",
+      "mood": "intense",
+      "camera": "push",
+      "light": "hard"
+    },
+    "cut_density": "high",
+    "transition_intensity": "moderate"
+  },
+  "translations": {
+    "en": {
+      "name": "Night ad, three characters",
+      "description": "Three characters, one night ad: each gets their own place and moment, and the energy rises to the last shot.",
+      "prompt": "Night ad for an energy drink, 10 seconds: a skater in a yellow jacket on a bridge, a DJ with red headphones in an empty club, a dancer in a silver dress on a rooftop. Each has their own moment, medium shots and close-ups, the energy rises to the last shot.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Pub de nuit, trois personnages",
+      "description": "Une pub de nuit, trois personnages : chacun a son lieu et son moment, l'énergie monte jusqu'au dernier plan.",
+      "prompt": "Pub de nuit pour une boisson énergisante, 10 secondes : une skateuse en veste jaune sur un pont, un DJ au casque rouge dans un club vide, une danseuse en robe argentée sur un toit. Chacun a son moment, plans moyens et gros plans, l'énergie monte jusqu'au dernier plan.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

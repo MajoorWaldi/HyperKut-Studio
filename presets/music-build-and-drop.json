@@ -1,0 +1,69 @@
+{
+  "name": "Build and drop",
+  "mode": "music",
+  "description": "Tension that builds on the track and is released at its real drop, with bursts only on real accents.",
+  "prompt": "Let the track build the tension: calm holds while it rises, a burst of very short shots at the drop, then one wide release image. A single recurring object changes each time it comes back.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "original",
+    "bpm": 120,
+    "effects": true,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "music_edit_mode": "adaptive",
+    "music_cut_variation": 1.0,
+    "music_cut_sync": 1.0,
+    "duration": 16,
+    "structure": 35,
+    "creativity": 85,
+    "casting": false,
+    "style": "hype_beat_drop",
+    "art_direction": {
+      "look": "graphic",
+      "mood": "intense",
+      "camera": "whip",
+      "light": "hard"
+    },
+    "cut_density": "high",
+    "transition_intensity": "bold"
+  },
+  "translations": {
+    "en": {
+      "name": "Build and drop",
+      "description": "Tension that builds on the track and is released at its real drop, with bursts only on real accents.",
+      "prompt": "Let the track build the tension: calm holds while it rises, a burst of very short shots at the drop, then one wide release image. A single recurring object changes each time it comes back.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Montée et drop",
+      "description": "Une tension qui monte sur le morceau et se libère à son vrai drop, avec des rafales seulement sur les vrais accents.",
+      "prompt": "Laisse le morceau construire la tension : prises calmes pendant la montée, une rafale de plans très courts au drop, puis une image large qui relâche. Un même objet revient et change à chaque fois.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

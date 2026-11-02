@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import uuid
 import zipfile
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.datastructures import Headers
-from filelock import FileLock
+from filelock import FileLock, Timeout
 from PIL import Image
 
 from .config import ROOT, Settings
@@ -38,13 +38,13 @@ from . import manual_timeline
 from .take_trim import trim_bounds
 from .take_retention import free_unused_takes
 from .runner import ComfyRunner, MockRunner, Runner, _failure_message
-from .media import audio_waveform, validate_media
+from .media import audio_waveform, media_info, validate_media
 from .review import build_review_frames
 from .storage import SharedProjectRepository, write_json
 from .templates import TemplateError, load_templates
 from .direction import catalog, validate_prepared, brief_context
 from . import restart as studio_restart
-from .brief_preview import prepare_brief
+from .brief_preview import prepare_brief, prepare_treatments
 from .unified_motion import validate_finishing
 from .access import AccessMiddleware, acquire_upload_quota, validate_access
 from .project_import import extract_project_archive
@@ -346,7 +346,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(422, "Remix needs a source video: it is the template of the edit")
         if request.mode == 'music' and not request.music:
             raise HTTPException(422,'Music mode needs an audio track')
-        if request.settings.audio == 'voice' and not (request.voice and request.settings.dialogue.strip()):
+        if request.settings.audio == 'voice' and not (request.voice and (request.settings.dialogue.strip() or request.mode == 'text')):  # Text reads the lines from the voice itself
             raise HTTPException(422,'Voice mode needs a voice sample and dialogue')
         roles = [(request.source,'video'),(request.ref_video,'video'),(request.music,'audio'),(request.voice,'audio'),*((ref,'image') for ref in request.refs)]
         for upload_id, expected in roles:
@@ -395,6 +395,22 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         except httpx.HTTPError as error:
             raise HTTPException(503, 'The local preparation service is unavailable. Check the connection and try again.') from error
 
+    @app.post('/api/brief-treatments')
+    async def brief_treatments(request: JobRequest, lang: str = 'en'):
+        """Three briefs for the same request (direct, twist, image-led): text only, the user keeps one."""
+        validate_request(request)
+        if lang not in ('fr','en'):
+            raise HTTPException(422, 'Unsupported language')
+        if preview_lock.locked() or any(j.state.status in ('running','queued') for j in store.jobs.values()):
+            raise HTTPException(409, 'Finish the current preparation or generation before preparing another direction.')
+        try:
+            async with preview_lock:
+                return {'treatments': await prepare_treatments(request, settings, uploads, lang)}
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        except httpx.HTTPError as error:
+            raise HTTPException(503, 'The local preparation service is unavailable. Check the connection and try again.') from error
+
     @app.post('/api/brief-approve')
     async def approve_brief(request: JobRequest):
         """Explicitly reuse/edit a retained brief with current settings, without a model call."""
@@ -409,6 +425,11 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     @app.post("/api/jobs", response_model=JobState)
     async def create_job(request: JobRequest, http: Request):
         validate_request(request)
+        voice_warning = ''
+        if request.mode == 'text' and request.settings.audio == 'voice' and request.voice and not request.settings.dialogue.strip():
+            seconds = media_info(uploads[request.voice])['duration']
+            if seconds > request.settings.duration + .05:  # the lines come from the voice: what comes after the end of the edit is left out, and the job says so
+                voice_warning = f'The voice lasts {seconds:.1f} s and the edit {request.settings.duration:g} s: the words after the end are left out. Set a longer duration to keep them.'
         job = None
         try:
             with capacity_lock(settings):
@@ -425,6 +446,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         except CapacityError as error:
             raise HTTPException(507, str(error)) from error
         job.update(title=(request.settings.prompt.strip() or request.mode)[:60])
+        if voice_warning:
+            job.update(warnings=[voice_warning])
         job.task = asyncio.create_task(runner.run(job))
         hold = http.scope.get("jury_hold")
         if request.settings.review_plan and hold and hold.get("visitor"):  # the analysis alone is free on the jury: the approval of the plan takes the generation
@@ -531,14 +554,14 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return out
 
     def regenerable_caches() -> list[Path]:
-        """What the pack rebuilds on demand: the trimmed clips, text, render sources, timeline and sound effects of every project, and the HyperFrames renders. Takes, sources, exports and thumbnails are never in it."""
+        """What the pack rebuilds on demand: the trimmed clips, text, render sources, timeline and sound effects of every project, the HyperFrames renders and the memory frames of the takes. Takes, sources, exports and thumbnails are never in it."""
         root = settings.output_dir / 'MajoorVideoTools' if settings.output_dir else None
         if not root or not root.is_dir():
             return []
-        found = [root / 'hyperframes' / name for name in os.listdir(root / 'hyperframes')] if (root / 'hyperframes').is_dir() else []
+        found = [path for path in (root / 'hyperframes').iterdir() if path.is_dir()] if (root / 'hyperframes').is_dir() else []
         for project in root.glob('p_*'):
             cache = project / 'cache'
-            found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline')] + list(cache.glob('sfx_*.wav'))
+            found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline', 'memory')] + list(cache.glob('sfx_*.wav'))
         return [path for path in found if path.is_dir() and not path.is_symlink() or path.is_file()]
 
     @app.post('/api/storage/caches/clean')
@@ -547,13 +570,24 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if not cache_idle():
             raise HTTPException(409, 'Wait for active operations before cleaning the caches')
         def clean():
-            freed = 0
+            freed = in_use = 0
             for path in regenerable_caches():
-                freed += _size(path)
-                if not dry_run:
-                    shutil.rmtree(path) if path.is_dir() else path.unlink()
-            return {'freed': freed}
-        return await asyncio.to_thread(clean)
+                try:
+                    with ExitStack() as held:
+                        if path.parent.name == 'hyperframes':  # a render holds its lock: leave it
+                            held.enter_context(FileLock(str(path) + '.lock', timeout=0))
+                        size = _size(path)
+                        if not dry_run:
+                            shutil.rmtree(path) if path.is_dir() else path.unlink()
+                        freed += size
+                except (Timeout, OSError):
+                    in_use += 1
+            return {'freed': freed, 'in_use': in_use}
+        app.state.artifact_gc = True  # no generation starts while the caches are deleted
+        try:
+            return await asyncio.to_thread(clean)
+        finally:
+            app.state.artifact_gc = False
 
     @app.post('/api/storage/worker/cleanup')
     async def retry_worker_cleanup():

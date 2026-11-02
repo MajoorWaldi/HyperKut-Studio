@@ -16,6 +16,26 @@ Studio's tests also use VideoTools' shared core schema, timeline editor and moti
 
 The maintained API graphs use Majoor VideoTools, comfyui_controlnet_aux and native ComfyUI model nodes. Visual workflow editing additionally uses KJNodes/Easy-Use. Gemma/H3 drive the maintained planning/video path; YuE2 creates new music. Location plates, pose processing and masks require the models of the selected branch. See the [model inventory](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/models-and-downloads.md).
 
+Optional, in ComfyUI's Python and not in the Studio's: `faster-whisper` with the `large-v3` folder, read by Transcribe Voice to turn the words of a voice or a song into text with times (prompts, phrase cuts, kinetic lyrics). Without it the transcription is skipped and the edit goes on. The Pika H3 Flex LoRA (`pika_h3_flex_ref2va_v1_bf16.safetensors`, loras folder) is needed only by the Flex option. The best-of-two judge uses the Gemma vision model already listed; no extra file.
+
+## Optional dependencies and what happens without them
+
+| Optional dependency | What it adds | Without it |
+|---|---|---|
+| `faster-whisper` and the `large-v3` folder | The words of a voice or a song. | No words: the prompts have no lyrics, the cuts do not follow phrases, no kinetic lyrics. The edit goes on. |
+| Pika H3 Flex LoRA | The Flex option (six steps). | The turbo LoRA is used; the user is told when the option was on. |
+| FLUX files (`flux-2-klein-4b-fp8`, `qwen_3_4b`, `flux2-vae`) | Images of the places of the shots. | The shots are made without them; the user is told when the option was on. |
+| YuE2 music model | Music generated for a Text edit. | The edit is cut on a steady grid and has no generated music; the user is told. Music mode (your own track) never needs it. |
+| `comfyui_controlnet_aux`, DWPose and YOLOX files, the H3 pose patch, the Marigold node | Pose control. | Not needed by Text and Music shots: they are made without it. Only a Remix that asks for pose only needs them. |
+| HyperFrames (Node.js 22+, a browser) | Text, graphics, kinetic lyrics, effects. | The video is kept as assembled, with a warning. |
+| Tone bank (`install_tone.ps1`) | Generated sound effects. | No generated effects, with a warning. |
+| BiRefNet | Layers that need the subject cut out. | Those layers are skipped, with a warning. |
+| KJNodes, Easy-Use | Editing the visual workflows by hand. | The Studio graphs do not use them. |
+
+Required, and reported with a clear message when missing: ComfyUI with the native H3, Gemma and YuE2 nodes, Majoor VideoTools, the Gemma planner files, the H3 model, encoder, VAEs and turbo LoRA, FFmpeg. A missing optional dependency must never stop a generation or the final montage; if one ever does, it is a bug to report.
+
+The Studio asks ComfyUI which files and nodes it has before it sends a shot or a plan, and cuts the branches of the missing ones out of the prompt. If ComfyUI cannot be asked, nothing is cut.
+
 ## Experimental finishing
 
 | Component | Purpose |

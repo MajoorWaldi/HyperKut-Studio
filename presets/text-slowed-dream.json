@@ -1,0 +1,66 @@
+{
+  "name": "Slowed dream",
+  "mode": "text",
+  "description": "A memory that drifts: long takes, soft light and two or three motifs that come back changed.",
+  "prompt": "A memory of a summer house: a curtain moving in the wind, a child's drawing on a table, a bicycle in tall grass. Two or three motifs come back in each place, changed by the light.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "new",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "duration": 15,
+    "structure": 30,
+    "creativity": 80,
+    "casting": false,
+    "style": "slowed_dream",
+    "art_direction": {
+      "look": "natural",
+      "mood": "dreamy",
+      "camera": "crane",
+      "light": "golden"
+    },
+    "cut_density": "low",
+    "transition_intensity": "subtle"
+  },
+  "translations": {
+    "en": {
+      "name": "Slowed dream",
+      "description": "A memory that drifts: long takes, soft light and two or three motifs that come back changed.",
+      "prompt": "A memory of a summer house: a curtain moving in the wind, a child's drawing on a table, a bicycle in tall grass. Two or three motifs come back in each place, changed by the light.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Rêve ralenti",
+      "description": "Un souvenir qui dérive : prises longues, lumière douce et deux ou trois motifs qui reviennent transformés.",
+      "prompt": "Le souvenir d'une maison d'été : un rideau dans le vent, un dessin d'enfant sur une table, un vélo dans les hautes herbes. Deux ou trois motifs reviennent dans chaque lieu, changés par la lumière.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

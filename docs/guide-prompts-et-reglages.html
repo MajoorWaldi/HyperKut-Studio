@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HyperKut Studio — Prompts et réglages</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1b19; --muted: #6b675f; --line: #e3e0d8;
+  --accent: #b4410a; --accent-soft: #fbe9dc; --ok: #1f7a4d; --ok-soft: #dff3e8; --warn: #9a6700; --warn-soft: #fff1cc;
+  --code: #f0eee7; --chip: #ece9e0;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15140f; --panel: #1e1c16; --ink: #f1eee6; --muted: #a39e92; --line: #34312a;
+    --accent: #ff9b5c; --accent-soft: #3a2616; --ok: #6fd6a0; --ok-soft: #153023; --warn: #f0c35a; --warn-soft: #372c10;
+    --code: #28251d; --chip: #2b2820;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 80px; }
+header { padding: 56px 0 28px; border-bottom: 1px solid var(--line); }
+header .kicker { color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 13px; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.1; margin: 8px 0 12px; }
+header p { max-width: 720px; color: var(--muted); font-size: 18px; margin: 0; }
+nav { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav .wrap { padding-bottom: 0; display: flex; gap: 6px; overflow-x: auto; }
+nav a { color: var(--muted); text-decoration: none; padding: 12px 10px; font-size: 14px; white-space: nowrap; border-bottom: 2px solid transparent; }
+nav a:hover { color: var(--ink); border-color: var(--accent); }
+section { padding-top: 44px; }
+h2 { font-size: 26px; margin: 0 0 6px; }
+h2 + .lead { color: var(--muted); margin: 0 0 22px; max-width: 720px; }
+h3 { font-size: 19px; margin: 0 0 8px; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.step b { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; margin-bottom: 8px; }
+.step p { margin: 0; color: var(--muted); font-size: 15px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; margin: 0 0 22px; }
+.card header { padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.tag { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 10px; background: var(--chip); color: var(--muted); letter-spacing: .02em; }
+.tag.mode { background: var(--accent-soft); color: var(--accent); }
+.tag.tested { background: var(--ok-soft); color: var(--ok); }
+.tag.untested { background: var(--warn-soft); color: var(--warn); }
+.prompt { position: relative; background: var(--code); border-radius: 12px; padding: 14px 16px 14px 16px; margin: 12px 0 16px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 14.5px; line-height: 1.5; white-space: pre-wrap; border-left: 4px solid var(--accent); }
+.prompt button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 3px 9px; cursor: pointer; }
+.prompt button:hover { border-color: var(--accent); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.cols h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+ul.clean { list-style: none; margin: 0; padding: 0; }
+ul.clean li { padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 15px; }
+ul.clean li:last-child { border: 0; }
+ul.clean li code, td code { background: var(--chip); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+.note { border-radius: 12px; padding: 12px 14px; font-size: 15px; margin-top: 14px; background: var(--warn-soft); color: var(--ink); border: 1px solid var(--line); }
+.note b { color: var(--warn); }
+.good { background: var(--ok-soft); }
+.good b { color: var(--ok); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 15px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--chip); font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.tablewrap { overflow-x: auto; border-radius: 14px; }
+.tablewrap table { min-width: 640px; }
+.words { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.words div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.words q { display: block; font-style: normal; font-weight: 600; margin-bottom: 4px; }
+.words span { color: var(--muted); font-size: 14.5px; }
+footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+@media (max-width: 560px) { header { padding-top: 36px; } .card { padding: 16px; } }
+@media print { nav, .prompt button { display: none; } body { background: #fff; color: #000; } .card, .step, table { break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <div class="kicker">HyperKut Studio · état du 2 novembre 2026</div>
+  <h1>Prompts et réglages</h1>
+  <p>Ce que tu écris, ce que tu coches, et ce que le Studio produit. Chaque recette vient d’un essai réel de la journée, sauf mention contraire : elle dit ce qui a été vu, et ce qui ne l’a pas été.</p>
+</div></header>
+
+<nav><div class="wrap">
+  <a href="#principe">Comment ça marche</a>
+  <a href="#recettes">Recettes</a>
+  <a href="#reglages">Réglages</a>
+  <a href="#mots">Les mots qui comptent</a>
+  <a href="#limites">Limites</a>
+</div></nav>
+
+<main class="wrap">
+
+<section id="principe">
+  <h2>Comment ça marche</h2>
+  <p class="lead">Ton prompt n’active aucun réglage tout seul : il guide le texte du plan. Les cases et les fichiers décident de ce qui tourne.</p>
+  <div class="steps">
+    <div class="step"><b>1</b><h3>Analyse</h3><p>La musique est lue (rythme, sections, paroles avec Whisper). Le modèle de texte enrichit ton brief, écrit l’histoire, planifie les plans et caste les personnages.</p></div>
+    <div class="step"><b>2</b><h3>Plans</h3><p>Chaque plan reçoit son prompt : décor, personnage, taille de plan, paroles ou répliques de sa tranche de temps.</p></div>
+    <div class="step"><b>3</b><h3>Génération</h3><p>H3 génère chaque prise avec l’image et le son ensemble. La tranche de musique du plan est ancrée dans la prise.</p></div>
+    <div class="step"><b>4</b><h3>Montage</h3><p>Les prises sont assemblées avec la musique, les sous-coupes et les effets que tu as activés.</p></div>
+  </div>
+</section>
+
+<section id="recettes">
+  <h2>Recettes</h2>
+  <p class="lead">Copie le prompt, applique les réglages, compare avec « ce qu’on obtient ».</p>
+
+  <article class="card">
+    <header><span class="tag mode">Mode Music</span><span class="tag tested">Testé</span></header>
+    <h3>Clip rap sur une chanson avec paroles</h3>
+    <div class="prompt" data-copy>Clip hip-hop d’Halloween, nuit, trois monstres modernes en streetwear (un goule gris en sweat noir, une sorcière verte en doudoune, un squelette en veste dorée), chacun interprète une phrase du morceau dans un lieu différent : toit sous la pluie, parking vide, cimetière néon. Plans moyens et gros plans en alternance.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages à activer</h4><ul class="clean">
+        <li><code>Casting de personnages</code> coché</li>
+        <li><code>Sync musique</code> coché (par défaut)</li>
+        <li>Mode de coupe <code>Adaptatif</code>, variation au maximum</li>
+        <li>Style <code>Lipsync rap</code></li>
+        <li>Musique fournie (le morceau avec voix)</li>
+      </ul></div>
+      <div><h4>Ce que ça déclenche</h4><ul class="clean">
+        <li>Whisper lit les paroles et leurs temps</li>
+        <li>L’histoire suit les sections de la musique</li>
+        <li>Chaque plan reçoit les mots chantés dans sa tranche</li>
+        <li>Le casting assigne un personnage à chaque plan, par identifiant</li>
+        <li>La mémoire visuelle redonne son visage au personnage qui revient</li>
+      </ul></div>
+      <div><h4>Ce qu’on obtient</h4><ul class="clean">
+        <li>7 prises au lieu de 26 (rafales regroupées)</li>
+        <li>Des prises de 1,2 s à 6,4 s, avec des coupes de 0,2 s à l’intérieur</li>
+        <li>Goule, sorcière et squelette cohérents d’un plan à l’autre</li>
+        <li>La musique de chaque plan dans la prise</li>
+      </ul></div>
+    </div>
+    <div class="note"><b>À savoir :</b> la bouche suit la voix de façon partielle, pas au niveau d’un vrai lip sync. Whisper doit être installé (<code>faster-whisper</code> et le dossier <code>large-v3</code>), sinon le job continue sans les paroles.</div>
+  </article>
+
+  <article class="card">
+    <header><span class="tag mode">Mode Music</span><span class="tag tested">Testé</span></header>
+    <h3>Un seul sujet qui change de tenue et de lieu à chaque plan</h3>
+    <div class="prompt" data-copy>L’homme de la photo rappe sur le rythme de la musique. À chaque plan : une tenue différente, un lieu différent (métro, ruelle, toit au crépuscule, place néon), une distance de caméra différente. Il bouge dans le cadre, la caméra suit ou tourne autour.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages à activer</h4><ul class="clean">
+        <li><code>Structure</code> vers 25 à 35</li>
+        <li><code>Créativité</code> vers 75 à 100</li>
+        <li><code>Caméra</code> : suivi ou main levée</li>
+        <li>Une photo du sujet en référence</li>
+      </ul></div>
+      <div><h4>Pourquoi ces valeurs</h4><ul class="clean">
+        <li>Structure à 85 (par défaut) = « garde la composition et le décor de la photo »</li>
+        <li>Structure basse = la photo fixe le sujet, pas le décor</li>
+        <li>La consigne de variété du planificateur fait le reste</li>
+      </ul></div>
+      <div><h4>Ce qu’on obtient</h4><ul class="clean">
+        <li>Avant : même galerie derrière tous les plans</li>
+        <li>Après : métro, ruelle, toit, deux places de nuit</li>
+        <li>Cadrages variés, du gros plan au plan large</li>
+      </ul></div>
+    </div>
+    <div class="note good"><b>Vu :</b> avec les réglages par défaut, le plan 1 garde la tenue de la photo de référence. Baisse « Structure » pour qu’il la quitte aussi.</div>
+  </article>
+
+  <article class="card">
+    <header><span class="tag mode">Mode Texte</span><span class="tag tested">Testé</span></header>
+    <h3>Pub courte avec plusieurs personnages</h3>
+    <div class="prompt" data-copy>Pub de nuit pour une boisson énergisante, 10 secondes : une skateuse en veste jaune sur un pont, un DJ au casque rouge dans un club vide, une danseuse en robe argentée sur un toit. Chacun a son moment, plans moyens et gros plans, l’énergie monte jusqu’au dernier plan.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages à activer</h4><ul class="clean">
+        <li>Durée <code>10 s</code>, format <code>9:16</code></li>
+        <li><code>Casting de personnages</code> coché (nouveau en mode Texte)</li>
+        <li><code>Sync musique</code> (par défaut)</li>
+      </ul></div>
+      <div><h4>Ce que ça déclenche</h4><ul class="clean">
+        <li>L’histoire est écrite avant le plan</li>
+        <li>Le casting lit les plans, pas l’inverse</li>
+        <li>Une musique est générée puis fournie à chaque plan</li>
+      </ul></div>
+      <div><h4>Ce qu’on obtient</h4><ul class="clean">
+        <li>3 plans de 3,2 à 3,5 s</li>
+        <li>Un personnage distinct par plan, l’en-tête du plan correspond au contenu</li>
+      </ul></div>
+    </div>
+    <div class="note"><b>Pas vu :</b> la mémoire visuelle n’a pas servi ici, car chaque personnage n’apparaît qu’une fois.</div>
+  </article>
+
+  <article class="card">
+    <header><span class="tag mode">Mode Texte</span><span class="tag tested">Testé</span></header>
+    <h3>Pub avec voix fournie : les répliques se répartissent dans les plans</h3>
+    <div class="prompt" data-copy>Pub de nuit pour une boisson énergisante : une présentatrice en veste argentée parle face caméra dans un club vide, puis marche dans une rue néon. Elle dit chaque phrase de la voix. Plans moyens et gros plans.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages à activer</h4><ul class="clean">
+        <li>Son : le mode voix, avec un fichier de voix</li>
+        <li>Le champ <code>Dialogue</code> <b>vide</b></li>
+        <li>Durée au moins égale à celle de la voix</li>
+      </ul></div>
+      <div><h4>Ce que ça déclenche</h4><ul class="clean">
+        <li>Whisper lit la voix, avec les temps de chaque mot</li>
+        <li>Les répliques vont dans l’histoire, le plan et le casting</li>
+        <li>Chaque plan reçoit les mots qui commencent dedans : « Spoken in this shot, word for word… »</li>
+        <li>Le dialogue est conservé à l’assemblage</li>
+      </ul></div>
+      <div><h4>Ce qu’on obtient</h4><ul class="clean">
+        <li>5 plans, 10 s, voix dite par le personnage</li>
+        <li>Les deux premières répliques fidèles à l’enregistrement</li>
+      </ul></div>
+    </div>
+    <div class="note"><b>À savoir :</b> H3 régénère la parole avec les mots lus. Si Whisper se trompe sur un mot, H3 répète l’erreur (une réplique de test est devenue « 2 o’clock mess up »). Une voix plus longue que le montage ajoute un avertissement : les mots après la fin sont perdus. Tape un dialogue minuté (<code>0-3 s: « Bonjour. »</code>) pour garder la main sur le texte.</div>
+  </article>
+
+  <article class="card">
+    <header><span class="tag mode">Tous modes</span><span class="tag tested">Testé</span></header>
+    <h3>Essai rapide d’un plan avant de dépenser du GPU</h3>
+    <div class="prompt" data-copy>Même prompt que d’habitude, avec la qualité en brouillon.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages à activer</h4><ul class="clean">
+        <li><code>Valider le plan</code> : le plan seul, sans génération</li>
+        <li><code>Qualité</code> : brouillon</li>
+        <li><code>Pika H3 Flex</code> coché (options expertes)</li>
+      </ul></div>
+      <div><h4>Ce que ça change</h4><ul class="clean">
+        <li>Tu vois les plans, les coupes et le budget GPU avant</li>
+        <li>Flex : LoRA Pika, échantillonneur lcm, 6 pas au lieu des 8 du turbo</li>
+      </ul></div>
+      <div><h4>Mesuré</h4><ul class="clean">
+        <li>Prises : 278,8 s contre 338,2 s en turbo (environ 18 % de moins)</li>
+        <li>Un essai de chaque : une indication, pas un test de qualité</li>
+      </ul></div>
+    </div>
+  </article>
+
+  <article class="card">
+    <header><span class="tag mode">Mode Remix</span><span class="tag untested">Non modifié aujourd’hui</span></header>
+    <h3>Refaire un montage existant avec un autre sujet</h3>
+    <div class="prompt" data-copy>Refais ce montage avec l’homme de la référence 1. Remplace les tenues par celles des références 2, 3 et 4, dans l’ordre. Garde la lumière du dessus, la caméra basse, le rythme et les poses.<button type="button">Copier</button></div>
+    <div class="cols">
+      <div><h4>Réglages</h4><ul class="clean">
+        <li>Une vidéo source (le modèle du montage)</li>
+        <li>Stratégie <code>Préserver</code>, <code>Créatif</code> ou <code>Transfert</code></li>
+        <li>Les curseurs Structure et Créativité règlent la proximité</li>
+      </ul></div>
+      <div><h4>Ce qui ne s’applique pas</h4><ul class="clean">
+        <li>Casting, histoire, paroles par plan, mémoire visuelle et audio ancré : ils ne sont pas branchés en mode Remix</li>
+      </ul></div>
+    </div>
+  </article>
+</section>
+
+<section id="reglages">
+  <h2>Les réglages, ce qu’ils activent</h2>
+  <p class="lead">Les noms entre guillemets sont ceux de l’interface en français.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Réglage</th><th>Ce qu’il active</th><th>Coût ou risque</th></tr></thead>
+    <tbody>
+      <tr><td><b>Casting de personnages</b><br><code>casting</code></td><td>Un personnage fixe par plan, son look répété à chaque plan, un lieu par personnage. Modes Music et Texte.</td><td>Un appel de plus au modèle de texte.</td></tr>
+      <tr><td><b>Décors</b><br><code>places</code></td><td>Le planificateur écrit un lieu par plan, et une image du lieu vide peut guider H3.</td><td>Images de lieux générées.</td></tr>
+      <tr><td><b>Sync musique</b><br><code>music_sync</code></td><td>Chaque plan reçoit sa tranche de musique, ancrée dans la prise. Actif par défaut. Ignoré avec une voix.</td><td>Aucun coût, mais la bouche ne suit pas toujours.</td></tr>
+      <tr><td><b>Meilleure de deux prises</b><br><code>best_of_two</code></td><td>Deux prises par plan avec deux graines ; le modèle de vision local compare six images de chaque et garde une. Une prise noire ou faite de bruit perd toujours.</td><td>L’étape des plans dure environ deux fois plus. Le choix du juge n’est pas mesuré.</td></tr>
+      <tr><td><b>Paroles animées</b><br><code>kinetic_lyrics</code></td><td>Mode Music : les mots de la voix s’écrivent à l’écran un par un, un mot plus grand sur les temps forts.</td><td>Demande une voix dans la musique, faster-whisper et la finition HyperFrames. Au plus 120 calques par passage.</td></tr>
+      <tr><td><b>Pika H3 Flex</b><br><code>flex</code></td><td>LoRA Pika, 6 pas, échantillonneur lcm : remplace le turbo 8 pas.</td><td>Nécessite le fichier <code>pika_h3_flex_ref2va_v1_bf16.safetensors</code>. Qualité à comparer.</td></tr>
+      <tr><td><b>Structure</b></td><td>Fidélité à la référence. À 85, le planificateur garde la composition et le décor ; bas, il les réinterprète.</td><td>Trop bas : le sujet peut dériver.</td></tr>
+      <tr><td><b>Créativité</b></td><td>De fidèle (n’ajoute rien) à audacieux (cadrages et mises en scène surprenants).</td><td>Plus de surprises.</td></tr>
+      <tr><td><b>Mode de coupe</b><br><code>music_edit_mode</code></td><td>Adaptatif : plus de coupes quand ça sonne fort. Aléatoire : durées variées. Régulier : pas fixe. Phrases vocales : une coupe dans chaque pause.</td><td>Les rafales sont regroupées en une seule prise.</td></tr>
+      <tr><td><b>Son : Voix</b><br><code>audio = voice</code></td><td>Mode dialogue : coupes libres, dialogue protégé à l’assemblage, répliques lues depuis la voix si le champ dialogue est vide (mode Texte).</td><td>Le dialogue ne se coupe jamais automatiquement.</td></tr>
+      <tr><td><b>Valider le plan</b><br><code>review_plan</code></td><td>S’arrête après le plan : plans, coupes, effets et budget GPU à approuver.</td><td>Une étape de plus.</td></tr>
+      <tr><td><b>Effets / Texte</b></td><td>Zooms, vitesse, transitions ; texte à l’écran (avec les mots autorisés).</td><td>Peut alourdir le montage.</td></tr>
+      <tr><td><b>Refaire les mauvais plans</b><br><code>retry_bad_takes</code></td><td>Une prise noire ou cassée est refaite.</td><td>GPU en plus.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="mots">
+  <h2>Les mots qui comptent dans ton prompt</h2>
+  <p class="lead">Le planificateur reçoit une règle de variété : il change lieu, distance et mouvement de caméra d’un plan à l’autre, <b>sauf</b> si tu dis le contraire.</p>
+  <div class="words">
+    <div><q>« un lieu différent à chaque plan »</q><span>Renforce la règle de variété : un décor par plan.</span></div>
+    <div><q>« toujours dans la même pièce »</q><span>Annule la règle : un seul lieu, la caméra change quand même.</span></div>
+    <div><q>« caméra fixe » ou « plans statiques »</q><span>Pas de mouvement de caméra imposé.</span></div>
+    <div><q>« il dit : … » ou une phrase entre guillemets</q><span>Utile pour guider le texte, mais ne remplit pas le champ Dialogue.</span></div>
+    <div><q>« trois personnages : A, B, C »</q><span>Aide le casting à créer trois entrées distinctes avec un nom chacune.</span></div>
+    <div><q>« rythmé », « contemplatif »</q><span>Oriente le planificateur, sans changer le mode de coupe choisi.</span></div>
+  </div>
+  <p style="color:var(--muted);font-size:14.5px;margin:14px 0 0">Les effets de ces formulations viennent de la consigne écrite au planificateur. Je n’ai pas mesuré chacune ; seule la règle de variété a été vérifiée sur un job réel.</p>
+  <div class="note"><b>Ce que le prompt ne coche pas :</b> aucune case n’est activée par le texte. Les noms de personnages ne cochent pas le casting, « avec une voix » ne choisit pas le mode Voix. Une déduction automatique des réglages est possible, mais pas encore construite.</div>
+</section>
+
+<section id="limites">
+  <h2>Limites et état réel</h2>
+  <div class="cols">
+    <div class="card"><h3>Ce qui est solide</h3><ul class="clean">
+      <li>Variété de lieux et de cadrages quand « Structure » est bas</li>
+      <li>Plan et cast alignés (assignation par identifiant)</li>
+      <li>Visage et tenue stables d’un plan à l’autre pour un personnage qui revient</li>
+      <li>Export du dialogue sans échec quand une prise dépasse son plan</li>
+    </ul></div>
+    <div class="card"><h3>Ce qui reste fragile</h3><ul class="clean">
+      <li>Synchro de la bouche : partielle, mesure non concluante</li>
+      <li>Whisper : une erreur de lecture se retrouve dans ce que dit le personnage</li>
+      <li>Mémoire visuelle : suppose un personnage centré dans l’image</li>
+      <li>Pika H3 Flex : un essai de vitesse, pas un test de qualité</li>
+    </ul></div>
+  </div>
+  <footer>Rien de ce document n’est généré automatiquement : il décrit l’état du code et des essais au 2 novembre 2026. Les captures et vidéos des essais restent dans le dossier de sortie de ComfyUI.</footer>
+</section>
+
+</main>
+
+<script>
+document.querySelectorAll('[data-copy] button').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var box = button.parentElement;
+    var text = Array.from(box.childNodes).filter(function (n) { return n.nodeType === 3; }).map(function (n) { return n.textContent; }).join('').trim();
+    var done = function () { var old = button.textContent; button.textContent = 'Copié'; setTimeout(function () { button.textContent = old; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, done); } else { done(); }
+  });
+});
+</script>
+</body>
+</html>

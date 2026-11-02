@@ -18,7 +18,11 @@ FIELDS = {
     'camera': ('Caméra','Camera',[
         ('steady','Stable','Steady','stable framing and simple readable camera moves'),
         ('handheld','Portée','Handheld','subtle handheld documentary movement'),
-        ('tracking','En mouvement','Tracking','controlled tracking that follows the subject')]),
+        ('tracking','En mouvement','Tracking','controlled tracking that follows the subject'),
+        ('orbit','Orbite','Orbit','a slow orbit around the subject that reveals the place behind it'),
+        ('push','Poussée','Push-in','a slow push-in toward the subject, with a reveal at the end of the move'),
+        ('whip','Panoramique fouetté','Whip pan','whip pans and quick reframes that land on the beats'),
+        ('crane','Grue','Crane','rising or falling crane moves with high and low angles')]),
     'light': ('Lumière','Light',[
         ('natural','Naturelle','Natural','natural light shaped by the actual setting'),
         ('golden','Dorée','Golden','warm low-angle golden light'),
@@ -51,7 +55,7 @@ def resolved_brief(settings):
 
 def brief_context(request, *, legacy=False):
     data=request.model_dump();s=data['settings']
-    for key in ('approved_brief','approved_brief_context','seed'):s.pop(key,None)
+    for key in ('approved_brief','approved_brief_context','seed','idea_seed'):s.pop(key,None)
     if s.get('music_edit_mode') == 'legacy':
         for key in ('music_edit_mode', 'music_cut_variation', 'music_cut_sync'):
             s.pop(key, None)
@@ -154,6 +158,9 @@ def apply_plan_contract(graph, settings, reference_count=None, mode=None):
                 node['inputs'].pop('skeleton_json')
                 node['inputs']['source.duration'] = settings.duration
     if music_policy:
+        if not dialogue_present:
+            for key in music_grids:  # the candidate grid the planner reads varies with the music too, instead of one cut per beat
+                graph[key]['inputs'].update(music_options)
         for node in music_targets:
             node['inputs'].update(music_options)
             if dialogue_present:

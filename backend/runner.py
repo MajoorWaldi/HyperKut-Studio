@@ -75,6 +75,10 @@ class Runner(Protocol):
     async def re_edit(self, job: Job, style: EditStyle) -> None: ...
 
 
+def second_seed(seed) -> int:
+    return (int(seed) + 7919) % (2**63)
+
+
 def _overall(stage: str, inside: float) -> float:
     start, end = SHARE[stage]
     return start + (end - start) * max(0.0, min(inside, 1.0))
@@ -147,8 +151,8 @@ class ComfyRunner:
         megapixels = QUALITY_MEGAPIXELS[s.quality]
         layers = s.motion_layers.strip()
         values = {"brief": brief, "idea": brief, "idea_creative": brief, "length": s.duration, "ratio": RATIOS[s.ratio], "megapixels": megapixels, "megapixels_creative": megapixels, "bpm": s.bpm,
-                  "mood": s.mood, "seed": s.seed, "effects": s.effects, "text": s.text, "edit_sub_cuts": s.sub_cuts, "sound_design": s.sound_design, "sound_effects": s.sound_effects, "music_sync": s.music_sync, "retry_bad": s.retry_bad_takes,
-                  "replace_sound": s.audio == "new", "voice_on": s.audio == "voice", "job_name": job.id, "dialogue": s.dialogue, "plates": s.places, "camera": s.camera,
+                  "mood": s.mood, "seed": s.seed, "effects": s.effects, "text": s.text, "edit_sub_cuts": s.sub_cuts, "sound_design": s.sound_design, "sound_effects": s.sound_effects, "music_sync": s.music_sync, "retry_bad": s.retry_bad_takes, "judge": s.best_of_two, "kinetic_lyrics": s.kinetic_lyrics, "flex": s.flex,
+                  "replace_sound": s.audio == "new", "voice_on": s.audio == "voice", "voice_lines": s.audio == "voice" and not s.dialogue.strip(), "idea_seed": s.idea_seed, "camera_moves": s.art_direction.get("camera") != "steady", "job_name": job.id, "dialogue": s.dialogue, "plates": s.places, "camera": s.camera,
                   "edit_music_volume": s.music_volume, "motion_design": s.motion_design, "motion_direction": s.motion_direction, "motion_title": s.motion_title, "motion_cues": s.motion_cues,
                   "motion_layers": layers or "[]", "extra_layers": layers or "[]", "motion_on": layers not in ("", "[]"), "subject_mask": s.subject_mask,
                   "redraw_text": s.redraw_text, "force_pose": s.pose_only, "quality_check": s.quality_check, "music_start": s.music_start, "music_energy": s.music_energy,
@@ -201,13 +205,33 @@ class ComfyRunner:
         r = job.request
         return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None),('casting',r.settings.casting or None)) if not given))
 
+    async def _schemas(self) -> dict:
+        """The object_info of ComfyUI, or {} when it cannot be read: not knowing what is installed is not a reason to cut anything."""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=0.5), trust_env=False) as probe:
+                response = await probe.get(f'{self.settings.comfyui_url}/object_info')
+                response.raise_for_status()
+                schemas = response.json()
+        except (httpx.HTTPError, ValueError):
+            return {}
+        return schemas if isinstance(schemas, dict) else {}
+
     async def _run(self, client, job: Job, template, values: dict, stage: str, base: float = 0.0, span: float = 1.0, *, result_context: dict | None = None):
         """Submit one prompt and follow it: the progress of the job moves with the nodes of the prompt."""
+        if 'seed' in values and 'seed_b' not in values:
+            values = {**values, 'seed_b': second_seed(values['seed'])}  # the second take of a shot must not repeat the first
         given = {k: v for k, v in values.items() if k in template.slots}
         prompt = template.fill({k: v for k, v in given.items() if not isinstance(v, Path)}, tuple(n for n in self._absent(job) if n in template.slots))
         normalize_media_roles(prompt)
         apply_plan_contract(prompt, job.request.settings, mode=job.request.mode)
         prompt=reachable_graph(prompt,{})
+        if any(n['class_type'] in ('LoraLoaderModelOnly','MiniMaxH3FunControlNetApply','MajoorCheckPlate','MajoorMusicFit') for n in prompt.values()):
+            from .optional_deps import prune_unavailable
+            notes = prune_unavailable(prompt, await self._schemas(), flex=bool(values.get('flex')), places=bool(values.get('plates')))
+            prompt = reachable_graph(prompt, {})  # what only the cut branches fed goes with them
+            if notes:
+                job.update(warnings=list(dict.fromkeys([*job.state.warnings, *notes])))
         rhythm_nodes = {node['class_type'] for node in prompt.values() if node['inputs'].get('music_edit_mode', 'legacy') != 'legacy'}
         if job.request.mode == 'remix' and job.request.settings.audio == 'new' and job.request.settings.music_edit_mode != 'legacy':
             rhythm_nodes.add('MajoorShotAssemble')
@@ -389,7 +413,7 @@ class ComfyRunner:
         previous={shot.id:shot.model_dump() for shot in job.state.shots}
         shots=[Shot(**{**previous.get(row['id'],{}),**{key:value for key,value in row.items() if key!='takes'},'thumb':f'/api/jobs/{job.id}/shots/{row["id"]}/thumb'}) for row in info['shots']]
         seconds=sum((s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots)/24
-        retry=job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
+        retry=job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes or job.request.settings.best_of_two
         job.update(project_id=info['project_id'],shots=shots,generation_budget={
             'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
         self._sync_shots(job)
@@ -533,6 +557,17 @@ class ComfyRunner:
                 configured['accent']=match.group()
                 values['motion_layers']=json.dumps(configured)
         values['unified_layers'] = finishing_layers(manifest, job.state.shots, values.get('motion_layers', '[]'), requested_text, values.get('motion_design', True))
+        if values.get('kinetic_lyrics') and job.request.mode == 'music' and job.state.project_id and job.state.shots:
+            # after the text filter: the words of the music are drawn even when the text option is off
+            from .lyrics_layer import lyrics_layer
+            from .unified_motion import expand_templates, motion_contract
+            mine = configured.get('layers', []) if isinstance(configured, dict) else configured
+            rows = json.loads(values['unified_layers'])
+            layer = lyrics_layer(self.projects() / job.state.project_id, max(s.start + s.duration for s in job.state.shots), rows, mine)
+            if layer:
+                rows = [*rows, *expand_templates([layer])]
+                motion_contract().validate_motion_rows(rows)
+                values['unified_layers'] = json.dumps(rows, ensure_ascii=False)
         values['subject_mask'] = needs_subject_mask(values['unified_layers'])
         finishing_requested = values.get('motion_design', True) or bool(json.loads(values['unified_layers']))
         hyperframes_missing = False

@@ -29,6 +29,10 @@
 - **Corrigez un plan, gardez le reste.** Modifiez le prompt d'un plan et régénérez seulement celui-là.
 - **Montez après la génération.** Coupez, réordonnez et changez de prise sur une timeline.
 - **Tout reste local.** Vos projets, vos modèles, du code MIT ouvert.
+- **Une autre idée, trois traitements.** Redemandez la même demande avec une autre idée, ou trois briefs d'un coup (direct, avec un retournement, porté par l'image) et gardez-en un.
+- **Des plans qui changent.** Un lieu, un mouvement de caméra et une distance différents à chaque plan ; un même personnage garde son visage et sa tenue, pas sa pose.
+- **Les paroles de la musique.** Une voix dans votre morceau ou votre fichier est transcrite, ses mots vont aux bons plans, et peuvent s'écrire à l'écran un mot à la fois (paroles animées).
+- **Meilleure de deux prises.** Une option génère chaque plan deux fois et un modèle de vision local garde la meilleure.
 
 <table align="center">
 <tr><th>Lancer un projet</th><th>Diriger chaque plan</th><th>Finaliser le montage</th></tr>

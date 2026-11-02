@@ -29,6 +29,10 @@
 - **Fix one shot, keep the rest.** Edit a shot's prompt and regenerate only that shot.
 - **Edit after generation.** Trim, cut, reorder and swap takes on a timeline.
 - **Everything stays local.** Your projects, your models, open MIT code.
+- **Another idea, three treatments.** Ask for the same request again with another idea, or for three briefs at once (direct, with a twist, image-led) and keep one.
+- **Shots that change.** A different place, camera move and distance in every shot; the same character keeps their face and outfit, not their pose.
+- **Words of the music.** A voice in your track or file is transcribed, its words go to the right shots, and can be written on screen one at a time (kinetic lyrics).
+- **Best of two takes.** An option generates every shot twice and a local vision model keeps the better one.
 
 <table align="center">
 <tr><th>Start a project</th><th>Direct each shot</th><th>Finish the edit</th></tr>

@@ -199,7 +199,7 @@ export default function App() {
   const generate = async (reviewPlan = false) => {
     if (preparing || running || uploading > 0) return
     if (mode === 'music' && !inputs.music) { setActionError(t.noMusic); return }
-    if (settings.audio === 'voice' && (!inputs.voice || !settings.dialogue.trim())) { setActionError(t.stepVoice + ': ' + t.dialogue); return }
+    if (settings.audio === 'voice' && (!inputs.voice || (!settings.dialogue.trim() && mode !== 'text'))) { setActionError(t.stepVoice + ': ' + t.dialogue); return }
     if (mode === 'remix' && !inputs.source) { setActionError(t.needSource); return }
     setMessage(null)
     await submit(() => api.createJob(mode, { ...settings, review_plan: reviewPlan }, inputs))
@@ -342,8 +342,8 @@ export default function App() {
 
   const cleanCaches = async () => {
     try {
-      const { freed } = await api.cleanCaches()
-      setMessage(`${megabytes(freed)} ${t.freed}`)
+      const { freed, in_use } = await api.cleanCaches()
+      setMessage(`${megabytes(freed)} ${t.freed}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
     } catch (error) { fail(error) }
   }
 

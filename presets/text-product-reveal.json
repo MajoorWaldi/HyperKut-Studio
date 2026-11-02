@@ -1,0 +1,66 @@
+{
+  "name": "Product reveal",
+  "mode": "text",
+  "description": "A slow product reveal: orbit, push-in and a rise, with light that changes between shots.",
+  "prompt": "A glass bottle of sparkling water on a dark stone table. Slow orbit around it, then a push-in on the droplets, then a crane rise that reveals a sunlit terrace. Premium, bright, the product always readable.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "new",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "duration": 10,
+    "structure": 40,
+    "creativity": 70,
+    "casting": false,
+    "style": "product_advertising",
+    "art_direction": {
+      "look": "natural",
+      "mood": "calm",
+      "camera": "orbit",
+      "light": "golden"
+    },
+    "cut_density": "medium",
+    "transition_intensity": "subtle"
+  },
+  "translations": {
+    "en": {
+      "name": "Product reveal",
+      "description": "A slow product reveal: orbit, push-in and a rise, with light that changes between shots.",
+      "prompt": "A glass bottle of sparkling water on a dark stone table. Slow orbit around it, then a push-in on the droplets, then a crane rise that reveals a sunlit terrace. Premium, bright, the product always readable.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Révélation de produit",
+      "description": "Une révélation lente de produit : orbite, poussée et grue, avec une lumière qui change d'un plan à l'autre.",
+      "prompt": "Une bouteille en verre d'eau pétillante sur une table de pierre sombre. Orbite lente autour d'elle, poussée sur les gouttes, puis une montée de grue qui révèle une terrasse au soleil. Premium, lumineux, le produit toujours lisible.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

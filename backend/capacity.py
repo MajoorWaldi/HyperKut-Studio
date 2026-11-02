@@ -23,7 +23,7 @@ def reservation_bytes(request, duration_seconds: float | None = None) -> int:
     if not math.isfinite(duration) or duration < 0:
         raise ValueError('Capacity duration must be a finite non-negative number')
     rate = QUALITY_MIB_PER_SECOND[settings.quality]
-    retries = settings.quality_check if request.mode == 'remix' else settings.retry_bad_takes
+    retries = settings.quality_check if request.mode == 'remix' else settings.retry_bad_takes or settings.best_of_two
     return 256 * MIB + math.ceil(duration * rate * MIB * (2 if retries else 1))
 
 
