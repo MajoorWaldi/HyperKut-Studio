@@ -76,7 +76,7 @@ start() {
             HYPERKUT_WORKSPACE="$ROOT/studio-workspace" HYPERKUT_OUTPUT_DIR="$ROOT/studio-output" \
             HYPERKUT_ALLOWED_HOSTS="$PUBLIC_HOST" HYPERKUT_VIDEOTOOLS_DIR="$PACK" HYPERKUT_MAX_ACTIVE_JOBS=1 \
             nohup .venv/bin/python -m uvicorn backend.server:create_app --factory --host 127.0.0.1 --port "$PORT" \
-                --proxy-headers --forwarded-allow-ips 127.0.0.1 > "$LOGS/studio.log" 2>&1 &)
+                --proxy-headers --forwarded-allow-ips 127.0.0.1 --no-access-log > "$LOGS/studio.log" 2>&1 &)
     fi
     sleep 5
     pgrep -f 'uvicorn backend.server:create_app' >/dev/null || { echo "The Studio did not start, see $LOGS/studio.log" >&2; exit 1; }
