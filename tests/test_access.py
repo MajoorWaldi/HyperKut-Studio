@@ -126,6 +126,47 @@ def test_open_jury_ignores_the_visitor_header_from_a_remote_caller(settings):
         assert client.post("/api/jobs", json=request, headers={"CF-Connecting-IP": "203.0.113.2"}).status_code == 429
 
 
+def test_open_jury_keeps_each_visitor_to_their_own_uploads_and_projects(settings):
+    app = create_app(open_jury(settings, visitor=2, total=4), MockRunner(pace=0))
+    with TestClient(app, base_url="https://testserver") as owner, TestClient(app, base_url="https://testserver") as stranger:
+        assert stranger.get("/").status_code in (200, 404)
+        uploaded = owner.post("/api/uploads", files={"file": ("a.png", b"not checked in mock", "image/png")}).json()["id"]
+        job = owner.post("/api/jobs", json={"mode": "text", "settings": {"prompt": "private"}}).json()["id"]
+        assert owner.cookies.get("hyperkut_visitor") != stranger.cookies.get("hyperkut_visitor")
+        assert [row["id"] for row in owner.get("/api/jobs").json()] == [job]
+        assert owner.get(f"/api/jobs/{job}").status_code == 200
+        assert owner.get(f"/api/uploads/{uploaded}").status_code == 200
+        assert stranger.get("/api/jobs").json() == []
+        assert stranger.get("/api/jobs/sizes").json() == {}
+        assert stranger.get(f"/api/jobs/{job}").status_code == 404
+        assert stranger.get(f"/api/jobs/{job}/inputs").status_code == 404
+        assert stranger.post(f"/api/jobs/{job}/cancel").status_code == 404
+        assert stranger.get(f"/api/uploads/{uploaded}").status_code == 404
+        assert stranger.post("/api/jobs", json={"mode": "text", "settings": {"prompt": "x"}, "music": uploaded}).status_code == 422
+    with TestClient(create_app(open_jury(settings, visitor=2, total=4), MockRunner(pace=0)), base_url="https://testserver", cookies=dict(owner.cookies)) as back:
+        assert [row["id"] for row in back.get("/api/jobs").json()] == [job]  # the ownership survives a restart
+
+
+def test_open_jury_limits_every_route_that_reaches_the_gpu(settings):
+    config = open_jury(settings, visitor=1, total=2)
+    request = {"mode": "text", "settings": {"prompt": "a test"}}
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        assert client.post("/api/brief-preview", json={"mode": "bad"}).status_code == 422  # refused: nothing is spent
+        for _ in range(4):
+            assert client.post("/api/brief-preview", json=request).status_code == 200
+        refused = client.post("/api/brief-treatments", json=request)
+        assert refused.status_code == 429 and "previews" in refused.json()["detail"]
+        analysis = client.post("/api/jobs", json={**request, "settings": {**request["settings"], "review_plan": True}})
+        assert analysis.status_code == 429  # an analysis is an action too
+        assert client.post("/api/jobs", json=request).status_code == 200  # and the refused analysis gave its generation back
+
+
+def test_public_instance_has_no_api_documentation(settings):
+    with TestClient(create_app(open_jury(settings), MockRunner(pace=0)), base_url="https://testserver") as client:
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            assert client.get(path).status_code == 404
+
+
 def test_open_jury_refunds_a_rejected_generation(settings):
     config = open_jury(settings, visitor=1, total=1)
     with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
@@ -167,7 +208,9 @@ def test_open_jury_takes_the_generation_when_the_plan_is_approved(settings):
             current.update(status="succeeded", stage="done")
 
     me = {"CF-Connecting-IP": "203.0.113.9"}
-    with TestClient(create_app(config, Runner(config, {})), base_url="https://testserver", client=("127.0.0.1", 50000)) as client:
+    visitor = "a" * 32
+    (config.workspace / "jury-owners.json").write_text(json.dumps(dict.fromkeys(waiting, visitor)), encoding="utf-8")
+    with TestClient(create_app(config, Runner(config, {})), base_url="https://testserver", client=("127.0.0.1", 50000), cookies={"hyperkut_visitor": visitor}) as client:
         assert client.post(f"/api/jobs/{waiting[0]}/approve", json={"prompts": {}}, headers=me).status_code == 200
         assert json.loads((config.workspace / "jury-quota.json").read_text())["total"] == 1
         refused = client.post(f"/api/jobs/{waiting[1]}/approve", json={"prompts": {}}, headers=me)

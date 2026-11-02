@@ -47,7 +47,7 @@ from . import restart as studio_restart
 from .brief_preview import prepare_brief, prepare_treatments
 from .deployment import cached_schemas, reachable
 from .unified_motion import validate_finishing
-from .access import AccessMiddleware, acquire_upload_quota, validate_access
+from .access import AccessMiddleware, JuryOwners, acquire_upload_quota, validate_access
 from .project_import import extract_project_archive
 from .project_snapshot import audio_references, read_json, referenced_files
 from .snapshot_schema import checked_document
@@ -118,7 +118,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             pass  # mutations retry reconciliation once the local proxy is available
         yield
 
-    app = FastAPI(title=APP_NAME, lifespan=lifespan)
+    app = FastAPI(title=APP_NAME, lifespan=lifespan, **({} if settings.access_mode == 'local' else {'docs_url': None, 'redoc_url': None, 'openapi_url': None}))
+    owners = JuryOwners(settings.workspace / 'jury-owners.json') if settings.access_mode == 'jury_open' else None
+
+    def owned_here(item: str) -> bool:
+        return owners is None or owners.allows(item)
+
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(settings.allowed_hosts))
     app.add_middleware(SameOriginMiddleware)
     app.state.boot_id = uuid.uuid4().hex
@@ -310,13 +315,15 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 quota_lock.release()
             await file.close()
         uploads[upload_id] = path
+        if owners:
+            owners.claim(upload_id)
         names[upload_id] = {'name':file.filename or path.name,'kind':kind}
         write_json(names_file,names)
         return Upload(id=upload_id, name=file.filename or path.name, kind=kind, url=f"/api/uploads/{upload_id}")
 
     @app.get("/api/uploads/{upload_id}")
     async def upload_file(upload_id: str):
-        if upload_id not in uploads:
+        if upload_id not in uploads or not owned_here(upload_id):
             raise HTTPException(404, "Unknown upload")
         path = uploads[upload_id]
         kind = describe(upload_id).kind
@@ -336,7 +343,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     @app.get("/api/uploads/{upload_id}/waveform", response_model=list[float])
     async def upload_waveform(upload_id: str):
-        if upload_id not in uploads:
+        if upload_id not in uploads or not owned_here(upload_id):
             raise HTTPException(404, "Unknown upload")
         if describe(upload_id).kind != 'audio':
             raise HTTPException(422, "Waveform preview requires an audio upload")
@@ -351,7 +358,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return upload_waves[upload_id]
 
     def validate_request(request):
-        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, *request.refs) if u and u not in uploads]
+        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, *request.refs) if u and (u not in uploads or not owned_here(u))]
         if unknown:
             raise HTTPException(422, f"Unknown uploads: {unknown}")
         if request.mode == "remix" and not request.source:
@@ -442,6 +449,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             seconds = media_info(uploads[request.voice])['duration']
             if seconds > request.settings.duration + .05:  # the lines come from the voice: what comes after the end of the edit is left out, and the job says so
                 voice_warning = f'The voice lasts {seconds:.1f} s and the edit {request.settings.duration:g} s: the words after the end are left out. Set a longer duration to keep them.'
+        hold = http.scope.get("jury_hold")
+        if request.settings.review_plan and hold and hold.get("visitor"):  # the analysis alone is an action on the jury: the approval of the plan takes the generation
+            reason = await hold["quota"].trade(hold["visitor"])
+            if reason:
+                raise HTTPException(429, reason)
+            hold.pop("visitor")
         job = None
         try:
             with capacity_lock(settings):
@@ -457,13 +470,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     raise
         except CapacityError as error:
             raise HTTPException(507, str(error)) from error
+        if owners:
+            owners.claim(job.id)
         job.update(title=(request.settings.prompt.strip() or request.mode)[:60])
         if voice_warning:
             job.update(warnings=[voice_warning])
         job.task = asyncio.create_task(runner.run(job))
-        hold = http.scope.get("jury_hold")
-        if request.settings.review_plan and hold and hold.get("visitor"):  # the analysis alone is free on the jury: the approval of the plan takes the generation
-            await hold["quota"].refund(hold.pop("visitor"))
         return job.state
 
     def _manifest(job) -> tuple[Path, dict]:
@@ -486,7 +498,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     def _job(job_id: str):
         job = store.get(job_id)
-        if job is None:
+        if job is None or not owned_here(job.id):
             raise HTTPException(404, "Unknown job")
         if job.deleting:
             raise HTTPException(409, 'This job is being deleted')
@@ -526,9 +538,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     @app.get("/api/jobs", response_model=list[JobState])
     async def recent_jobs():
-        for job in store.jobs.values():
+        visible = [job for job in store.jobs.values() if owned_here(job.id)]
+        for job in visible:
             refresh_shots(job)
-        return [job.state for job in sorted(store.jobs.values(), key=lambda j: j.state.created_at, reverse=True)]
+        return [job.state for job in sorted(visible, key=lambda j: j.state.created_at, reverse=True)]
 
     def _project_dir(job) -> Path | None:
         """The folder of the project of a job, only if its id is the one ComfyUI makes and it is where the pack puts its projects."""
@@ -545,7 +558,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def sizes():
         """What every job takes on the disk: its project and its result video."""
         def measure():
-            return {job.id: (_size(_project_dir(job)) if _project_dir(job) else 0) + _size(settings.workspace / "jobs" / f"{job.id}.mp4") for job in list(store.jobs.values())}
+            return {job.id: (_size(_project_dir(job)) if _project_dir(job) else 0) + _size(settings.workspace / "jobs" / f"{job.id}.mp4") for job in list(store.jobs.values()) if owned_here(job.id)}
         return await asyncio.to_thread(measure)
 
     def cache_idle():

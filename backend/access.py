@@ -2,11 +2,13 @@
 import base64
 import asyncio
 import binascii
+import contextvars
 import hashlib
 import hmac
 import ipaddress
 import json
 import re
+import secrets
 import shutil
 import time
 from pathlib import Path
@@ -19,6 +21,13 @@ from starlette.responses import JSONResponse
 from .storage import write_json
 
 GENERATION_ROUTE = re.compile(r'^/api/jobs(/[^/]+/(resume|regenerate|approve)|/[^/]+/shots/[^/]+/ai-candidates)?$')
+# What reaches the GPU without being a generation: a wider quota, but still a limit on the bill of a public instance.
+ACTION_ROUTE = re.compile(r'^/api/(brief-preview|brief-treatments|jobs/[^/]+/(re-edit|manual-timeline/render)|jobs/[^/]+/shots/[^/]+/take-edit)$')
+ACTIONS_PER_GENERATION = 4
+VISITOR_COOKIE = 'hyperkut_visitor'
+VISITOR_COOKIE_VALUE = re.compile(rf'(?:^|;\s*){VISITOR_COOKIE}=([0-9a-f]{{32}})(?:;|$)')
+VISITOR_COOKIE_DAYS = 30
+current_visitor: contextvars.ContextVar[str | None] = contextvars.ContextVar('hyperkut_visitor', default=None)
 FORWARDING_HEADERS = ('cf-connecting-ip', 'x-forwarded-for', 'x-forwarded-host', 'forwarded', 'x-real-ip')
 CLOSED_ROUTES = (
     ('POST', re.compile(r'^/api/(studio/restart|projects/import|storage/worker/cleanup|storage/cache/gc|storage/caches/clean)$')),
@@ -56,6 +65,7 @@ class JuryQuota:
             self.used = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             self.used = {'total': 0, 'visitors': {}}
+        self.used.setdefault('actions', {'total': 0, 'visitors': {}})
 
     @staticmethod
     def visitor(scope, headers) -> str:
@@ -81,10 +91,54 @@ class JuryQuota:
         async with self.lock:
             self._add(visitor, -1)
 
+    async def act(self, visitor: str) -> str | None:
+        """The same for a lighter use of the GPU: an analysis, a direction preview or a new edit."""
+        actions = self.used['actions']
+        async with self.lock:
+            if actions['total'] >= self.total * ACTIONS_PER_GENERATION or actions['visitors'].get(visitor, 0) >= self.per_visitor * ACTIONS_PER_GENERATION:
+                return 'The jury demonstration reached its limit of previews and new edits.'
+            self._add_action(visitor, 1)
+        return None
+
+    async def refund_action(self, visitor: str) -> None:
+        async with self.lock:
+            self._add_action(visitor, -1)
+
+    async def trade(self, visitor: str) -> str | None:
+        """Pay with an action instead of the generation this visitor holds."""
+        reason = await self.act(visitor)
+        if reason is None:
+            await self.refund(visitor)
+        return reason
+
     def _add(self, visitor: str, step: int) -> None:
         self.used['total'] = max(0, self.used['total'] + step)
         self.used['visitors'][visitor] = max(0, self.used['visitors'].get(visitor, 0) + step)
         write_json(self.path, self.used)
+
+    def _add_action(self, visitor: str, step: int) -> None:
+        actions = self.used['actions']
+        actions['total'] = max(0, actions['total'] + step)
+        actions['visitors'][visitor] = max(0, actions['visitors'].get(visitor, 0) + step)
+        write_json(self.path, self.used)
+
+
+class JuryOwners:
+    """Who made what on a public instance: a visitor reaches only their own uploads and projects."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        try:
+            self.owned = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            self.owned = {}
+
+    def claim(self, item: str) -> None:
+        self.owned[item] = current_visitor.get()
+        write_json(self.path, self.owned)
+
+    def allows(self, item: str) -> bool:
+        return item in self.owned and self.owned[item] == current_visitor.get()
 
 
 def validate_access(settings):
@@ -173,10 +227,16 @@ class AccessMiddleware:
         if scope["method"] in ("POST", "PUT", "PATCH") and shutil.disk_usage(settings.workspace).free < settings.min_free_disk_bytes:
             await JSONResponse({"detail": "Not enough free disk space."}, status_code=507)(scope, receive, send)
             return
-        hold: dict = {}  # the generation this request holds: the endpoint of a plan that waits for approval gives it back
-        if self.quota and scope["method"] == "POST" and GENERATION_ROUTE.match(scope["path"]):
-            hold = {"visitor": self.quota.visitor(scope, headers), "quota": self.quota}
-            reason = await self.quota.reserve(hold["visitor"])
+        new_owner = None
+        if self.quota:
+            known = VISITOR_COOKIE_VALUE.search(headers.get('cookie', ''))
+            new_owner = None if known else secrets.token_hex(16)  # a random cookie and not the address: people on one network keep their projects apart
+            current_visitor.set(known.group(1) if known else new_owner)
+        hold: dict = {}  # what this request holds of the quota: the endpoint of a plan that waits for approval trades it
+        if self.quota and scope["method"] == "POST" and (GENERATION_ROUTE.match(scope["path"]) or ACTION_ROUTE.match(scope["path"])):
+            generation = GENERATION_ROUTE.match(scope["path"])
+            hold = {"visitor": self.quota.visitor(scope, headers), "quota": self.quota, "refund": self.quota.refund if generation else self.quota.refund_action}
+            reason = await (self.quota.reserve if generation else self.quota.act)(hold["visitor"])
             if reason:
                 await JSONResponse({"detail": reason}, status_code=429)(scope, receive, send)
                 return
@@ -195,7 +255,10 @@ class AccessMiddleware:
             if event["type"] == "http.response.start":
                 started = True
                 if hold.get("visitor") and event["status"] >= 400:
-                    await self.quota.refund(hold.pop("visitor"))
+                    await hold["refund"](hold.pop("visitor"))
+                if new_owner:
+                    cookie = f'{VISITOR_COOKIE}={new_owner}; Path=/; Max-Age={VISITOR_COOKIE_DAYS * 86400}; HttpOnly; Secure; SameSite=Lax'
+                    event = {**event, 'headers': [*event.get('headers', []), (b'set-cookie', cookie.encode())]}
             await send(event)
         try:
             await self.app(scope, limited_receive, tracked_send)
@@ -203,5 +266,5 @@ class AccessMiddleware:
             if started:
                 raise
             if hold.get("visitor"):
-                await self.quota.refund(hold.pop("visitor"))
+                await hold["refund"](hold.pop("visitor"))
             await JSONResponse({"detail": "Request body exceeds its limit."}, status_code=413)(scope, receive, send)
