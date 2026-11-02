@@ -147,3 +147,9 @@ def test_health_checks_selected_filled_phases_only(tmp_path, monkeypatch):
         assert not result["videotools"]
         assert client.get("/api/health?mode=other").status_code == 422
         assert client.get("/api/health?mode=text&refs=6").status_code == 422
+
+
+def test_the_shot_memory_save_stays_in_the_graph():
+    graph = {"video": node("Decode"), "save": node("MajoorSaveShotMemory", video=["video", 0])}
+    assert set(reachable_graph(graph, {})) == {"video", "save"}
+

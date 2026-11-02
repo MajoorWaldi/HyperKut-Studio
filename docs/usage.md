@@ -10,6 +10,20 @@
 4. Choose format/quality and inspect the preset settings. Some presets intentionally differ from the new-project defaults.
 5. Generate, review the planned shots and watch the result. Generation budget refers to requested footage, not wall-clock render time.
 
+## Direct the idea
+
+In **Artistic direction**, **Preview the creative brief** shows the enriched brief the planner will use, **Another idea** writes a different one for the same request (the plan, story and cast change), and **Three treatments** writes three at once: direct, with a twist, image-led. Choose one, edit it, then **Use this brief**. These steps prepare text only; nothing is generated.
+
+Useful options (Options panel; all start off except where noted):
+
+| Option | Mode | What it does | Cost |
+|---|---|---|---|
+| Casting | Text, Music | Story first, then a character, place and look for each shot; a voice file with no typed dialogue gets its lines shared between the shots. | One more planner call. |
+| Kinetic lyrics | Music | Writes the words of the music on screen one at a time, a bigger one on the beats. Needs a voice in the music, the transcription (faster-whisper) and the HyperFrames finishing. | Finishing render. |
+| Best of two takes | Text, Music | Two takes per shot with two seeds; a local vision model keeps one. | The shots stage takes about twice as long. |
+| Pika H3 Flex | Text, Music | Six steps with the Flex LoRA instead of the turbo LoRA; another look, faster. Needs the LoRA file. | None. |
+| Retry bad takes (on) | Text, Music | A black or noise-only take is made again with another seed. | One more take when needed. |
+
 ## Refine a shot
 
 Select its timeline card, inspect the take/prompt and provide a correction. Regeneration creates another take for that shot; other shots retain their active takes. Select the take you prefer and re-edit/export to update the assembled video.

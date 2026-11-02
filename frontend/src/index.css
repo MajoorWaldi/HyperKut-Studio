@@ -505,6 +505,10 @@ html[data-w~="md"] .example-grid.three { grid-template-columns: repeat(2, minmax
 .creative-direction textarea { resize:vertical; line-height:1.6; min-height:160px; }
 .prepared-brief { display:grid; gap:12px; }
 .prepared-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.treatments { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+.treatment { display:grid; gap:8px; align-content:start; padding:12px; border:1px solid var(--line, rgba(255,255,255,.14)); border-radius:10px; }
+.treatment h4 { margin:0; font-size:.95rem; }
+.treatment p { margin:0; font-size:.85rem; line-height:1.5; opacity:.85; }
 .creative-direction .creative-error { color:#ffb7b7; }
 .creative-direction :focus-visible { outline:2px solid var(--soft); outline-offset:3px; }
 @media(max-width:480px) { .creative-direction-fields { grid-template-columns:1fr; } }

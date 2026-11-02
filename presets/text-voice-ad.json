@@ -1,0 +1,63 @@
+{
+  "name": "Ad with a voice file",
+  "mode": "text",
+  "description": "Add a voice file and leave the dialogue empty: its lines are read and shared between the shots.",
+  "prompt": "Night ad for an energy drink: a presenter in a silver jacket speaks to camera in an empty club, then walks down a neon street. She says each sentence of the voice. Medium shots and close-ups.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "voice",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "duration": 10,
+    "structure": 40,
+    "creativity": 60,
+    "casting": true,
+    "art_direction": {
+      "look": "graphic",
+      "mood": "confident",
+      "camera": "push",
+      "light": "hard"
+    }
+  },
+  "translations": {
+    "en": {
+      "name": "Ad with a voice file",
+      "description": "Add a voice file and leave the dialogue empty: its lines are read and shared between the shots.",
+      "prompt": "Night ad for an energy drink: a presenter in a silver jacket speaks to camera in an empty club, then walks down a neon street. She says each sentence of the voice. Medium shots and close-ups.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Pub avec une voix",
+      "description": "Ajoute un fichier de voix et laisse le dialogue vide : ses répliques sont lues et réparties entre les plans.",
+      "prompt": "Pub de nuit pour une boisson énergisante : une présentatrice en veste argentée parle face caméra dans un club vide, puis marche dans une rue néon. Elle dit chaque phrase de la voix. Plans moyens et gros plans.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

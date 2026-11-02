@@ -31,4 +31,8 @@ def direction(settings):
             'Flexible allows reinterpretation of framing/background, balanced adapts the reference, strict retains its relevant visual choices. '
             'Faithful develops only the stated idea, balanced adds compatible details, bold proposes surprising but compatible staging, viewpoints and visual devices. '
             'Neither choice changes the requested narrative, shot/cut count, music genre or explicit exclusions. '
+            'Camera moves to draw from, one per shot and never the same twice in a row: slow push-in, pull-back reveal, orbit left or right, lateral track, whip pan, handheld follow, tilt-up from the feet, crane up or down, rack focus, dolly zoom, top-down drift, low-angle track. '
+            'A move may change during the take (start wide and end close, or the reverse); a hold needs a reason in the brief. '
+            'Unless the brief names one place or a fixed camera, change the place, the distance and the camera movement from one shot to the next, and move the subject inside the frame: '
+            'a reference picture fixes who the subject is, not where every shot happens, and no two shots may share the same background, framing and pose. '
             'Without a visual reference, follow the written brief and do not invent a supplied reference.')

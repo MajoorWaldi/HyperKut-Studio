@@ -19,7 +19,7 @@ def reachable_graph(graph: dict, schemas: dict) -> dict:
     fragments without an identifiable sink, conservatively validate all nodes.
     """
     sinks = {
-        "MajoorSaveProjectInfo", "MajoorSaveProjectMusic", "MajoorEnergyReport",
+        "MajoorSaveProjectInfo", "MajoorSaveProjectMusic", "MajoorEnergyReport", "MajoorSaveShotMemory", "MajoorSaveProjectLyrics",
         "SaveVideo", "HyperKutSnapshotExport", "HyperKutWorkspaceRelease",
     }
     pending = [key for key, node in graph.items()

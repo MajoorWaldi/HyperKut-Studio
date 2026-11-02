@@ -2,6 +2,8 @@
 
 ## Current beta
 
+- Text and Music: story then casting, voice and lyric transcription, visual memory, camera moves, Another idea, three treatments, best of two takes (the second take now has its own seed), kinetic lyrics and the Pika H3 Flex option; see the VideoTools changelog for the nodes. Missing optional models or nodes (Pika Flex LoRA, FLUX location images, pose control, music model) are cut out of the prompt instead of stopping a generation.
+
 - CI uses a matching VideoTools runtime with motion templates and checks lazy-loaded motion modules before running backend tests.
 - Remix, Text and Music creation through local ComfyUI and the Comfy SDK.
 - Project library, presets, five visual references and English/French interface.

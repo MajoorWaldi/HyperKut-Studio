@@ -105,8 +105,10 @@ def candidate_template(template, candidate, reference_count):
         raise TemplateError('AI Edit expects the configured H3 advanced sampler')
     guider = graph[str(sampler['inputs']['guider'][0])]
     conditioning_link = guider['inputs']['conditioning']
-    condition_id = str(conditioning_link[0])
-    condition = graph[condition_id]
+    condition = graph[str(conditioning_link[0])]
+    if condition['class_type'] == 'ComfySwitchNode':  # the music sync of a shot anchors its audio; a candidate takes the plain conditioning
+        conditioning_link = guider['inputs']['conditioning'] = condition['inputs']['on_false']
+        condition = graph[str(conditioning_link[0])]
     if condition['class_type'] != 'MiniMaxH3ReferenceToVideo':
         raise TemplateError('AI Edit requires a direct MiniMaxH3ReferenceToVideo conditioning chain')
     inputs = condition['inputs']

@@ -1,0 +1,68 @@
+{
+  "name": "Monster rap",
+  "mode": "music",
+  "description": "Add a track with a voice: three characters take its phrases in three places, same look every time.",
+  "prompt": "Halloween hip-hop clip, night, three modern monsters in streetwear (a grey ghoul in a black sweatshirt, a green witch in a puffer jacket, a skeleton in a gold jacket), each performs a phrase of the track in a different place: a rooftop in the rain, an empty car park, a neon cemetery. Medium shots and close-ups in turn.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "original",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "music_edit_mode": "adaptive",
+    "music_cut_variation": 1.0,
+    "music_cut_sync": 1.0,
+    "duration": 20,
+    "structure": 35,
+    "creativity": 80,
+    "casting": true,
+    "style": "lipsync_rap",
+    "art_direction": {
+      "look": "graphic",
+      "mood": "intense",
+      "camera": "tracking",
+      "light": "hard"
+    },
+    "cut_density": "high"
+  },
+  "translations": {
+    "en": {
+      "name": "Monster rap",
+      "description": "Add a track with a voice: three characters take its phrases in three places, same look every time.",
+      "prompt": "Halloween hip-hop clip, night, three modern monsters in streetwear (a grey ghoul in a black sweatshirt, a green witch in a puffer jacket, a skeleton in a gold jacket), each performs a phrase of the track in a different place: a rooftop in the rain, an empty car park, a neon cemetery. Medium shots and close-ups in turn.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Rap de monstres",
+      "description": "Ajoute un morceau avec voix : trois personnages prennent ses phrases dans trois lieux, avec le même look à chaque fois.",
+      "prompt": "Clip hip-hop d'Halloween, nuit, trois monstres modernes en streetwear (un goule gris en sweat noir, une sorcière verte en doudoune, un squelette en veste dorée), chacun interprète une phrase du morceau dans un lieu différent : toit sous la pluie, parking vide, cimetière néon. Plans moyens et gros plans en alternance.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

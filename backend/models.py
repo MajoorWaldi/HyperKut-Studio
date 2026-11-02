@@ -36,6 +36,7 @@ class Settings(BaseModel):
     remix_strategy: Literal['', 'preserve', 'creative', 'transfer'] = ''  # Remix: what is held fixed; empty keeps the sliders alone
     creativity: int = Field(50, ge=0, le=100)
     seed: int = 42
+    idea_seed: int = Field(0, ge=0, le=2**31 - 1)  # which idea the text models write; 0 is the first, another number is another idea for the same request
     audio: Literal["original", "new", "voice"] = "original"
     mood: str = ""
     bpm: int = Field(120, ge=60, le=200)
@@ -44,8 +45,11 @@ class Settings(BaseModel):
     sub_cuts: bool = False
     sound_design: bool = False
     sound_effects: bool = False
-    music_sync: bool = False  # H3 hears the music under each shot (Text and Music)
+    music_sync: bool = True  # H3 gets the audio under each shot, anchored so that the mouth follows it (Text and Music)
     retry_bad_takes: bool = True
+    flex: bool = False  # Pika H3 Flex: its LoRA and six steps replace the turbo LoRA and its eight (Text and Music)
+    kinetic_lyrics: bool = False  # the words of the music written on the screen on the seconds they are sung (Music)
+    best_of_two: bool = False  # two takes per shot with two seeds, a vision model keeps the better one (Text and Music)
     dialogue: str = ""
     places: bool = True
     casting: bool = False

@@ -1,0 +1,68 @@
+{
+  "name": "One subject, many places",
+  "mode": "music",
+  "description": "Add a photo of the subject and a track: a new outfit, place and camera move in every shot.",
+  "prompt": "The person in the photo raps on the rhythm of the music. In every shot: a different outfit, a different place (subway, alley, rooftop at dusk, neon plaza), a different camera distance. They move in the frame, the camera follows or turns around them.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "original",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "music_edit_mode": "adaptive",
+    "music_cut_variation": 1.0,
+    "music_cut_sync": 1.0,
+    "duration": 8,
+    "structure": 30,
+    "creativity": 90,
+    "casting": false,
+    "style": "outfit_change",
+    "art_direction": {
+      "look": "raw",
+      "mood": "confident",
+      "camera": "tracking",
+      "light": "natural"
+    },
+    "cut_density": "high"
+  },
+  "translations": {
+    "en": {
+      "name": "One subject, many places",
+      "description": "Add a photo of the subject and a track: a new outfit, place and camera move in every shot.",
+      "prompt": "The person in the photo raps on the rhythm of the music. In every shot: a different outfit, a different place (subway, alley, rooftop at dusk, neon plaza), a different camera distance. They move in the frame, the camera follows or turns around them.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Un sujet, mille lieux",
+      "description": "Ajoute une photo du sujet et un morceau : une nouvelle tenue, un nouveau lieu et un nouveau mouvement de caméra à chaque plan.",
+      "prompt": "La personne de la photo rappe sur le rythme de la musique. À chaque plan : une tenue différente, un lieu différent (métro, ruelle, toit au crépuscule, place néon), une distance de caméra différente. Elle bouge dans le cadre, la caméra la suit ou tourne autour.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

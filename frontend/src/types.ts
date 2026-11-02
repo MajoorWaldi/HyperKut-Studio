@@ -19,6 +19,7 @@ export interface Settings {
   remix_strategy: '' | 'preserve' | 'creative' | 'transfer'
   creativity: number
   seed: number | null  // null: a random one for every generation
+  idea_seed: number  // which idea the text models write: 0 is the first, another number is another idea for the same request
   audio: AudioChoice
   mood: string
   bpm: number
@@ -29,6 +30,9 @@ export interface Settings {
   sound_effects: boolean
   music_sync: boolean
   retry_bad_takes: boolean
+  flex: boolean
+  best_of_two: boolean
+  kinetic_lyrics: boolean
   dialogue: string
   places: boolean
   casting: boolean

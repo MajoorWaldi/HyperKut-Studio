@@ -1,0 +1,64 @@
+{
+  "name": "One place per shot",
+  "mode": "text",
+  "description": "One subject, a different place, camera move and distance in every shot.",
+  "prompt": "A runner crosses six places in one night: a subway platform, a wet alley, a rooftop at dusk, a neon plaza, a bridge, an empty stadium. Every shot has a different place, a different camera move and a different distance; the runner never stands still.",
+  "settings": {
+    "ratio": "9:16",
+    "quality": "draft",
+    "audio": "new",
+    "bpm": 120,
+    "effects": false,
+    "text": false,
+    "sound_design": false,
+    "sound_effects": false,
+    "music_sync": true,
+    "retry_bad_takes": true,
+    "places": true,
+    "music_start": -1,
+    "duration": 12,
+    "structure": 30,
+    "creativity": 90,
+    "casting": false,
+    "art_direction": {
+      "look": "raw",
+      "mood": "confident",
+      "camera": "tracking",
+      "light": "natural"
+    },
+    "cut_density": "high"
+  },
+  "translations": {
+    "en": {
+      "name": "One place per shot",
+      "description": "One subject, a different place, camera move and distance in every shot.",
+      "prompt": "A runner crosses six places in one night: a subway platform, a wet alley, a rooftop at dusk, a neon plaza, a bridge, an empty stadium. Every shot has a different place, a different camera move and a different distance; the runner never stands still.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    },
+    "fr": {
+      "name": "Un lieu par plan",
+      "description": "Un seul sujet, un lieu, un mouvement de caméra et une distance différents à chaque plan.",
+      "prompt": "Un coureur traverse six lieux en une nuit : un quai de métro, une ruelle mouillée, un toit au crépuscule, une place néon, un pont, un stade vide. Chaque plan a un lieu, un mouvement de caméra et une distance différents ; le coureur ne reste jamais immobile.",
+      "settings": {
+        "mood": "",
+        "camera": ""
+      }
+    }
+  },
+  "inputs": {
+    "source": null,
+    "refVideo": null,
+    "music": null,
+    "voice": null,
+    "refs": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

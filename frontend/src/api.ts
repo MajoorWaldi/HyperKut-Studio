@@ -57,7 +57,7 @@ export const deleteJob = (id: string, withFiles: boolean) => fetch(`/api/jobs/${
 
 export const freeSpace = (id: string) => fetch(`/api/jobs/${id}/free`, { method: 'POST' }).then(json<{ freed: number }>)
 
-export const cleanCaches = () => fetch('/api/storage/caches/clean', { method: 'POST' }).then(json<{ freed: number }>)
+export const cleanCaches = () => fetch('/api/storage/caches/clean', { method: 'POST' }).then(json<{ freed: number; in_use: number }>)
 
 export const regenerate = (id: string, shots: string[], prompts: Record<string, string>) =>
   fetch(`/api/jobs/${id}/regenerate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shots, prompts }) }).then(json<JobState>)
@@ -171,5 +171,10 @@ export const prepareBrief = (mode: Mode, settings: Settings, inputs: Inputs, lan
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
 }).then(json<import('./types').PreparedBrief>)
+
+export const prepareTreatments = (mode: Mode, settings: Settings, inputs: Inputs, language = 'en') => fetch(`/api/brief-treatments?lang=${language}`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
+}).then(json<{ treatments: (import('./types').PreparedBrief & { name: string })[] }>)
 
 export const restartStudio = () => fetch('/api/studio/restart', { method: 'POST' }).then(json<{ restarting: boolean; instance_id: string }>)

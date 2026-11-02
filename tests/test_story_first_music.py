@@ -24,7 +24,7 @@ def test_text_music_waits_for_visual_plan_without_a_feedback_cycle():
     assert 'music_vision' not in ancestors(graph,planner)
     for key in graph:
         ancestors(graph,key)
-    assert sum(x['class_type']=='TextGenerate' for x in graph.values()) == 3
+    assert sum(x['class_type']=='TextGenerate' for x in graph.values()) == 5  # the enhancer, the planner, the music director, and the story and the casting
     assert sum(x['class_type']=='YuE2GenerateABC' for x in graph.values()) == 1
     assert sum(x['class_type']=='YuE2GenerateMusic' for x in graph.values()) == 1
 
