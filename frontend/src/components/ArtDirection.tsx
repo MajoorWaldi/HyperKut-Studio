@@ -20,7 +20,7 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
   const key = JSON.stringify({baseKey,structure:levelValue(creative.structure),creativity:levelValue(creative.creativity)})
   const current = useRef(key); current.current = key
   const previousBase=useRef(baseKey)
-  useEffect(() => { if(previousBase.current!==baseKey)setDraft(null); previousBase.current=baseKey; setContext(''); setError('') }, [key,baseKey])
+  useEffect(() => { if(previousBase.current!==baseKey){setDraft(null);setTreatments([])} previousBase.current=baseKey; setContext(''); setError('') }, [key,baseKey])  // treatments written for another request are not offered
   useEffect(() => {
     if (!open) return
     let active = true
