@@ -609,6 +609,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .shot-details .takes { padding: 0 8px 9px; }
 .shot-details .take-use { margin: 0 8px 9px; }
 .single-take { display: block; padding: 0 10px 10px; color: var(--muted); font-size: 10px; }
+.keep-original { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.keep-original input { margin: 0; }
 .shot-panel footer { margin-top: auto; }
 .trim-track { height: 48px; overflow: hidden; isolation: isolate; }
 .video-filmstrip { position: absolute; inset: 0; display: flex; pointer-events: none; background: repeating-linear-gradient(90deg,#30283a 0,#30283a 16%,#1c1522 16%,#1c1522 17%); }

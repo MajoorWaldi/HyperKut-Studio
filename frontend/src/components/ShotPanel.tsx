@@ -21,6 +21,8 @@ interface Props {
   onLock: (shots: string[], locked: boolean) => void
   onChooseTake: (shot: string, take: string) => void
   onTrimTake: (shot: string, take: string, start: number) => Promise<void>
+  /** Remix: keep the shot as the source has it, or generate it again. */
+  onKeepOriginal?: (shot: string, keep: boolean) => void
   onAIState?: (job: JobState) => void
   activeShots?: string[]
 }
@@ -28,7 +30,7 @@ interface Props {
 const duration = (seconds: number) => (seconds < 90 ? `${Math.round(seconds)} s` : `${Math.round(seconds / 60)} min`)
 
 /** The shot that is selected: its picture, its prompt, its versions, and the buttons that make it again. It sits beside the player. */
-export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRegenerate, onLock, onChooseTake, onTrimTake, onAIState, activeShots=[] }: Props) {
+export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRegenerate, onLock, onChooseTake, onTrimTake, onKeepOriginal, activeShots=[], onAIState }: Props) {
   const { t, lang } = useI18n()
   const [takes, setTakes] = useState<Take[]>([])
   const [viewing, setViewing] = useState<Take | null>(null)
@@ -109,6 +111,11 @@ export function ShotPanel({ job, primary, selection, edits, onEdit, onStep, onRe
       {job?.mode === 'remix' && <label className="shot-prompt-box">
         <span>{t.generationPrompt}</span>
         <textarea value={generationPrompt} readOnly aria-label={t.generationPrompt} placeholder={t.missingGenerationPrompt} />
+      </label>}
+
+      {job?.mode === 'remix' && onKeepOriginal && (shot.render_source ?? 'generated') !== 'graphic' && <label className="keep-original" title={t.tip.keepOriginal}>
+        <input type="checkbox" checked={shot.render_source === 'original'} disabled={!over || shot.locked} onChange={e => onKeepOriginal(shot.id, e.target.checked)} />
+        <span>{t.keepOriginal}</span>
       </label>}
 
       <label className="shot-prompt-box" title={t.tip.shotPrompt}>

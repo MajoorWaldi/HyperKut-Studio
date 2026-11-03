@@ -113,6 +113,32 @@ def prune_unavailable(prompt: dict, schemas: dict, *, flex: bool = False, places
         if places:
             notes.append("The location images need FLUX files that are not installed (" + ", ".join(sorted(set(gone))) + "): the shots were made without them.")
 
+    # The plan of a remix needs a pack loaded after it was added: an older ComfyUI keeps the shots as detected.
+    for key, node in list(prompt.items()):
+        if node["class_type"] == "MajoorRemixPlan" and node["class_type"] not in schemas and isinstance(node["inputs"].get("shot_list"), list):
+            _reroute(prompt, key, node["inputs"]["shot_list"])
+            del prompt[key]
+            notes.append("ComfyUI has not loaded the Remix Plan node yet (restart ComfyUI): the remix was made without its story, people and kept shots.")
+
+    # The control frames of a remix are retimed to the 24 fps of the take; an older pack passes them as they are.
+    for key, node in list(prompt.items()):
+        if node["class_type"] == "MajoorRetimeFrames" and node["class_type"] not in schemas and isinstance(node["inputs"].get("images"), list):
+            _reroute(prompt, key, node["inputs"]["images"])
+            del prompt[key]
+            if not any("Retime Frames" in note for note in notes):
+                notes.append("ComfyUI has not loaded the Retime Frames node yet (restart ComfyUI): the takes may play the motion of the source slower than it.")
+
+    # Which of two remix takes still repeats its source: an older pack does not measure it, the judge alone chooses.
+    for key, node in list(prompt.items()):
+        if node["class_type"] == "MajoorSourceCopy" and node["class_type"] not in schemas:
+            for other in prompt.values():
+                for field, value in other["inputs"].items():
+                    if isinstance(value, list) and str(value[0]) == key:
+                        other["inputs"][field] = "" if value[1] == 2 else False
+            del prompt[key]
+            if not any("Source Copy" in note for note in notes):
+                notes.append("ComfyUI has not loaded the Source Copy node yet (restart ComfyUI): a take that still shows the person of the source can be kept.")
+
     # Generated music (YuE2): the edit needs a beat grid, not the song; without the music model it is made on silence and the user is told.
     for key, node in list(prompt.items()):
         source = node["inputs"].get("music")

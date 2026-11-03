@@ -179,6 +179,10 @@ class ComfyRunner:
         directions=[f'Requested edit duration: {s.duration:g} seconds. Adapt the creative scope to this duration; do not invent exact musical timestamps.']
         if r.mode in ('text','music'):
             directions.append(creative_direction(s))
+        if r.mode == 'remix':
+            directions.append('STRATEGY: ' + (s.remix_strategy or 'none (follow the brief; keep the story of the source unless the brief changes it)') + '.')
+            if s.places:
+                directions.append('Places: give a "location" to the shots whose place the brief or the strategy changes.')
         if s.motion_design:
             directions.append('Animated design is enabled. Where useful, write a shot-local motion array adapted to this shot and its negative space; use local percentage timing and sync="onset" for selected accents, not every layer. Finishing direction: '+s.motion_direction)
         else:
@@ -194,6 +198,11 @@ class ComfyRunner:
         if s.reference_style=='montage' and r.ref_video:
             directions.append('Use the reference video as an editing-style reference: infer pacing, relative shot lengths, camera vocabulary, palette, typography and transitions. Create a new edit suited to the brief. Preserve the identity and clothing of the supplied subject images. Keep the user music. Do not copy reference footage, logos or words; use only explicitly allowed text.')
         values['planning_instructions']='\n'.join(directions)
+        # Remix: the plan of the whole remix (story, people, places, kept shots) runs when the strategy rewrites the source or the people are cast
+        planned = r.mode == 'remix' and (s.remix_strategy in ('creative', 'transfer') or s.casting)
+        kinetic = s.kinetic_lyrics and (r.mode != 'remix' or s.audio == 'original')  # the words of a remix are those of its source sound: a new sound has other words
+        values.update(remix_plan=planned, remix_cast=planned, source_words=kinetic or planned, pictures_before=len(r.refs), kinetic_lyrics=kinetic,
+                      remix_camera=s.remix_strategy == 'creative' and s.art_direction.get('camera') != 'steady')
         values['sfx_library']=self._sfx_library(s.sfx_library)
         style = style if style is not None else job.state.style
         for key, value in style.model_dump(exclude_none=True).items():
@@ -250,7 +259,7 @@ class ComfyRunner:
         normalize_media_roles(prompt)
         apply_plan_contract(prompt, job.request.settings, mode=job.request.mode)
         prompt=reachable_graph(prompt,{})
-        if any(n['class_type'] in ('LoraLoaderModelOnly','MiniMaxH3FunControlNetApply','MajoorCheckPlate','MajoorMusicFit') for n in prompt.values()):
+        if any(n['class_type'] in ('LoraLoaderModelOnly','MiniMaxH3FunControlNetApply','MajoorCheckPlate','MajoorMusicFit','MajoorRemixPlan','MajoorRetimeFrames','MajoorSourceCopy') for n in prompt.values()):
             from .optional_deps import prune_unavailable
             notes = prune_unavailable(prompt, await self._schemas(), flex=bool(values.get('flex')), places=bool(values.get('plates')))
             prompt = reachable_graph(prompt, {})  # what only the cut branches fed goes with them
@@ -444,7 +453,7 @@ class ComfyRunner:
         previous={shot.id:shot.model_dump() for shot in job.state.shots}
         shots=[Shot(**{**previous.get(row['id'],{}),**{key:value for key,value in row.items() if key!='takes'},'thumb':f'/api/jobs/{job.id}/shots/{row["id"]}/thumb'}) for row in info['shots']]
         seconds=sum((s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots)/24
-        retry=job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes or job.request.settings.best_of_two
+        retry=(job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes) or job.request.settings.best_of_two
         job.update(project_id=info['project_id'],shots=shots,generation_budget={
             'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
         self._sync_shots(job)
@@ -588,7 +597,7 @@ class ComfyRunner:
                 configured['accent']=match.group()
                 values['motion_layers']=json.dumps(configured)
         values['unified_layers'] = finishing_layers(manifest, job.state.shots, values.get('motion_layers', '[]'), requested_text, values.get('motion_design', True))
-        if values.get('kinetic_lyrics') and job.request.mode == 'music' and job.state.project_id and job.state.shots:
+        if values.get('kinetic_lyrics') and job.request.mode in ('music', 'remix') and job.state.project_id and job.state.shots:
             # after the text filter: the words of the music are drawn even when the text option is off
             from .lyrics_layer import lyrics_layer
             from .unified_motion import expand_templates, motion_contract
@@ -783,7 +792,7 @@ class ComfyRunner:
                     raise ValueError('The plan contains no shots')
                 frames = [(s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots]
                 seconds = sum(frames)/24
-                retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
+                retry = (job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes) or job.request.settings.best_of_two
                 job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
                 if job.request.settings.review_plan:
                     job.update(status='review', stage='analyze')

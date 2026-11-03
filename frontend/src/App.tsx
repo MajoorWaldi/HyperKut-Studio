@@ -258,6 +258,15 @@ export default function App() {
     finally { if (state !== job) setJob(current => current?.id === state.id ? state : current) }  // also after a partial failure: the shots already locked show as such
   }
 
+  const keepOriginal = async (shot: string, keep: boolean) => {
+    if (!job) return
+    try {
+      const state = await api.setShotSource(job.id, shot, keep ? 'original' : 'generated')
+      setJob(current => current?.id === state.id ? state : current)
+      setMessage(t.keepOriginalNext)
+    } catch (error) { setActionError((error as Error).message) }
+  }
+
   const openRecent = async (id: string) => {
     const opened = recent.find(j => j.id === id)
     if (!opened) return
@@ -342,8 +351,9 @@ export default function App() {
 
   const cleanCaches = async () => {
     try {
-      const { freed, in_use } = await api.cleanCaches()
-      setMessage(`${megabytes(freed)} ${t.freed}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
+      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
+      const { freed, in_use, uploads } = await api.cleanCaches(placed)
+      setMessage(`${megabytes(freed)} ${t.freed}${uploads ? ` · ${uploads} ${t.uploadsRemoved}` : ''}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
     } catch (error) { fail(error) }
   }
 
@@ -492,7 +502,7 @@ export default function App() {
                 <div className="stage-area" style={{ '--r': shape } as CSSProperties}>
                   <Preview mode={mode} ratio={settings.ratio} inputs={inputs} job={job} videoRef={videoRef} startedAt={startedAt.current} onTime={(time, duration) => setPlayed({ time, duration })} onShape={setShape} activeShots={activeShots} />
                   <ShotPanel job={job} primary={primary} selection={selection} edits={edits} quality={settings.quality} onEdit={(id, text) => setEdits(current => ({ ...current, [id]: text }))}
-                    onStep={stepShot} onRegenerate={regenerateShots} onLock={lock} onChooseTake={chooseTake} onTrimTake={trimTake} onAIState={watch} activeShots={activeShots} />
+                    onStep={stepShot} onRegenerate={regenerateShots} onLock={lock} onChooseTake={chooseTake} onTrimTake={trimTake} onKeepOriginal={keepOriginal} onAIState={watch} activeShots={activeShots} />
                 </div>
               )}
             </div>

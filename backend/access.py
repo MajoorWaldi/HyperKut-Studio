@@ -10,10 +10,8 @@ import json
 import re
 import secrets
 import shutil
-import time
 from pathlib import Path
 
-from filelock import Timeout
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
@@ -44,15 +42,11 @@ class RequestTooLarge(HTTPException):
 
 
 async def acquire_upload_quota(lock, timeout=30):
-    started = time.monotonic()
-    while True:
-        try:
-            lock.acquire(timeout=0)
-            return
-        except Timeout:
-            if time.monotonic() - started >= timeout:
-                raise HTTPException(503, "Upload storage is busy. Retry shortly.") from None
-            await asyncio.sleep(.05)
+    from .capacity import CapacityBusy, acquire_async
+    try:
+        await acquire_async(lock, timeout)
+    except CapacityBusy:
+        raise HTTPException(503, "Upload storage is busy. Retry shortly.") from None
 
 
 class JuryQuota:

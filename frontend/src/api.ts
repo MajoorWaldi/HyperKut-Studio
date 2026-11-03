@@ -57,7 +57,10 @@ export const deleteJob = (id: string, withFiles: boolean) => fetch(`/api/jobs/${
 
 export const freeSpace = (id: string) => fetch(`/api/jobs/${id}/free`, { method: 'POST' }).then(json<{ freed: number }>)
 
-export const cleanCaches = () => fetch('/api/storage/caches/clean', { method: 'POST' }).then(json<{ freed: number; in_use: number }>)
+/** `keep`: the files placed in the form, which no job uses yet. */
+export const cleanCaches = (keep: string[]) =>
+  fetch('/api/storage/caches/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keep_uploads: keep }) })
+    .then(json<{ freed: number; in_use: number; uploads: number }>)
 
 export const regenerate = (id: string, shots: string[], prompts: Record<string, string>) =>
   fetch(`/api/jobs/${id}/regenerate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shots, prompts }) }).then(json<JobState>)
@@ -112,6 +115,9 @@ export const takeEdit = (id: string, shot: string, take: string, start?: number)
   fetch(`/api/jobs/${id}/shots/${shot}/take-edit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(start === undefined ? { take } : { take, start }) }).then(json<JobState>)
 
 export const reviewJob = (id: string) => fetch(`/api/jobs/${id}/review`).then(json<import('./types').ReviewReport>)
+
+export const setShotSource = (id: string, shot: string, kind: 'generated' | 'original') =>
+  fetch(`/api/jobs/${id}/shots/${shot}/source`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) }).then(json<JobState>)
 
 export const lockShot = (id: string, shot: string, locked: boolean) =>
   fetch(`/api/jobs/${id}/shots/${shot}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked }) }).then(json<JobState>)
