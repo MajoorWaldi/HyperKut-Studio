@@ -1,5 +1,8 @@
 ![HyperKut — Your footage. Your direction.](docs/media/hero.svg)
 
+> **Requires [ComfyUI-Majoor-VideoTools](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools).** HyperKut Studio is the interface; the generation runs in that ComfyUI node pack, so install it first.
+> **Watch the installation video** (95 s, from a fresh ComfyUI to your first generation): [hyperkut-studio-install.mp4](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/install-video/hyperkut-studio-install.mp4)
+
 <p align="center"><b>A local AI video studio for edits you can keep directing.</b><br>Remix a reference, start with an idea, or build around your music.</p>
 
 <p align="center"><a href="README.fr.md">Français</a> · <a href="#examples">Examples</a> · <a href="#install-on-windows">Installation</a> · <a href="LICENSES.md">Licenses</a></p>

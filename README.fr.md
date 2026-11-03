@@ -1,5 +1,8 @@
 ![HyperKut — Vos images. Votre direction.](docs/media/hero-fr.svg)
 
+> **Nécessite [ComfyUI-Majoor-VideoTools](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools).** HyperKut Studio est l'interface ; la génération tourne dans ce pack de nodes ComfyUI, à installer en premier.
+> **Voir la vidéo d'installation** (95 s, d'un ComfyUI neuf à votre première génération) : [hyperkut-studio-install.mp4](https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools/blob/main/docs/install-video/hyperkut-studio-install.mp4)
+
 <p align="center"><b>Un studio vidéo IA local pour des montages que vous continuez à diriger.</b><br>Remixez une référence, partez d'une idée ou construisez autour de votre musique.</p>
 
 <p align="center"><a href="README.md">English</a> · <a href="#exemples">Exemples</a> · <a href="#installation-windows">Installation</a> · <a href="LICENSES.md">Licences</a></p>
