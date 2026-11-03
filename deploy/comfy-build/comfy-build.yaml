@@ -2,7 +2,7 @@ schema: comfy-build/1
 id: 3d434db6-ec0a-4bbc-9492-85ba4bc294df
 name: hyperkut-engine
 description: 'Engine of HyperKut Studio: VideoTools, controlnet_aux, snapshot worker and the Studio models'
-syncedRevision: '2026-11-02T17:57:19.443056Z'
+syncedRevision: '2026-11-03T17:09:50.957992Z'
 definition:
   schema: distribution-definition/0
   baseComfyVersion: v0.43.2
@@ -96,7 +96,7 @@ definition:
       sourceUri: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors
       type: vae
   customNodes:
-    - gitRef: da04fe6067a7a85d3f6dfcc41254b66f62fec019
+    - gitRef: 7e1981cb1150ad1b543dca1a555d7dc478af6b40
       name: ComfyUI-Majoor-VideoTools
       repository: https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools
     - blobId: 1d74a9a1-c272-42a2-bd0a-73ba636f04a2
