@@ -12,17 +12,19 @@ from backend.server import create_app
 from test_backend import _settings, _project_on_disk, _finished_job
 
 
-@pytest.mark.parametrize("keep,check,failed,expected", [
-    (False, False, False, "base prompt"),
-    (False, False, True, "base prompt"),
-    (False, True, False, "base prompt"),
-    (False, True, True, "retry prompt"),
-    (True, False, False, ""),
-    (True, True, True, ""),
+@pytest.mark.parametrize("keep,check,failed,judge,keep_a,expected", [
+    (False, False, False, False, True, "base prompt"),
+    (False, False, True, False, True, "base prompt"),
+    (False, True, False, False, True, "base prompt"),
+    (False, True, True, False, True, "retry prompt"),
+    (True, False, False, False, True, ""),
+    (True, True, True, False, True, ""),
+    (False, True, True, True, True, "base prompt"),   # best of two: the judge keeps take A
+    (False, False, False, True, False, "retry prompt"),  # best of two: the judge keeps take B
 ])
-def test_recorded_prompt_follows_the_video_branch_lazily(keep, check, failed, expected):
+def test_recorded_prompt_follows_the_video_branch_lazily(keep, check, failed, judge, keep_a, expected):
     graph = json.loads((ROOT / "workflows/remix/shot.api.json").read_text(encoding="utf-8"))
-    values = {("115", 2): keep, ("14", 0): check, ("110:9029", 0): failed,
+    values = {("115", 2): keep, ("14", 0): check, ("110:9029", 0): failed, ("JBOOL", 0): judge, ("JN", 2): keep_a,
               ("91:149", 0): "base prompt", ("108:149", 0): "retry prompt"}
     visited = set()
 
@@ -41,8 +43,10 @@ def test_recorded_prompt_follows_the_video_branch_lazily(keep, check, failed, ex
     assert evaluate(graph["119"]["inputs"]["generation_prompt"]) == expected
     if keep:
         assert ("91:149", 0) not in visited and ("108:149", 0) not in visited
-    if not check or keep:
+    if not check or keep or judge:
         assert ("110:9029", 0) not in visited
+    if not judge:
+        assert ("JN", 2) not in visited  # the judge only runs for best of two
     assert graph["91:139"]["inputs"]["prompt"] == ["91:149", 0]
     assert graph["108:139"]["inputs"]["prompt"] == ["108:149", 0]
     assert graph["137"]["inputs"]["string_b"] == ["75", 3]

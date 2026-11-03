@@ -116,6 +116,9 @@ export const takeEdit = (id: string, shot: string, take: string, start?: number)
 
 export const reviewJob = (id: string) => fetch(`/api/jobs/${id}/review`).then(json<import('./types').ReviewReport>)
 
+export const setShotSource = (id: string, shot: string, kind: 'generated' | 'original') =>
+  fetch(`/api/jobs/${id}/shots/${shot}/source`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) }).then(json<JobState>)
+
 export const lockShot = (id: string, shot: string, locked: boolean) =>
   fetch(`/api/jobs/${id}/shots/${shot}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked }) }).then(json<JobState>)
 

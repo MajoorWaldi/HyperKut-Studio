@@ -96,8 +96,9 @@ const en = {
     flex: 'Generate each shot in 6 steps with the Pika H3 Flex LoRA instead of the 8-step turbo LoRA: faster, with a different look. Needs pika_h3_flex_ref2va_v1_bf16.safetensors in the loras folder.',
     qualityCheck: 'Check each shot before using it.',
     reviewPlan: 'Make the plan only: see the shots, the cuts, the effects and the GPU time, change the prompts, then generate from the window. Generate on its own goes on by itself.',
-    places: 'Create the places where the story happens.',
-    casting: 'Music and Text modes: cast the characters of the plan, each with the same look in every shot, and keep their face from shot to shot.',
+    places: 'Create the places where the story happens. In Remix, only when the plan moves a shot to another place.',
+    casting: 'Cast the characters of the plan, each with the same look in every shot, and keep their face from shot to shot. In Remix: plan the whole remix first (who of your pictures replaces whom, the story of each shot, the shots to keep as in the source).',
+    keepOriginal: 'This shot stays exactly as in the source video: nothing is generated for it. Regenerate it (or approve the plan) to apply.',
     subjectMask: 'Separate the subject so graphics can pass behind it.',
     redrawText: 'Redraw the text of the original video.',
     poseOnly: 'Copy only the pose, not the look.',
@@ -185,7 +186,7 @@ const en = {
   stepVoice: 'Voice sample', dialogue: 'Dialogue', dialogueHint: 'The lines the characters say', addVoice: 'Add a voice sample', presets: 'Presets',
   musicSync: 'Music sync', style: 'Style', cutDensity: 'Cut pace', transitions: 'Transitions', textAllowed: 'Text on screen', textAllowedHint: 'e.g. a brand, a slogan', cutEvery: 'Cut every', auto: 'From the style', low: 'Slow', medium: 'Steady', high: 'Fast', subtle: 'Soft', moderate: 'Some', bold: 'Bold', halfBeat: 'Half beat', beat: 'Beat', twoBeats: '2 beats', bar: 'Bar', twoBars: '2 bars', fourBars: '4 bars',
   styles: { viral_aura_farming: 'Viral / aura farming', hype_beat_drop: 'Hype / beat drop', micro_emotion_pov: 'Micro-emotion POV', slowed_dream: 'Slowed dream / VHS', glow_up: 'Glow-up', outfit_change: 'Outfit change', beauty_premium: 'Beauty / premium', product_advertising: 'Product ad', narrative_cinematic: 'Cinematic story', music_video: 'Music video', kinetic_lyrics: 'Kinetic lyrics', punch_text_anime: 'Punch text montage', editorial_layouts: 'Editorial layouts', camera_rec_hud: 'Camera REC HUD', cutout_collage: 'Cutout collage', lipsync_rap: 'Lipsync rap', brand_film_noir: 'Brand film noir' } as Record<string, string>,
-  casting: 'Cast characters', places: 'Places', camera: 'Camera look', cameraHint: 'e.g. handheld, 35mm', motionLayers: 'Motion graphics (JSON layers)', subjectMask: 'Subject mask', redrawText: 'Redraw the text', poseOnly: 'Pose only', qualityCheck: 'Quality check',
+  casting: 'Cast characters', keepOriginal: 'Keep the original shot', keepOriginalNext: 'Saved: regenerate this shot (or approve the plan) to apply it.', places: 'Places', camera: 'Camera look', cameraHint: 'e.g. handheld, 35mm', motionLayers: 'Motion graphics (JSON layers)', subjectMask: 'Subject mask', redrawText: 'Redraw the text', poseOnly: 'Pose only', qualityCheck: 'Quality check',
   musicStart: 'Music start (s, -1 = auto)', notEdited: 'Edit the prompt, then regenerate', locked: 'Locked: kept as it is', take: 'take', updated: 'Result updated',
 }
 
@@ -284,8 +285,9 @@ const fr: Dictionary = {
     flex: 'Génère chaque plan en 6 pas avec le LoRA Pika H3 Flex au lieu du LoRA turbo en 8 pas : plus rapide, avec un autre rendu. Demande pika_h3_flex_ref2va_v1_bf16.safetensors dans le dossier loras.',
     qualityCheck: 'Vérifie chaque plan avant de l’utiliser.',
     reviewPlan: 'Fait seulement le plan : tu vois les plans, les coupes, les effets et le temps GPU, tu changes les prompts, puis tu génères depuis la fenêtre. Generate seul continue automatiquement.',
-    places: 'Crée les lieux où se passe l’histoire.',
-    casting: 'Modes Music et Texte : caste les personnages du plan, chacun avec le même look à chaque plan, et garde son visage d’un plan à l’autre.',
+    places: 'Crée les lieux où se passe l’histoire. En Remix, seulement quand le plan déplace un plan dans un autre lieu.',
+    casting: 'Caste les personnages du plan, chacun avec le même look à chaque plan, et garde son visage d’un plan à l’autre. En Remix : planifie d’abord tout le remix (qui de tes photos remplace qui, l’histoire de chaque plan, les plans gardés tels quels).',
+    keepOriginal: 'Ce plan reste exactement comme dans la vidéo source : rien n’est généré pour lui. Régénère-le (ou approuve le plan) pour l’appliquer.',
     subjectMask: 'Détache le sujet pour que les graphismes passent derrière.',
     redrawText: 'Redessine le texte de la vidéo d’origine.',
     poseOnly: 'Copie seulement la pose, pas l’apparence.',
@@ -373,7 +375,7 @@ const fr: Dictionary = {
   stepVoice: 'Échantillon de voix', dialogue: 'Dialogue', dialogueHint: 'Les répliques des personnages', addVoice: 'Ajouter une voix', presets: 'Presets',
   musicSync: 'Sync musique', style: 'Style', cutDensity: 'Rythme des coupes', transitions: 'Transitions', textAllowed: 'Texte à l’écran', textAllowedHint: 'ex. une marque, un slogan', cutEvery: 'Couper tous les', auto: 'Selon le style', low: 'Lent', medium: 'Régulier', high: 'Rapide', subtle: 'Douces', moderate: 'Quelques-unes', bold: 'Marquées', halfBeat: 'Demi-temps', beat: 'Temps', twoBeats: '2 temps', bar: 'Mesure', twoBars: '2 mesures', fourBars: '4 mesures',
   styles: { viral_aura_farming: 'Viral / aura farming', hype_beat_drop: 'Hype / drop', micro_emotion_pov: 'Micro-émotion POV', slowed_dream: 'Rêve ralenti / VHS', glow_up: 'Glow-up', outfit_change: 'Changement de tenue', beauty_premium: 'Beauté / premium', product_advertising: 'Pub produit', narrative_cinematic: 'Histoire ciné', music_video: 'Clip musical', kinetic_lyrics: 'Paroles cinétiques', punch_text_anime: 'Montage mot-choc', editorial_layouts: 'Mises en page éditoriales', camera_rec_hud: 'Caméra REC', cutout_collage: 'Collage détouré', lipsync_rap: 'Lipsync rap', brand_film_noir: 'Film de marque noir' } as Record<string, string>,
-  casting: 'Casting de personnages', places: 'Décors', camera: 'Style de caméra', cameraHint: 'ex. caméra à l’épaule, 35 mm', motionLayers: 'Motion graphics (calques JSON)', subjectMask: 'Masque du sujet', redrawText: 'Redessiner le texte', poseOnly: 'Pose seule', qualityCheck: 'Contrôle qualité',
+  casting: 'Casting de personnages', keepOriginal: 'Garder le plan d’origine', keepOriginalNext: 'Enregistré : régénère ce plan (ou approuve le plan) pour l’appliquer.', places: 'Décors', camera: 'Style de caméra', cameraHint: 'ex. caméra à l’épaule, 35 mm', motionLayers: 'Motion graphics (calques JSON)', subjectMask: 'Masque du sujet', redrawText: 'Redessiner le texte', poseOnly: 'Pose seule', qualityCheck: 'Contrôle qualité',
   musicStart: 'Début de la musique (s, -1 = auto)', notEdited: 'Modifie le prompt, puis régénère', locked: 'Verrouillé : conservé tel quel', take: 'prise', updated: 'Résultat mis à jour',
 }
 

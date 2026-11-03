@@ -2,6 +2,8 @@
 
 ## Current beta
 
+- Remix gets the creative tools of Text and Music. A remix planner (creative or transfer strategy, or casting on) reads the whole source and writes the story line of each shot, who of the pictures replaces whom, the places and the shots to keep as in the source or turn into a title card, without changing the cuts. Also: best of two takes judged against the source shot, visual memory of each person, location images, camera moves for a creative remix, transcription of the source for kinetic lyrics, three Remix treatments (faithful, twist, another story), and a "Keep the original shot" toggle per shot. An older ComfyUI without the Remix Plan node makes the remix without its plan.
+- The storage lock no longer freezes the Studio during an upload check, an import or an export; Clean caches also removes unused uploads and the pictures the Studio cut.
 - Text and Music: story then casting, voice and lyric transcription, visual memory, camera moves, Another idea, three treatments, best of two takes (the second take now has its own seed), kinetic lyrics and the Pika H3 Flex option; see the VideoTools changelog for the nodes. Missing optional models or nodes (Pika Flex LoRA, FLUX location images, pose control, music model) are cut out of the prompt instead of stopping a generation.
 
 - CI uses a matching VideoTools runtime with motion templates and checks lazy-loaded motion modules before running backend tests.

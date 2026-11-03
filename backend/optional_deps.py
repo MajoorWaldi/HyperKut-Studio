@@ -113,6 +113,13 @@ def prune_unavailable(prompt: dict, schemas: dict, *, flex: bool = False, places
         if places:
             notes.append("The location images need FLUX files that are not installed (" + ", ".join(sorted(set(gone))) + "): the shots were made without them.")
 
+    # The plan of a remix needs a pack loaded after it was added: an older ComfyUI keeps the shots as detected.
+    for key, node in list(prompt.items()):
+        if node["class_type"] == "MajoorRemixPlan" and node["class_type"] not in schemas and isinstance(node["inputs"].get("shot_list"), list):
+            _reroute(prompt, key, node["inputs"]["shot_list"])
+            del prompt[key]
+            notes.append("ComfyUI has not loaded the Remix Plan node yet (restart ComfyUI): the remix was made without its story, people and kept shots.")
+
     # Generated music (YuE2): the edit needs a beat grid, not the song; without the music model it is made on silence and the user is told.
     for key, node in list(prompt.items()):
         source = node["inputs"].get("music")

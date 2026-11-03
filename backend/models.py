@@ -228,6 +228,10 @@ class ActiveTake(BaseModel):
     take: str
 
 
+class ShotSourceChoice(BaseModel):
+    kind: Literal['generated', 'original']  # a remix shot is generated, or kept as the source has it
+
+
 class CacheClean(BaseModel):
     keep_uploads: list[str] = Field(default_factory=list, max_length=64)  # the files placed in the form, not yet in a job
 

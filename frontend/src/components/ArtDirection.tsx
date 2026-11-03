@@ -78,17 +78,18 @@ export function ArtDirection({ mode, inputs, settings, busy, onSettings, onPrepa
           {field.choices.map(choice => <option key={choice.value} value={choice.value}>{fr ? choice.fr : choice.en}</option>)}
         </select>
       </label>)}</div>
-      {mode !== 'remix' ? <>
+      {<>
         <div className="prepared-actions"><button type="button" className="secondary" onClick={() => prepare()} disabled={busy || working || settings.prompt.trim().length < 3}>{working ? (fr ? 'Préparation du brief…' : 'Preparing the brief…') : (fr ? 'Voir la direction retenue' : 'Preview the creative brief')}</button>
         <button type="button" className="secondary" title={fr ? 'Une autre idée pour la même demande : le plan, l’histoire et le casting changent.' : 'Another idea for the same request: the plan, the story and the cast change.'} onClick={another} disabled={busy || working || settings.prompt.trim().length < 3}>{fr ? `Autre idée (n° ${(settings.idea_seed ?? 0) + 1})` : `Another idea (no. ${(settings.idea_seed ?? 0) + 1})`}</button>
-        <button type="button" className="secondary" title={fr ? 'Trois versions de la même demande : directe, avec un retournement, portée par l’image. Tu gardes celle que tu préfères.' : 'Three versions of the same request: direct, with a twist, image-led. You keep the one you like.'} onClick={three} disabled={busy || working || settings.prompt.trim().length < 3}>{fr ? 'Trois traitements' : 'Three treatments'}</button></div>
+        <button type="button" className="secondary" title={mode === 'remix' ? (fr ? 'Trois versions du remix sur le même découpage : fidèle, dans un autre monde, une autre histoire. Tu gardes celle que tu préfères.' : 'Three versions of the remix over the same cuts: faithful, in another world, another story. You keep the one you like.') : (fr ? 'Trois versions de la même demande : directe, avec un retournement, portée par l’image. Tu gardes celle que tu préfères.' : 'Three versions of the same request: direct, with a twist, image-led. You keep the one you like.')} onClick={three} disabled={busy || working || settings.prompt.trim().length < 3}>{fr ? 'Trois traitements' : 'Three treatments'}</button></div>
         {treatments.length > 0 && <div className="treatments">{treatments.map(item => <article className="treatment" key={item.name}>
-          <h4>{{ direct: fr ? 'Direct' : 'Direct', twist: fr ? 'Retournement' : 'Twist', visual: fr ? 'Porté par l’image' : 'Image-led' }[item.name] ?? item.name}</h4>
+          <h4>{{ direct: fr ? 'Direct' : 'Direct', twist: fr ? 'Retournement' : 'Twist', visual: fr ? 'Porté par l’image' : 'Image-led', faithful: fr ? 'Fidèle' : 'Faithful', transfer: fr ? 'Autre histoire' : 'Another story' }[item.name] ?? item.name}</h4>
           <p>{item.brief.length > 420 ? item.brief.slice(0, 420) + '…' : item.brief}</p>
           <button type="button" className="secondary" onClick={() => pick(item)}>{fr ? 'Choisir' : 'Choose'}</button>
         </article>)}</div>}
         <small>{fr ? 'Prépare uniquement le texte avec le modèle local. Aucune vidéo ni musique ne sera générée.' : 'Uses the local model to prepare text only. No video or music will be generated.'}</small>
-      </> : <p>{fr ? 'En Remix, ces choix accompagnent la référence sans remplacer son découpage.' : 'In Remix, these choices accompany the reference without replacing its cut timing.'}</p>}
+        {mode === 'remix' && <p>{fr ? 'En Remix, ces choix accompagnent la référence sans remplacer son découpage.' : 'In Remix, these choices accompany the reference without replacing its cut timing.'}</p>}
+      </>}
       {(draft !== null || settings.approved_brief) && <div className="prepared-brief">
         <label className="field"><span>{fr ? 'Brief enrichi — modifiable' : 'Enriched brief — editable'}</span><textarea rows={8} maxLength={5000} value={draft ?? settings.approved_brief ?? ''} disabled={busy || working} onChange={event => { setDraft(event.target.value); if (!context) setContext(settings.approved_brief_context ?? '') }} /></label>
         <div className="prepared-actions"><button type="button" className="secondary" disabled={busy || working || !(draft ?? settings.approved_brief)?.trim()} onClick={useBrief}>{fr ? 'Utiliser ce brief' : 'Use this brief'}</button>

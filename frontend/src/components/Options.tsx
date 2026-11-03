@@ -23,9 +23,9 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
   const label: Record<Option, string> = { effects: t.effects, text: t.textOverlays, subject_mask: t.subjectMask, redraw_text: t.redrawText, pose_only: t.poseOnly, places: t.places, casting: t.casting, sound_design: t.soundDesign, sound_effects: t.soundEffects, music_sync: t.musicSync, retry_bad_takes: t.retryBad, flex: t.flex, best_of_two: t.bestOfTwo, kinetic_lyrics: t.kineticLyrics, quality_check: t.qualityCheck }
   const tip: Record<Option, string> = { effects: t.tip.effects, text: t.tip.text, subject_mask: t.tip.subjectMask, redraw_text: t.tip.redrawText, pose_only: t.tip.poseOnly, places: t.tip.places, casting: t.tip.casting, sound_design: t.tip.soundDesign, sound_effects: t.tip.soundEffects, music_sync: t.tip.musicSync, retry_bad_takes: t.tip.retryBad, flex: t.tip.flex, best_of_two: t.tip.bestOfTwo, kinetic_lyrics: t.tip.kineticLyrics, quality_check: t.tip.qualityCheck }
   const toggles: Record<Group, Option[]> = {
-    look: remix ? ['effects', 'text', 'redraw_text', 'pose_only'] : ['effects', 'text', 'places', 'casting' as const, ...(mode === 'music' ? ['kinetic_lyrics' as const] : [])],
+    look: remix ? ['effects', 'text', 'redraw_text', 'pose_only', 'casting', 'places', 'kinetic_lyrics'] : ['effects', 'text', 'places', 'casting' as const, ...(mode === 'music' ? ['kinetic_lyrics' as const] : [])],
     sound: remix ? ['sound_design', 'sound_effects'] : ['sound_design', 'sound_effects', 'music_sync'],
-    expert: remix ? ['quality_check'] : ['retry_bad_takes', 'best_of_two', 'flex'],  // the runner reads quality_check in Remix and retry_bad_takes in Text and Music
+    expert: remix ? ['quality_check', 'best_of_two'] : ['retry_bad_takes', 'best_of_two', 'flex'],  // the runner reads quality_check in Remix and retry_bad_takes in Text and Music; best of two in all three
   }
   const names: Record<Group, string> = { look: t.groupLook, sound: t.groupSound, expert: t.groupExpert }
   const descriptions: Record<Group, string> = lang === 'fr'

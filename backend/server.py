@@ -32,7 +32,7 @@ from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
 from .capacity import CapacityBusy, CapacityError, capacity_held, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
 from .jobs import JobStore
-from .models import AICandidateRequest, ActiveTake, CacheClean,EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
+from .models import AICandidateRequest, ActiveTake, CacheClean, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, ShotSourceChoice, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
@@ -249,7 +249,9 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     missing_nodes, missing_models = graph_readiness(graph, schemas)
                     out['missing_nodes'].extend(missing_nodes)
                     out['missing_models'].extend(missing_models)
-                out['missing_nodes'] = sorted(set(out['missing_nodes']))
+                out['missing_nodes'] = sorted(set(out['missing_nodes']) - {'MajoorRemixPlan'})  # optional: an older pack plans no remix, the runner cuts it out
+                if 'MajoorRemixPlan' not in schemas and mode == 'remix':
+                    out['optional_missing'] = ['MajoorRemixPlan']
                 out['missing_models'] = sorted(set(out['missing_models']))
                 out['videotools'] = not out['missing_nodes']
             except (httpx.HTTPError, ValueError, OSError, TemplateError):
@@ -1029,6 +1031,43 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if shot_id not in {s.id for s in job.state.shots}:
             raise HTTPException(404, "Unknown shot")
         job.update(shots=[s.model_copy(update={"locked": body.locked}) if s.id == shot_id else s for s in job.state.shots])
+        return job.state
+
+    @app.post("/api/jobs/{job_id}/shots/{shot_id}/source", response_model=JobState)
+    async def choose_shot_source(job_id: str, shot_id: str, body: ShotSourceChoice):
+        """A remix shot kept as the source has it, or generated again: the next run of the shot follows it (regenerate it, or approve the plan)."""
+        job = _job(job_id)
+        await recover_pending(job)
+        if job.request.mode != 'remix':
+            raise HTTPException(422, 'Only a remix shot can be kept as in the source')
+        _exclusive(job)
+        if job.state.status in ('queued', 'running'):
+            raise HTTPException(409, 'The job is still running')
+        shot = next((s for s in job.state.shots if s.id == shot_id), None)
+        if shot is None:
+            raise HTTPException(404, 'Unknown shot')
+        if shot.locked:
+            raise HTTPException(409, 'Unlock the shot first')
+        if shot.render_source not in ('generated', 'original'):
+            raise HTTPException(409, 'This shot is a title card or a picture of the plan')
+        project, _ = _manifest(job)
+        index = settings.output_dir / 'MajoorVideoTools' / '_jobs' / f'{job.id}.json'
+        def choose():
+            with SharedProjectRepository(project.parent).edit(project.name) as manifest:
+                plan = _manifest_shot(manifest, shot_id).setdefault('plan', {}) or {}
+                if body.kind == 'original':
+                    plan['render_source'] = {'kind': 'original'}
+                else:
+                    plan.pop('render_source', None)
+                _manifest_shot(manifest, shot_id)['plan'] = plan
+            if index.is_file():
+                saved = json.loads(index.read_text(encoding='utf-8'))
+                for row in saved.get('shots', []):
+                    if row.get('id') == shot_id:
+                        row['render_source'] = body.kind
+                write_json(index, saved)
+        await update_project(job, choose)
+        job.update(shots=[s.model_copy(update={'render_source': body.kind}) if s.id == shot_id else s for s in job.state.shots])
         return job.state
 
     @app.get("/api/jobs/{job_id}/shots/{shot_id}/thumb")

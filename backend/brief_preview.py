@@ -25,6 +25,12 @@ TREATMENTS = (
     ("twist", "Treatment: TWIST. Keep the subject of the request but give the edit a turn: a surprise, a reveal or a reversal around two thirds of the way, and a last shot that changes how the first is read."),
     ("visual", "Treatment: IMAGE-LED. Less story, more pictures: a motif that comes back changed, strong contrasts of place, scale and light from one shot to the next, the camera as the narrator."),
 )
+# A remix keeps the cuts of its source: the three angles differ in what they change over that rhythm.
+REMIX_TREATMENTS = (
+    ("faithful", "Treatment: FAITHFUL. The same story as the source, told by the people of the pictures, with a new look: change who and how it looks, not what happens."),
+    ("twist", "Treatment: TWIST. The same edit in another world: keep the action of every shot, move it to a new place and era, and give the last shot a turn that changes how the first is read."),
+    ("transfer", "Treatment: TRANSFER. The same rhythm and movements, another story: write a new story whose actions fit the movement and the length of each source shot."),
+)
 
 
 async def prepare_brief(request,settings,uploads,language='en'):
@@ -33,12 +39,12 @@ async def prepare_brief(request,settings,uploads,language='en'):
 
 async def prepare_treatments(request,settings,uploads,language='en'):
     """Three briefs for the same request, each with its own angle, made in one go: the user keeps the one they like."""
-    briefs=await prepare_briefs(request,settings,uploads,language,tuple(text for _,text in TREATMENTS))
-    return [{**brief,'name':name} for (name,_),brief in zip(TREATMENTS,briefs)]
+    angles=REMIX_TREATMENTS if request.mode=='remix' else TREATMENTS
+    briefs=await prepare_briefs(request,settings,uploads,language,tuple(text for _,text in angles))
+    return [{**brief,'name':name} for (name,_),brief in zip(angles,briefs)]
 
 
 async def prepare_briefs(request,settings,uploads,language,angles):
-    if request.mode=='remix':raise ValueError('Remix follows the source edit; prepare a direction in Text or Music mode.')
     clean=request.model_copy(deep=True);clean.settings.approved_brief='';clean.settings.approved_brief_context=''
     if settings.mock:return [{'brief':(resolved_brief(clean.settings)+(chr(10)+angle if angle else '')).strip(),'context':brief_context(clean)} for angle in angles]
     template=load_templates(settings.templates_dir,clean.mode)['stage1'];runner=ComfyRunner(settings,uploads);job=Job(clean);values=runner._values(job)
