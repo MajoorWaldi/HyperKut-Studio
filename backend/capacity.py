@@ -1,11 +1,14 @@
 """Preflight storage accounting for local uploads and generation jobs."""
+import asyncio
 import json
 import math
 import os
 import shutil
+import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from filelock import FileLock
+from filelock import FileLock, Timeout
 
 from .storage import write_json
 
@@ -15,6 +18,10 @@ QUALITY_MIB_PER_SECOND = {'draft': 8, 'standard': 16, 'max': 28, 'xhigh': 48}
 
 class CapacityError(ValueError):
     pass
+
+
+class CapacityBusy(RuntimeError):
+    """The storage lock stayed held by an upload, an import or an export for the whole wait."""
 
 
 def reservation_bytes(request, duration_seconds: float | None = None) -> int:
@@ -29,6 +36,29 @@ def reservation_bytes(request, duration_seconds: float | None = None) -> int:
 
 def capacity_lock(settings) -> FileLock:
     return FileLock(str(settings.workspace / '.capacity.lock'), thread_local=False, timeout=30)
+
+
+async def acquire_async(lock: FileLock, timeout: float = 30) -> None:
+    """Wait for the lock without blocking the event loop: the request that holds it must be able to finish and release it."""
+    started = time.monotonic()
+    while True:
+        try:
+            lock.acquire(timeout=0)
+            return
+        except Timeout:
+            if time.monotonic() - started >= timeout:
+                raise CapacityBusy('Storage is busy with an upload, an import or an export. Retry shortly.') from None
+            await asyncio.sleep(.05)
+
+
+@asynccontextmanager
+async def capacity_held(settings, timeout: float = 30):
+    lock = capacity_lock(settings)
+    await acquire_async(lock, timeout)
+    try:
+        yield
+    finally:
+        lock.release()
 
 
 def _storage_roots(settings) -> list[Path]:

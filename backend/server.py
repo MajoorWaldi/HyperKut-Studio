@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import uuid
 import zipfile
 from contextlib import ExitStack, asynccontextmanager
@@ -29,9 +30,9 @@ from PIL import Image
 
 from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
-from .capacity import CapacityError, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
+from .capacity import CapacityBusy, CapacityError, capacity_held, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
 from .jobs import JobStore
-from .models import AICandidateRequest, ActiveTake, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
+from .models import AICandidateRequest, ActiveTake, CacheClean,EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
 from .models import TimelineSave, TimelineVersion
 from . import manual_timeline
@@ -282,13 +283,14 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                         raise HTTPException(413,'The upload exceeds the configured size limit')
                     try:
                         if room is None:
-                            room = ensure_capacity(settings, store, len(chunk))
+                            room = await asyncio.to_thread(ensure_capacity, settings, store, len(chunk))
                         elif len(chunk) > room:
                             raise CapacityError('The configured workspace storage budget would be exceeded. Remove unused uploads or projects, or increase MAX_WORKSPACE_MB.')
                         room -= len(chunk)
                     except CapacityError as error:
                         raise HTTPException(507, str(error)) from error
                     stream.write(chunk)
+            quota_lock.release()  # the file is written and counted: its decoding check must not hold the other uploads and the jobs
             if not settings.mock:
                 try:
                     await asyncio.to_thread(validate_media, path, kind, settings.max_media_seconds, settings.max_media_pixels)
@@ -377,10 +379,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
 
-    def begin_operation(job, stage, duration_seconds=None):
+    async def begin_operation(job, stage, duration_seconds=None):
         estimate = reservation_bytes(job.request, duration_seconds)
         try:
-            with capacity_lock(settings):
+            async with capacity_held(settings):
                 if sum(j.state.status in ('queued', 'running') for j in store.jobs.values()) >= settings.max_active_jobs:
                     raise HTTPException(429, 'The GPU job limit is full; wait for a job to finish')
                 ensure_capacity(settings, store, estimate)
@@ -392,6 +394,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     raise
         except CapacityError as error:
             raise HTTPException(507, str(error)) from error
+        except CapacityBusy as error:
+            raise HTTPException(503, str(error)) from error
 
     preview_lock = asyncio.Lock()
 
@@ -457,7 +461,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             hold.pop("visitor")
         job = None
         try:
-            with capacity_lock(settings):
+            async with capacity_held(settings):
                 if sum(j.state.status in ('queued','running') for j in store.jobs.values()) >= settings.max_active_jobs:
                     raise HTTPException(429,'The GPU job limit is full; wait for a job to finish')
                 estimate = reservation_bytes(request)
@@ -470,6 +474,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     raise
         except CapacityError as error:
             raise HTTPException(507, str(error)) from error
+        except CapacityBusy as error:
+            raise HTTPException(503, str(error)) from error
         if owners:
             owners.claim(job.id)
         job.update(title=(request.settings.prompt.strip() or request.mode)[:60])
@@ -579,23 +585,54 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return out
 
     def regenerable_caches() -> list[Path]:
-        """What the pack rebuilds on demand: the trimmed clips, text, render sources, timeline and sound effects of every project, the HyperFrames renders and the memory frames of the takes. Takes, sources, exports and thumbnails are never in it."""
+        """What is rebuilt on demand: the trimmed clips, text, render sources, timeline and sound effects of every project, the HyperFrames renders, the memory frames of the takes, and the pictures the Studio cut for its cards, takes and reviews. Takes, sources, exports and project thumbnails are never in it."""
+        found = [path for path in (settings.workspace / 'thumbs').glob('*.jpg')]
+        found += [path for path in (settings.workspace / 'reviews').iterdir() if path.is_dir()] if (settings.workspace / 'reviews').is_dir() else []
         root = settings.output_dir / 'MajoorVideoTools' if settings.output_dir else None
-        if not root or not root.is_dir():
-            return []
-        found = [path for path in (root / 'hyperframes').iterdir() if path.is_dir()] if (root / 'hyperframes').is_dir() else []
-        for project in root.glob('p_*'):
-            cache = project / 'cache'
-            found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline', 'memory')] + list(cache.glob('sfx_*.wav'))
+        if root and root.is_dir():
+            found += [path for path in (root / 'hyperframes').iterdir() if path.is_dir()] if (root / 'hyperframes').is_dir() else []
+            for project in root.glob('p_*'):
+                cache = project / 'cache'
+                found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline', 'memory')] + list(cache.glob('sfx_*.wav'))
         return [path for path in found if path.is_dir() and not path.is_symlink() or path.is_file()]
 
+    def unused_uploads(keep: set[str]) -> list[str]:
+        """The added files that no project, no saved preset and no form uses; one added in the last hour is kept, it may be on its way into a job."""
+        used = set(keep)
+        for job in store.jobs.values():
+            r = job.request
+            used.update(u for u in (r.source, r.ref_video, r.music, r.voice, *r.refs) if u)
+        for folder in (ROOT / 'presets', mine):
+            for path in folder.glob('*.json'):
+                try:
+                    saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
+                except (OSError, ValueError, AttributeError):
+                    continue
+                items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+                used.update(item['id'] for item in items if isinstance(item, dict) and isinstance(item.get('id'), str))
+        recent = time.time() - 3600
+        return [upload_id for upload_id, path in uploads.items()
+                if upload_id not in used and owned_here(upload_id) and (not path.is_file() or path.stat().st_mtime < recent)]
+
     @app.post('/api/storage/caches/clean')
-    async def clean_caches(dry_run: bool = False):
-        """Delete the caches that can be rebuilt and say how much room that makes; with `dry_run`, only say it."""
+    async def clean_caches(dry_run: bool = False, body: CacheClean | None = None):
+        """Delete the caches that can be rebuilt and the added files nothing uses, and say how much room that makes; with `dry_run`, only say it."""
         if not cache_idle():
             raise HTTPException(409, 'Wait for active operations before cleaning the caches')
+        unused = unused_uploads(set(body.keep_uploads) if body else set())
+        removed_uploads: list[str] = []
         def clean():
             freed = in_use = 0
+            for upload_id in unused:
+                path = uploads[upload_id]
+                try:
+                    size = path.stat().st_size if path.is_file() else 0
+                    if not dry_run:
+                        path.unlink(missing_ok=True)
+                    freed += size
+                    removed_uploads.append(upload_id)
+                except OSError:
+                    in_use += 1
             for path in regenerable_caches():
                 try:
                     with ExitStack() as held:
@@ -607,12 +644,19 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                         freed += size
                 except (Timeout, OSError):
                     in_use += 1
-            return {'freed': freed, 'in_use': in_use}
+            return {'freed': freed, 'in_use': in_use, 'uploads': len(removed_uploads)}
         app.state.artifact_gc = True  # no generation starts while the caches are deleted
         try:
-            return await asyncio.to_thread(clean)
+            result = await asyncio.to_thread(clean)
         finally:
             app.state.artifact_gc = False
+        if not dry_run and removed_uploads:
+            for upload_id in removed_uploads:
+                uploads.pop(upload_id, None)
+                names.pop(upload_id, None)
+                upload_waves.pop(upload_id, None)
+            write_json(names_file, names)
+        return result
 
     @app.post('/api/storage/worker/cleanup')
     async def retry_worker_cleanup():
@@ -653,6 +697,17 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         job.update(**body.model_dump(exclude_none=True))
         return job.state
 
+    def forget_pictures(job):
+        """The pictures the Studio cut for a job: its covers, its review frames, and the take pictures of its project when no other job shares it."""
+        thumbs = settings.workspace / 'thumbs'
+        doomed = list(thumbs.glob(f'cover_{job.id}_*.jpg'))
+        project_id = job.state.project_id
+        if project_id and not any(other.id != job.id and other.state.project_id == project_id for other in store.jobs.values()):
+            doomed += thumbs.glob(f'{project_id}_*.jpg')
+        for path in doomed:
+            path.unlink(missing_ok=True)
+        shutil.rmtree(settings.workspace / 'reviews' / job.id, ignore_errors=True)
+
     @app.delete("/api/jobs/{job_id}")
     async def delete_job(job_id: str, project: bool = False):
         """Forget a job and its video; with `project`, also the project folder that ComfyUI wrote (the takes)."""
@@ -674,6 +729,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             if project and job.state.project_id and isinstance(runner,ComfyRunner) and runner.remote:
                 await asyncio.to_thread(runner.remote.forget_project,job.state.project_id)
             (settings.workspace / "jobs" / f"{job.id}.mp4").unlink(missing_ok=True)
+            await asyncio.to_thread(forget_pictures, job)
             store.delete(job)
         finally:
             job.deleting = False
@@ -707,7 +763,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         picture = settings.workspace / "thumbs" / f"cover_{job.id}_{job.edits}.jpg"
         if not picture.is_file():
             picture.parent.mkdir(parents=True, exist_ok=True)
-            await asyncio.to_thread(lambda: subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", str(video_file), "-frames:v", "1", "-vf", "scale=360:-2", str(picture)], check=False))
+            for old in picture.parent.glob(f'cover_{job.id}_*.jpg'):  # the covers of the earlier edits
+                old.unlink(missing_ok=True)
+            try:
+                await asyncio.to_thread(lambda: subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", str(video_file), "-frames:v", "1", "-vf", "scale=360:-2", str(picture)], check=False, timeout=30))
+            except subprocess.TimeoutExpired:
+                picture.unlink(missing_ok=True)
         if not picture.is_file():
             raise HTTPException(404, "No picture")
         return FileResponse(picture, headers={"Cache-Control": "no-cache"})
@@ -787,7 +848,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(409, 'The saved project identity is invalid') from error
         if not (project / 'manifest.json').is_file():
             raise HTTPException(409, 'The saved project manifest is missing')
-        begin_operation(job, 'shots')
+        await begin_operation(job, 'shots')
         job.task = asyncio.create_task(runner.run(job))
         return job.state
 
@@ -813,7 +874,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(409, f"Locked shots are kept as they are: {locked}")
         if any(known[shot].render_source!='generated' and shot in body.prompts and body.prompts[shot]!=known[shot].prompt for shot in body.shots):
             raise HTTPException(422,'Local sources use render_source in the plan; changing their generation prompt would not change the render')
-        begin_operation(job, 'shots', sum(known[shot].duration for shot in body.shots))
+        await begin_operation(job, 'shots', sum(known[shot].duration for shot in body.shots))
         job.task = asyncio.create_task(runner.regenerate(job, body.shots, {k: v for k, v in body.prompts.items() if k in body.shots}))
         return job.state
 
@@ -883,7 +944,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             row = await update_project(job, prepare)
         except (ValueError, StopIteration) as error:
             raise HTTPException(422, str(error)) from error
-        begin_operation(job, 'shots', row['generated_seconds'])
+        await begin_operation(job, 'shots', row['generated_seconds'])
         job.task = asyncio.create_task(candidate_runner(job, row))
         return {'job': job.state, 'candidate': public_candidate(job, row)}
 
@@ -949,8 +1010,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
 
-    def start_re_edit(job, style):
-        begin_operation(job, 'edit', sum(s.duration for s in job.state.shots))
+    async def start_re_edit(job, style):
+        await begin_operation(job, 'edit', sum(s.duration for s in job.state.shots))
         job.task = asyncio.create_task(runner.re_edit(job, style))
         return job.state
 
@@ -960,7 +1021,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         await recover_pending(job)
         refresh_shots(job)
         check_re_edit(job, style)
-        return start_re_edit(job, style)
+        return await start_re_edit(job, style)
 
     @app.patch("/api/jobs/{job_id}/shots/{shot_id}", response_model=JobState)
     async def patch_shot(job_id: str, shot_id: str, body: ShotPatch):
@@ -1101,7 +1162,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     _trim_in(manifest, job, shot_id, body.take, body.start)
         await update_project(job, select)
         refresh_shots(job)
-        return start_re_edit(job, style)
+        return await start_re_edit(job, style)
 
     def idle_timeline(job):
         _exclusive(job)
@@ -1170,7 +1231,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         document = record['document']
         fps = document['fps_num'] / document['fps_den']
         duration = sum((clip['out_frame'] - clip['in_frame']) / fps for clip in document['clips'])
-        begin_operation(job, 'edit', duration)
+        await begin_operation(job, 'edit', duration)
         job.task = asyncio.create_task(render(job))
         return job.state
 
@@ -1327,6 +1388,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 archive.unlink(missing_ok=True)
             if isinstance(error, CapacityError):
                 raise HTTPException(507, str(error)) from error
+            if isinstance(error, Timeout):
+                raise HTTPException(503, 'Storage or this project is busy. Retry shortly.') from error
             if isinstance(error, ValueError):
                 raise HTTPException(422, str(error)) from error
             raise
@@ -1344,12 +1407,17 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         try:
             await acquire_upload_quota(quota_lock)
             with archive_path.open('xb') as stream:
+                room = None  # as for an upload: the storage is scanned once, then counted down
                 while chunk := await file.read(1024 * 1024):
                     size += len(chunk)
                     if size > settings.max_workspace_bytes:
                         raise HTTPException(413, 'The project archive exceeds the configured workspace limit')
                     try:
-                        ensure_capacity(settings, store, len(chunk))
+                        if room is None:
+                            room = await asyncio.to_thread(ensure_capacity, settings, store, len(chunk))
+                        elif len(chunk) > room:
+                            raise CapacityError('The configured workspace storage budget would be exceeded. Remove unused uploads or projects, or increase MAX_WORKSPACE_MB.')
+                        room -= len(chunk)
                     except CapacityError as error:
                         raise HTTPException(507, str(error)) from error
                     stream.write(chunk)
@@ -1559,6 +1627,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise
         except CapacityError as error:
             raise HTTPException(507, str(error)) from error
+        except Timeout as error:
+            raise HTTPException(503, 'Storage is busy with an upload, an import or an export. Retry shortly.') from error
         except OSError as error:
             raise HTTPException(507, f'Project import could not be stored: {error}') from error
         except (ValueError, TypeError, KeyError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile, subprocess.TimeoutExpired) as error:

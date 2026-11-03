@@ -57,7 +57,10 @@ export const deleteJob = (id: string, withFiles: boolean) => fetch(`/api/jobs/${
 
 export const freeSpace = (id: string) => fetch(`/api/jobs/${id}/free`, { method: 'POST' }).then(json<{ freed: number }>)
 
-export const cleanCaches = () => fetch('/api/storage/caches/clean', { method: 'POST' }).then(json<{ freed: number; in_use: number }>)
+/** `keep`: the files placed in the form, which no job uses yet. */
+export const cleanCaches = (keep: string[]) =>
+  fetch('/api/storage/caches/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keep_uploads: keep }) })
+    .then(json<{ freed: number; in_use: number; uploads: number }>)
 
 export const regenerate = (id: string, shots: string[], prompts: Record<string, string>) =>
   fetch(`/api/jobs/${id}/regenerate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shots, prompts }) }).then(json<JobState>)

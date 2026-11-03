@@ -783,7 +783,7 @@ class ComfyRunner:
                     raise ValueError('The plan contains no shots')
                 frames = [(s.generation_frames or max(124,5+17*math.ceil(max(s.duration*24-5,0)/17))) if s.render_source=='generated' else 0 for s in shots]
                 seconds = sum(frames)/24
-                retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes
+                retry = job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes or job.request.settings.best_of_two
                 job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
                 if job.request.settings.review_plan:
                     job.update(status='review', stage='analyze')

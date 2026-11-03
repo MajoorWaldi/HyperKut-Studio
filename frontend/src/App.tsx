@@ -342,8 +342,9 @@ export default function App() {
 
   const cleanCaches = async () => {
     try {
-      const { freed, in_use } = await api.cleanCaches()
-      setMessage(`${megabytes(freed)} ${t.freed}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
+      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
+      const { freed, in_use, uploads } = await api.cleanCaches(placed)
+      setMessage(`${megabytes(freed)} ${t.freed}${uploads ? ` · ${uploads} ${t.uploadsRemoved}` : ''}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
     } catch (error) { fail(error) }
   }
 
