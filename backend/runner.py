@@ -259,7 +259,7 @@ class ComfyRunner:
         normalize_media_roles(prompt)
         apply_plan_contract(prompt, job.request.settings, mode=job.request.mode)
         prompt=reachable_graph(prompt,{})
-        if any(n['class_type'] in ('LoraLoaderModelOnly','MiniMaxH3FunControlNetApply','MajoorCheckPlate','MajoorMusicFit','MajoorRemixPlan') for n in prompt.values()):
+        if any(n['class_type'] in ('LoraLoaderModelOnly','MiniMaxH3FunControlNetApply','MajoorCheckPlate','MajoorMusicFit','MajoorRemixPlan','MajoorRetimeFrames','MajoorSourceCopy') for n in prompt.values()):
             from .optional_deps import prune_unavailable
             notes = prune_unavailable(prompt, await self._schemas(), flex=bool(values.get('flex')), places=bool(values.get('plates')))
             prompt = reachable_graph(prompt, {})  # what only the cut branches fed goes with them

@@ -59,6 +59,34 @@ def test_an_older_comfyui_makes_the_remix_without_its_plan():
     assert 'RM' not in graph and graph['CV']['inputs']['shot_list'] == ['68', 0] and 'Remix Plan' in notes[0]
 
 
+def test_the_control_frames_play_at_the_24_fps_of_the_take_and_an_older_pack_passes_them_as_they_are():
+    graph = json.loads((ROOT / 'workflows/remix/shot.api.json').read_text(encoding='utf-8'))
+    for take in ('91', '108'):
+        assert graph[f'{take}:RT']['inputs'] == {'images': [f'{take}:151', 0], 'fps_in': ['87', 2], 'fps_out': 24.0}
+        assert graph[f'{take}:160']['inputs']['image'] == graph[f'{take}:1229']['inputs']['image'] == [f'{take}:RT', 0]
+    assert graph['107']['inputs']['fps'] == graph['109']['inputs']['fps'] == 24  # the take is written at the rate the frames were retimed to
+    assert graph['short_reference_switch']['inputs']['on_false'] == ['RV', 0] and graph['RV']['inputs']['fps_out'] == 24.0  # H3 reads its reference video at 24 fps
+    assert graph['119']['inputs']['skip_copied_lead'] is True  # a take opening on a copy of the source starts after it
+    # the judge sees, and Source Copy measures, the part of each take the edit keeps
+    assert graph['SC']['inputs'] == {'take_a': ['107', 0], 'take_b': ['109', 0], 'source': ['75', 0], 'max_seconds': ['89', 0]}
+    assert graph['JA']['inputs']['max_seconds'] == graph['JB2']['inputs']['max_seconds'] == ['89', 0]
+    notes = prune_unavailable(graph, {'MajoorSelectShot': {}})  # a pack without the node
+    assert '91:RT' not in graph and graph['91:160']['inputs']['image'] == ['91:151', 0] and any('Retime Frames' in note for note in notes)
+    assert 'SC' not in graph and graph['JN']['inputs']['values.c'] is False is graph['JN']['inputs']['values.d'] and any('Source Copy' in note for note in notes)
+
+
+def test_a_take_that_repeats_the_source_is_never_kept_over_one_that_does_not():
+    graph = json.loads((ROOT / 'workflows/remix/shot.api.json').read_text(encoding='utf-8'))
+    node = graph['JN']['inputs']
+    assert (node['values.a'], node['values.b'], node['values.c'], node['values.d']) == (['TA', 0], ['JC', 0], ['SC', 0], ['SC', 1])
+    keep_a = lambda a, b, c, d: eval(node['expression'], {}, dict(a=a, b=b, c=c, d=d))
+    for a in (0, 1):
+        for b in (0, 1):  # take A passes its check (a), the judge prefers B (b)
+            assert keep_a(a, b, 0, 1) and not keep_a(a, b, 1, 0)  # only one take repeats the source: the other one
+            for same in (0, 1):
+                assert keep_a(a, b, same, same) == ((1 - b) * a > 0)  # both or neither: the judge and the check of A, as before
+
+
 def test_remix_has_three_treatments_of_its_own(tmp_path):
     request = JobRequest.model_validate({'mode': 'remix', 'source': 'a' * 12, 'settings': {'prompt': 'a courier at night'}})
     treatments = asyncio.run(prepare_treatments(request, _settings(tmp_path), {}, 'en'))  # mock settings: text only, no model

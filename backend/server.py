@@ -249,7 +249,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     missing_nodes, missing_models = graph_readiness(graph, schemas)
                     out['missing_nodes'].extend(missing_nodes)
                     out['missing_models'].extend(missing_models)
-                out['missing_nodes'] = sorted(set(out['missing_nodes']) - {'MajoorRemixPlan'})  # optional: an older pack plans no remix, the runner cuts it out
+                out['missing_nodes'] = sorted(set(out['missing_nodes']) - {'MajoorRemixPlan', 'MajoorRetimeFrames', 'MajoorSourceCopy'})  # optional: an older pack plans no remix, retimes and measures nothing; the runner cuts them out
                 if 'MajoorRemixPlan' not in schemas and mode == 'remix':
                     out['optional_missing'] = ['MajoorRemixPlan']
                 out['missing_models'] = sorted(set(out['missing_models']))
