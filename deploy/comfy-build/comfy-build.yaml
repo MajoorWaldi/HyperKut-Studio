@@ -2,7 +2,7 @@ schema: comfy-build/1
 id: 3d434db6-ec0a-4bbc-9492-85ba4bc294df
 name: hyperkut-engine
 description: 'Engine of HyperKut Studio: VideoTools, controlnet_aux, snapshot worker and the Studio models'
-syncedRevision: '2026-11-03T17:09:50.957992Z'
+syncedRevision: '2026-11-04T00:46:57.489661Z'
 definition:
   schema: distribution-definition/0
   baseComfyVersion: v0.43.2
