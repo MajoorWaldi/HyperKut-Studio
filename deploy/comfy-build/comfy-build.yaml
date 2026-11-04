@@ -96,7 +96,7 @@ definition:
       sourceUri: https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors
       type: vae
   customNodes:
-    - gitRef: 7e1981cb1150ad1b543dca1a555d7dc478af6b40
+    - gitRef: 714249e3d20112ace7a108c3d8143b7fac190de2
       name: ComfyUI-Majoor-VideoTools
       repository: https://github.com/MajoorWaldi/ComfyUI-Majoor-VideoTools
     - blobId: 1d74a9a1-c272-42a2-bd0a-73ba636f04a2

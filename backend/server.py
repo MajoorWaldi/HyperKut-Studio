@@ -54,6 +54,7 @@ from .project_snapshot import audio_references, read_json, referenced_files
 from .snapshot_schema import checked_document
 
 KINDS = {"video": "video", "image": "image", "audio": "audio"}
+PRESET_PLACEHOLDER = 'placeholder-video'  # stands where a preset's source video is not shipped with the app: it shows what to add, and no job takes it
 logger = logging.getLogger(__name__)
 MEDIA_SUFFIXES = {
     'image': {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tif', '.tiff', '.avif'},
@@ -91,6 +92,28 @@ class SameOriginMiddleware:
         await self.app(scope, receive, send)
 
 
+def seed_preset_inputs(presets: Path, uploads: dict[str, Path], names: dict) -> set[str]:
+    """Add the files of the app's presets (presets/inputs/<id>.<ext>) to the uploads where they are, under the name the preset gives them; return their ids.
+    They are never copied, and no clean-up removes them: every preset of the app keeps using them."""
+    named = {}
+    for path in presets.glob('*.json'):
+        try:
+            saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+        named.update({item['id']: item for item in items if isinstance(item, dict) and isinstance(item.get('id'), str)})
+    seeded = set()
+    for source in (presets / 'inputs').glob('*'):
+        item = named.get(source.stem)
+        if item is None or item.get('kind') not in KINDS or source.suffix.lower() not in MEDIA_SUFFIXES[item['kind']]:
+            continue
+        uploads.setdefault(source.stem, source)
+        names[source.stem] = {'name': item.get('name') or source.name, 'kind': item['kind']}
+        seeded.add(source.stem)
+    return seeded
+
+
 def create_app(settings: Settings | None = None, runner: Runner | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     validate_access(settings)
@@ -123,7 +146,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     owners = JuryOwners(settings.workspace / 'jury-owners.json') if settings.access_mode == 'jury_open' else None
 
     def owned_here(item: str) -> bool:
-        return owners is None or owners.allows(item)
+        return owners is None or item in shared_uploads or owners.allows(item)
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(settings.allowed_hosts))
     app.add_middleware(SameOriginMiddleware)
@@ -193,6 +216,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     except (OSError, ValueError):
         names = {}
     uploads: dict[str, Path] = {p.stem: p for p in (settings.workspace / "uploads").glob("*")}  # what was added before the server stopped is still there for the jobs that were kept
+    shared_uploads = seed_preset_inputs(ROOT / "presets", uploads, names)  # the files of the app's presets, on every machine and for every visitor
 
     def describe(upload_id: str | None) -> Upload | None:
         if upload_id not in uploads:
@@ -365,6 +389,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, *request.refs) if u and (u not in uploads or not owned_here(u))]
         if unknown:
             raise HTTPException(422, f"Unknown uploads: {unknown}")
+        if PRESET_PLACEHOLDER in (request.source, request.ref_video):
+            raise HTTPException(422, "Replace the placeholder of the preset with your own source video")
         if request.mode == "remix" and not request.source:
             raise HTTPException(422, "Remix needs a source video: it is the template of the edit")
         if request.mode == 'music' and not request.music:
