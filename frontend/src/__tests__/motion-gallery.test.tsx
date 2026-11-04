@@ -119,7 +119,7 @@ describe('MotionGallery', () => {
     render(<Host />)
     const group = [...document.querySelectorAll('.tag-group')].find(node => node.querySelector('.tag-label')?.textContent === 'Hits & transitions') as HTMLElement
     expect(within(group).getAllByRole('button').map(button => button.textContent)).toEqual(['flash hit', 'whip wipe', 'glitch hit', 'zoom punch'])
-    expect(within([...document.querySelectorAll('.tag-group')].find(node => node.querySelector('.tag-label')?.textContent === 'Subject (needs the mask)') as HTMLElement).getAllByRole('button').map(button => button.textContent)).toEqual(['cutout echo', 'title behind'])
+    expect(within([...document.querySelectorAll('.tag-group')].find(node => node.querySelector('.tag-label')?.textContent === 'Subject (needs the mask)') as HTMLElement).getAllByRole('button').map(button => button.textContent)).toEqual(['cutout echo', 'title behind', 'title through', 'title emerge'])
   })
 
   it('lists an added effect that has no text and removes it', async () => {

@@ -33,6 +33,8 @@ export const TEMPLATES: Record<string, Template> = {
   tiles_grid: { category: 'layout', defaults: { start: 0, end: 2 }, en: 'The picture repeated two by two', fr: 'L’image répétée deux par deux' },
   cutout_echo: { category: 'subject', defaults: { start: 0, end: 2 }, en: 'A white outline and delayed copies of the subject', fr: 'Un contour blanc et des copies décalées du sujet' },
   title_behind: { category: 'subject', defaults: { title: 'NIGHT', start: 0, end: 2 }, en: 'A big title passing behind the subject', fr: 'Un grand titre qui passe derrière le sujet' },
+  title_through: { category: 'subject', defaults: { title: 'NIGHT', start: 0, end: 2 }, en: 'A big title in front, then the subject passes in front of it', fr: 'Un grand titre devant, puis le sujet passe devant lui' },
+  title_emerge: { category: 'subject', defaults: { title: 'NIGHT', start: 0, end: 2 }, en: 'A big title hidden behind the subject that comes out in front', fr: 'Un grand titre caché derrière le sujet qui passe devant' },
   particles: { category: 'fx', defaults: { start: 0, end: 3 }, en: 'Falling confetti, sparks or snow', fr: 'Confettis, étincelles ou neige qui tombent' },
   sticker: { category: 'fx', defaults: { name: 'burst', start: 0, end: 2 }, en: 'An animated sticker (Lottie)', fr: 'Un sticker animé (Lottie)' },
 }
