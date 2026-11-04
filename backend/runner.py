@@ -197,6 +197,11 @@ class ComfyRunner:
             directions.append('For title cards, flat flashes or still-image holds, avoid video generation. Each shot may have render_source: {"kind":"graphic","text":"exact words","color":"#101018"}, {"kind":"still","asset":"ref1"}, or {"kind":"provided","asset":"ref_video"} when that user clip was supplied. All other shots use {"kind":"generated"}. Preserve exact durations. Never invent asset names or executable code.')
         if s.reference_style=='montage' and r.ref_video:
             directions.append('Use the reference video as an editing-style reference: infer pacing, relative shot lengths, camera vocabulary, palette, typography and transitions. Create a new edit suited to the brief. Preserve the identity and clothing of the supplied subject images. Keep the user music. Do not copy reference footage, logos or words; use only explicitly allowed text.')
+        if r.refs and (s.text or s.motion_design or s.effects):  # colors taken from the pictures, for the texts, shapes and effects the planner writes
+            from .film_palette import palette_direction, picture_palette
+            line = palette_direction(picture_palette([self.uploads[u] for u in r.refs[:3] if u in self.uploads]))
+            if line:
+                directions.append(line)
         values['planning_instructions']='\n'.join(directions)
         # Remix: the plan of the whole remix (story, people, places, kept shots) runs when the strategy rewrites the source or the people are cast
         planned = r.mode == 'remix' and (s.remix_strategy in ('creative', 'transfer') or s.casting)

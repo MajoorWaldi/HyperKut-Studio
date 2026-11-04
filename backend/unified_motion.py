@@ -142,7 +142,7 @@ def needs_subject_mask(text):
     if not isinstance(rows,list):
         raise ValueError('Motion layers must be a list')
     rows=expand_templates(rows)
-    return any(isinstance(row,dict) and (row.get('type')=='outline' or row.get('behind') is True or row.get('kind')=='echo' or
+    return any(isinstance(row,dict) and (row.get('type')=='outline' or row.get('behind') in (True, 'through', 'emerge') or row.get('kind')=='echo' or
         (row.get('type')=='effect' and row.get('target','frame')!='frame') or
         (row.get('type')=='track' and str(row.get('anchor','')).startswith('subject_'))) for row in rows)
 
