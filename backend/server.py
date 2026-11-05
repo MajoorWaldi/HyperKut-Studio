@@ -179,12 +179,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     @app.get('/api/studio/status')
     async def studio_status():
-        return {
-            'instance_id': app.state.boot_id,
-            'restarting': app.state.restarting,
-            'config_identity': settings.config_identity(),
-            'effective_limits': settings.effective_limits(),
-        }
+        status = {'instance_id': app.state.boot_id, 'restarting': app.state.restarting}
+        if owners is None:  # a public instance tells strangers nothing about its deployment or its disks
+            status |= {'config_identity': settings.config_identity(), 'effective_limits': settings.effective_limits()}
+        return status
 
     @app.post('/api/studio/restart', status_code=202)
     async def restart_studio():
@@ -243,6 +241,9 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                'load_errors': store.load_errors, 'missing_nodes': [], 'missing_models': [], 'preset_inputs': True, 'music_rhythm_modes': True, 'adaptive_editing_modes': True}
         out['instance_id'] = app.state.boot_id
         out['mode'] = mode
+        if owners is not None:  # public instance: no host path, no file names from the host's project store
+            out['output_dir'] = 'hidden' if settings.output_dir else None
+            out['load_errors'] = ['Some saved projects could not be loaded.'] if store.load_errors else []
         async with httpx.AsyncClient(timeout=3) as client:
             deployment = getattr(settings, 'comfy_api', False)
             try:

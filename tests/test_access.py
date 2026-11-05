@@ -260,3 +260,17 @@ def test_every_response_forbids_framing_and_foreign_scripts(settings):
         assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
         assert "script-src 'self'" in headers["Content-Security-Policy"]
         assert headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_open_jury_hides_host_details_from_strangers(settings):
+    config = open_jury(settings)
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        status = client.get("/api/studio/status").json()
+        assert set(status) == {"instance_id", "restarting"}
+        health = client.get("/api/health").json()
+        assert str(settings.output_dir) not in json.dumps(health)
+        assert health["output_dir"] == "hidden"
+        assert client.get("/api/storage").status_code == 403
+    with TestClient(create_app(settings, MockRunner(pace=0))) as local:  # the operator on the local machine keeps the full picture
+        assert "config_identity" in local.get("/api/studio/status").json()
+        assert local.get("/api/storage").status_code == 200
