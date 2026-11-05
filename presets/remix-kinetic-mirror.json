@@ -71,10 +71,10 @@
   "featured": 1,
   "inputs": {
     "source": {
-      "id": "bf4f50efb7bf",
-      "name": "From Klickpin.com- Discover Simple digital product ideas that help you create a beautiful result without overspending for ideas worth saving right.mp4",
+      "id": "placeholder-video",
+      "name": "Ajoute ta vidéo source · Add your source video",
       "kind": "video",
-      "url": "/api/uploads/bf4f50efb7bf"
+      "url": "/api/uploads/placeholder-video"
     },
     "refVideo": null,
     "music": null,

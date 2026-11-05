@@ -28,6 +28,7 @@ VISITOR_COOKIE_DAYS = 30
 current_visitor: contextvars.ContextVar[str | None] = contextvars.ContextVar('hyperkut_visitor', default=None)
 FORWARDING_HEADERS = ('cf-connecting-ip', 'x-forwarded-for', 'x-forwarded-host', 'forwarded', 'x-real-ip')
 CLOSED_ROUTES = (
+    ('GET', re.compile(r'^/api/storage$')),  # disk figures of the whole host, not of one visitor
     ('POST', re.compile(r'^/api/(studio/restart|projects/import|storage/worker/cleanup|storage/cache/gc|storage/caches/clean)$')),
     ('POST', re.compile(r'^/api/jobs/[^/]+/free$')),
     ('DELETE', re.compile(r'^/api/(jobs|presets)/[^/]+$')),

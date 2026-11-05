@@ -147,6 +147,21 @@ def test_open_jury_keeps_each_visitor_to_their_own_uploads_and_projects(settings
         assert [row["id"] for row in back.get("/api/jobs").json()] == [job]  # the ownership survives a restart
 
 
+def test_open_jury_gives_every_visitor_the_files_of_the_app_presets(settings):
+    app = create_app(open_jury(settings, visitor=1, total=4), MockRunner(pace=0))
+    with TestClient(app, base_url="https://testserver") as visitor:
+        presets = {p["id"]: p for p in visitor.get("/api/presets").json()}
+        remix, text = presets["remix-wild-counterpoint"], presets["text-portal-atelier"]
+        assert remix["missing_inputs"] == [] and remix["inputs"]["source"]["id"] == "placeholder-video"
+        assert visitor.get(remix["inputs"]["source"]["url"]).status_code == 200
+        picture = text["inputs"]["refs"][0]["id"]
+        assert visitor.get(f"/api/uploads/{picture}").status_code == 200
+        held = visitor.post("/api/jobs", json={"mode": "remix", "settings": {"prompt": "x"}, "source": "placeholder-video", "refs": [picture]})
+        assert held.status_code == 422 and "placeholder" in held.json()["detail"]  # refused, and the generation is given back
+        assert visitor.post("/api/jobs", json={"mode": "text", "settings": {"prompt": "x"}, "refs": [picture]}).status_code == 200
+        assert visitor.post("/api/storage/caches/clean").status_code == 403  # the jury never cleans; the files are in the app
+
+
 def test_open_jury_limits_every_route_that_reaches_the_gpu(settings):
     config = open_jury(settings, visitor=1, total=2)
     request = {"mode": "text", "settings": {"prompt": "a test"}}
@@ -245,3 +260,17 @@ def test_every_response_forbids_framing_and_foreign_scripts(settings):
         assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
         assert "script-src 'self'" in headers["Content-Security-Policy"]
         assert headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_open_jury_hides_host_details_from_strangers(settings):
+    config = open_jury(settings)
+    with TestClient(create_app(config, MockRunner(pace=0)), base_url="https://testserver") as client:
+        status = client.get("/api/studio/status").json()
+        assert set(status) == {"instance_id", "restarting"}
+        health = client.get("/api/health").json()
+        assert str(settings.output_dir) not in json.dumps(health)
+        assert health["output_dir"] == "hidden"
+        assert client.get("/api/storage").status_code == 403
+    with TestClient(create_app(settings, MockRunner(pace=0))) as local:  # the operator on the local machine keeps the full picture
+        assert "config_identity" in local.get("/api/studio/status").json()
+        assert local.get("/api/storage").status_code == 200

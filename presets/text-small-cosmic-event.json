@@ -78,10 +78,10 @@
   "featured": 4,
   "inputs": {
     "source": {
-      "id": "e0d392539d42",
-      "name": "ReftoRemix2.mp4",
+      "id": "placeholder-video",
+      "name": "Ajoute ta vidéo source · Add your source video",
       "kind": "video",
-      "url": "/api/uploads/e0d392539d42"
+      "url": "/api/uploads/placeholder-video"
     },
     "refVideo": null,
     "music": null,

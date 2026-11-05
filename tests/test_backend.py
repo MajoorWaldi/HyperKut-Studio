@@ -568,6 +568,18 @@ def test_the_presets_saved_here_are_listed_after_the_ones_of_the_app_and_can_be_
         assert all(not p["user"] for p in client.get("/api/presets").json())
 
 
+def test_every_preset_of_the_app_finds_its_files_on_a_new_machine_and_a_clean_up_keeps_them(tmp_path):
+    settings = _settings(tmp_path)
+    with TestClient(create_app(settings, MockRunner(pace=0.01))) as client:
+        presets = [p for p in client.get('/api/presets').json() if not p['user']]
+        assert {p['id']: p['missing_inputs'] for p in presets if p['missing_inputs']} == {}
+        used = [item for p in presets for item in [p['inputs'][k] for k in ('source', 'refVideo', 'music', 'voice')] + p['inputs']['refs'] if item]
+        assert used and all(client.get(item['url']).status_code == 200 for item in used)
+        assert client.post('/api/storage/caches/clean').status_code == 200
+        assert all(client.get(item['url']).status_code == 200 for item in used)
+    assert not any((settings.workspace / 'uploads').iterdir())  # read where they are, never copied
+
+
 def test_the_picture_of_a_preset_is_served_from_the_media_folder_only(tmp_path):
     settings = _settings(tmp_path)
     media = settings.workspace / "presets" / "media"

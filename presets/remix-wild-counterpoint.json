@@ -76,10 +76,10 @@
   "preview": "remix-wild-counterpoint-d03f7733144d-preview.mp4",
   "inputs": {
     "source": {
-      "id": "efc99d17da17",
-      "name": "efc99d17da17.mp4",
+      "id": "placeholder-video",
+      "name": "Ajoute ta vidéo source · Add your source video",
       "kind": "video",
-      "url": "/api/uploads/efc99d17da17"
+      "url": "/api/uploads/placeholder-video"
     },
     "refVideo": null,
     "music": null,
