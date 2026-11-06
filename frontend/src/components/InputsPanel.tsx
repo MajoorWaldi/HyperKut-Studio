@@ -24,9 +24,10 @@ const AUDIO: AudioChoice[] = ['original', 'new', 'voice']
 
 /** The ways to cut on a music that the Music tab offers; the other modes stay in the options of Remix and Text. */
 const RHYTHMS = [
-  { id: 'adaptive', en: 'Adaptive', fr: 'Adaptatif', tip: 'rhythmAdaptive' },
-  { id: 'regular', en: 'Regular', fr: 'Régulier', tip: 'rhythmRegular' },
-  { id: 'phrases', en: 'Vocal phrases', fr: 'Phrases vocales', tip: 'rhythmPhrases' },
+  { id: 'adaptive', en: 'Adaptive', fr: 'Adaptatif' },
+  { id: 'regular', en: 'Regular', fr: 'Régulier' },
+  { id: 'phrases', en: 'Vocal phrases', fr: 'Phrases vocales' },
+  { id: 'hits', en: 'Hit sync', fr: 'Hit sync' },
 ] as const
 
 export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, onSettings, onPreparing, onReviewPlan }: Props) {
@@ -75,7 +76,7 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
           <div className="rhythm-choice">
             <span className="rhythm-label" title={t.tip.rhythmHeading}>{fr ? 'Rythme de montage' : 'Editing rhythm'}</span>
             <div className="segmented" role="group" aria-label={fr ? 'Rythme de montage' : 'Editing rhythm'}>
-              {RHYTHMS.map(rhythm => <button type="button" key={rhythm.id} aria-pressed={settings.music_edit_mode === rhythm.id} disabled={busy} title={t.tip[rhythm.tip]} onClick={() => onSettings({ music_edit_mode: rhythm.id })}>{fr ? rhythm.fr : rhythm.en}</button>)}
+              {RHYTHMS.map(rhythm => <button type="button" key={rhythm.id} aria-pressed={settings.music_edit_mode === rhythm.id} disabled={busy} title={{ adaptive: t.tip.rhythmAdaptive, regular: t.tip.rhythmRegular, phrases: t.tip.rhythmPhrases, hits: t.tip.rhythmHits }[rhythm.id]} onClick={() => onSettings({ music_edit_mode: rhythm.id })}>{fr ? rhythm.fr : rhythm.en}</button>)}
               {!RHYTHMS.some(rhythm => rhythm.id === settings.music_edit_mode) && <button type="button" aria-pressed disabled title={t.tip.rhythmMode}>{fr ? 'Personnalisé' : 'Custom'}</button>}
             </div>
           </div>

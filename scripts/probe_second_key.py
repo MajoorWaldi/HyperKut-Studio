@@ -21,13 +21,15 @@ def main() -> int:
     if not base.startswith("https://") or not all(keys.values()):
         print("Set COMFY_BASE_URL (https) , COMFY_OWNER_KEY and COMFY_OTHER_KEY.", file=sys.stderr)
         return 2
+    styles = {"bearer": lambda key: {"Authorization": f"Bearer {key}"}, "x-api-key": lambda key: {"X-API-Key": key}}
     for who, key in keys.items():
-        for route in ROUTES:
-            try:
-                status = httpx.get(base + route, headers={"Authorization": f"Bearer {key}"}, timeout=30).status_code
-            except httpx.HTTPError as error:
-                status = type(error).__name__
-            print(f"{who:6} {route:16} {status}")
+        for style, headers in styles.items():
+            for route in ROUTES:
+                try:
+                    status = httpx.get(base + route, headers=headers(key), timeout=30).status_code
+                except httpx.HTTPError as error:
+                    status = type(error).__name__
+                print(f"{who:6} {style:9} {route:16} {status}")
     return 0
 
 

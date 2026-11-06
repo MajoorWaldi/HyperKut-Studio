@@ -14,13 +14,13 @@ const view = (mode: 'music' | 'text' | 'remix', edit = 'adaptive', onSettings = 
   return onSettings
 }
 
-test('the music tab offers three ways to cut, each with a short explanation', () => {
+test('the music tab offers four ways to cut, each with a short explanation', () => {
   view('music')
   const group = screen.getByRole('group', { name: 'Editing rhythm' })
   const buttons = Array.from(group.querySelectorAll('button'))
-  expect(buttons.map(button => button.textContent)).toEqual(['Adaptive', 'Regular', 'Vocal phrases'])
-  expect(buttons.map(button => button.getAttribute('title'))).toEqual([dictionaries.en.tip.rhythmAdaptive, dictionaries.en.tip.rhythmRegular, dictionaries.en.tip.rhythmPhrases])
-  expect(buttons.map(button => button.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
+  expect(buttons.map(button => button.textContent)).toEqual(['Adaptive', 'Regular', 'Vocal phrases', 'Hit sync'])
+  expect(buttons.map(button => button.getAttribute('title'))).toEqual([dictionaries.en.tip.rhythmAdaptive, dictionaries.en.tip.rhythmRegular, dictionaries.en.tip.rhythmPhrases, dictionaries.en.tip.rhythmHits])
+  expect(buttons.map(button => button.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false', 'false'])
 })
 
 test('it sits right under the music uploader', () => {
@@ -37,7 +37,7 @@ test('a choice is written to the setting', () => {
   expect(onSettings).toHaveBeenLastCalledWith({ music_edit_mode: 'phrases' })
 })
 
-test('a mode loaded from a preset that is not one of the three is shown as custom, not hidden', () => {
+test('a mode loaded from a preset that is not one of the four is shown as custom, not hidden', () => {
   view('music', 'random')
   const custom = screen.getByRole('button', { name: 'Custom' }) as HTMLButtonElement
   expect(custom.disabled).toBe(true)
