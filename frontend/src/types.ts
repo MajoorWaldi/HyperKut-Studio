@@ -54,7 +54,7 @@ export interface Settings {
   cut_density: 'auto' | 'low' | 'medium' | 'high'
   transition_intensity: 'auto' | 'subtle' | 'moderate' | 'bold'
   cut_every: 'half_beat' | 'beat' | '2_beats' | 'bar' | '2_bars' | '4_bars'
-  music_edit_mode: 'legacy' | 'adaptive' | 'random' | 'regular' | 'free' | 'phrases'
+  music_edit_mode: 'legacy' | 'adaptive' | 'random' | 'regular' | 'free' | 'phrases' | 'hits'
   music_cut_variation: number
   music_cut_sync: number
   text_allowed: string

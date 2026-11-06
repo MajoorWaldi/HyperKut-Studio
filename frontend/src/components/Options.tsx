@@ -102,6 +102,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
                         ['random', lang === 'fr' ? 'Aléatoire musical' : 'Random musical'],
                         ['regular', lang === 'fr' ? 'Régulier' : 'Regular'],
                         ['phrases', lang === 'fr' ? 'Phrases vocales' : 'Vocal phrases'],
+                        ['hits', 'Hit sync'],
                         ['free', lang === 'fr' ? 'Libre' : 'Free']])}
                     {(settings.music_edit_mode === 'regular' || settings.music_edit_mode === 'legacy') &&
                       select('cut_every', t.cutEvery, t.tip.cutEvery, [['half_beat', t.halfBeat], ['beat', t.beat], ['2_beats', t.twoBeats], ['bar', t.bar], ['2_bars', t.twoBars], ['4_bars', t.fourBars]])}

@@ -2,6 +2,7 @@
 
 ## Current beta
 
+- Hit sync, a fourth editing rhythm of the Music tab and the options: cuts on the kicks, the bass, the snares and the voice. Public instance: the status, health and storage routes no longer tell a stranger anything about the host. A Remix shot of a fifth of a second or less is generated on at least 22 frames and cut back to its length.
 - The pictures and music of the app's presets ship with it (`presets/inputs`), so a preset loads its files on any machine, a remote Studio included, and every jury visitor can use them. The source videos of the Remix presets are not shipped: a placeholder shows where to add one, and no generation starts until it is replaced.
 - Remix gets the creative tools of Text and Music. A remix planner (creative or transfer strategy, or casting on) reads the whole source and writes the story line of each shot, who of the pictures replaces whom, the places and the shots to keep as in the source or turn into a title card, without changing the cuts. Also: best of two takes judged against the source shot, visual memory of each person, location images, camera moves for a creative remix, transcription of the source for kinetic lyrics, three Remix treatments (faithful, twist, another story), and a "Keep the original shot" toggle per shot. An older ComfyUI without the Remix Plan node makes the remix without its plan.
 - The storage lock no longer freezes the Studio during an upload check, an import or an export; Clean caches also removes unused uploads and the pictures the Studio cut.
