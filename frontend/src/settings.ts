@@ -16,6 +16,7 @@ export const DEFAULTS: Settings = {
   effects: false, text: false, sound_design: false, sound_effects: false, sub_cuts: false, music_sync: true, retry_bad_takes: true, flex: false, best_of_two: false, kinetic_lyrics: false,
   dialogue: '', places: true, casting: false, camera: '', motion_layers: '[]', subject_mask: false, redraw_text: false, pose_only: false, quality_check: false, review_plan: false, music_start: -1,
   style: 'none', cut_density: 'auto', transition_intensity: 'auto', cut_every: '2_beats', text_allowed: '',
+  video_model: 'minimax_h3', api_resolution: '720p', api_budget_seconds: 120, api_budget_usd: 0,
   music_edit_mode: 'adaptive', music_cut_variation: 1, music_cut_sync: 1,
 }
 
@@ -35,6 +36,6 @@ export const QUICK: Record<'light' | 'balanced' | 'full', Partial<Record<Option,
 }
 
 /** Every setting that the Options section holds: the ones it puts back to their default. */
-export const OPTION_KEYS = ['music_volume', 'motion_design', 'motion_direction', 'motion_title', 'motion_cues', 'efficient_sources', 'reference_style', 'sfx_library', 'effects', 'text', 'sub_cuts', 'subject_mask', 'redraw_text', 'pose_only', 'places', 'casting', 'camera', 'sound_design', 'sound_effects', 'music_sync', 'bpm', 'mood', 'music_start', 'seed', 'motion_layers', 'retry_bad_takes', 'flex', 'best_of_two', 'kinetic_lyrics', 'quality_check', 'style', 'cut_density', 'transition_intensity', 'cut_every', 'text_allowed', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] as const
+export const OPTION_KEYS = ['video_model', 'api_resolution', 'api_budget_seconds', 'api_budget_usd', 'music_volume', 'motion_design', 'motion_direction', 'motion_title', 'motion_cues', 'efficient_sources', 'reference_style', 'sfx_library', 'effects', 'text', 'sub_cuts', 'subject_mask', 'redraw_text', 'pose_only', 'places', 'casting', 'camera', 'sound_design', 'sound_effects', 'music_sync', 'bpm', 'mood', 'music_start', 'seed', 'motion_layers', 'retry_bad_takes', 'flex', 'best_of_two', 'kinetic_lyrics', 'quality_check', 'style', 'cut_density', 'transition_intensity', 'cut_every', 'text_allowed', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] as const
 
 export const optionDefaults = (): Partial<Settings> => Object.fromEntries(OPTION_KEYS.map(key => [key, DEFAULTS[key]]))

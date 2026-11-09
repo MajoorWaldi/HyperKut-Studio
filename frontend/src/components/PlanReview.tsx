@@ -69,6 +69,12 @@ export function PlanReview({ job, hidden = false, busy, onApprove, onRefuse, onC
             })}
           </div>
         </div>
+        {job.api_cost && (
+          <div className={`plan-cost ${job.api_cost.over_budget ? 'over' : ''}`} role="note">
+            <b>{fr ? 'Coût API' : 'API cost'}</b> {job.api_cost.text}
+            {job.api_cost.over_budget && <strong>{fr ? ' Valider lance la génération sans ce plafond.' : ' Approving runs the generation without this cap.'}</strong>}
+          </div>
+        )}
         {shot && (
           <div className="plan-shot">
             <div className="plan-facts">

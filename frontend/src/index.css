@@ -900,6 +900,11 @@ html[data-w~="sm"] .transport-seek { min-width: 80px; }
 .plan-cut { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--soft); }
 .plan-shot { display: grid; gap: 6px; }
 .plan-facts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.plan-cost { padding: 8px 10px; border: 1px solid var(--soft-line); border-radius: 9px; background: var(--soft-bg); font-size: 12px; line-height: 1.4; }
+.plan-cost.over { border-color: var(--lime); }
+.plan-cost.over strong { color: var(--lime); font-weight: 600; }
+.video-model { display: grid; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.video-model-note { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .plan-chip { padding: 2px 8px; border: 1px solid var(--soft-line); border-radius: 8px; background: var(--soft-bg); color: var(--soft); font-size: 11px; }
 .plan-chip.text { border-color: var(--lime); color: var(--text); }
 .plan-shot textarea { width: 100%; min-height: 100px; resize: vertical; padding: 9px 10px; color: var(--text); background: #1a1520; border: 1px solid #4a3f55; border-radius: 9px; font-size: 12px; line-height: 1.45; outline: 0; transition: border-color .15s; }

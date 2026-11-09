@@ -428,6 +428,12 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
     preview_lock = asyncio.Lock()
 
+    @app.get('/api/video-models')
+    async def video_models_catalog():
+        """The video models of the pack (H3 here, API models that are paid per take): what the interface offers for Text and Music."""
+        from .api_cost import describe_models
+        return {'models': describe_models()}
+
     @app.get('/api/art-direction')
     async def art_direction_catalog():
         return {'fields': catalog()}

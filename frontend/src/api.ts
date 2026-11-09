@@ -1,4 +1,4 @@
-import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload } from './types'
+import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload, VideoModel } from './types'
 
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -40,6 +40,8 @@ export async function createJob(mode: Mode, settings: Settings, inputs: Inputs):
 export const jobInputs = (id: string) => fetch(`/api/jobs/${id}/inputs`).then(json<JobInputs>)
 
 export const recentJobs = () => fetch('/api/jobs').then(json<JobState[]>)
+
+export const videoModels = () => fetch('/api/video-models').then(json<{ models: VideoModel[] }>).then(body => body.models)
 
 export const presets = () => fetch('/api/presets').then(json<Preset[]>)
 

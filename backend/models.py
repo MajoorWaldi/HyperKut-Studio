@@ -77,6 +77,18 @@ class Settings(BaseModel):
     efficient_sources: bool = False
     reference_style: Literal['camera','montage'] = 'camera'
     sfx_library: str = ''
+    video_model: str = 'minimax_h3'  # the model that makes the shots (Text and Music): H3 here, or an API model of the generators folder of the pack (paid per take)
+    api_resolution: Literal['480p', '720p', '1080p'] = '720p'  # what an API model is asked for: a higher one costs more
+    api_budget_seconds: int = Field(120, ge=0, le=36000)  # the most seconds of video one run may ask from an API model, retries included; 0: no limit
+    api_budget_usd: float = Field(0.0, ge=0, le=100000)  # the same in dollars, from the price badges of the API nodes; 0: no limit
+
+    @field_validator('video_model')
+    @classmethod
+    def check_video_model(cls, value):
+        from .api_cost import video_models
+        if value not in video_models():
+            raise ValueError(f'Unknown video model {value!r}. Available: {list(video_models())}')
+        return value
 
 
 class JobRequest(BaseModel):
@@ -154,6 +166,7 @@ class JobState(BaseModel):
     pinned: bool = False
     operation: int = 0
     generation_budget: dict[str, float] = {}
+    api_cost: dict | None = None  # what the plan costs with an API video model (see api_cost.py): the estimate, and whether the user approved it
     energy: dict | None = None
     warnings: list[str] = []
     manual_export: dict | None = None

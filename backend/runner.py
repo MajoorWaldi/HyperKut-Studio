@@ -176,6 +176,10 @@ class ComfyRunner:
                               'Honor any musical genre requested in the brief; do not impose a default genre. '
                               + ('Video brief: ' + context if context else 'Use the source video mood and pacing.'))
         values['fork_project_id'] = f'p_{job.id}'
+        cost = job.state.api_cost or {}
+        approved = bool(cost.get('approved'))  # a plan approved with its cost on the screen runs without the cap
+        values.update(video_model=s.video_model, api_resolution=s.api_resolution, api_ratio=s.ratio, api_budget_seconds=0 if approved else s.api_budget_seconds,
+                      api_budget_usd=0.0 if approved else s.api_budget_usd)
         directions=[f'Requested edit duration: {s.duration:g} seconds. Adapt the creative scope to this duration; do not invent exact musical timestamps.']
         if r.mode in ('text','music'):
             directions.append(creative_direction(s))
@@ -799,7 +803,12 @@ class ComfyRunner:
                 seconds = sum(frames)/24
                 retry = (job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes) or job.request.settings.best_of_two
                 job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
-                if job.request.settings.review_plan:
+                from .api_cost import plan_cost, shot_frames_of
+                cost = plan_cost(job.request, shot_frames_of(shots), await self._schemas())
+                if cost and (job.state.api_cost or {}).get('approved'):
+                    cost['approved'] = True  # the plan is made again (its project was lost): the estimate that was approved stays approved
+                job.update(api_cost=cost)
+                if job.request.settings.review_plan or (cost and cost['over_budget'] and not cost['approved']):  # a plan that goes over the budget of the API model waits for approval, whatever the setting
                     job.update(status='review', stage='analyze')
                     return
             remaining = [shot for shot in shots if not shot.done]
@@ -923,6 +932,8 @@ class ComfyRunner:
         for shot, text in changed.items():
             self._set_prompt(job.state.project_id, shot, text)
         job.update(shots=[s.model_copy(update={'prompt': changed[s.id]}) if s.id in changed else s for s in job.state.shots])
+        if job.state.api_cost:
+            job.update(api_cost={**job.state.api_cost, 'approved': True})  # the user saw the estimate before pressing Generate
 
     def _restore_prompt(self, project_id: str, shot_id: str, text: str, previous) -> None:
         with SharedProjectRepository(self.projects()).edit(project_id) as manifest:
@@ -941,6 +952,8 @@ class MockRunner:
         if unknown := [shot for shot in prompts if shot not in {s.id for s in job.state.shots}]:
             raise ValueError(f'Unknown shots: {unknown}')
         job.update(shots=[s.model_copy(update={'prompt': prompts[s.id]}) if s.id in prompts else s for s in job.state.shots])
+        if job.state.api_cost:
+            job.update(api_cost={**job.state.api_cost, 'approved': True})
 
     async def run(self, job: Job) -> None:
         try:
@@ -954,7 +967,10 @@ class MockRunner:
             length = job.request.settings.duration / self.count
             shots = [Shot(id=f"SHOT_{i + 1:03d}", start=i * length, duration=length, prompt=f"Shot {i + 1}") for i in range(self.count)]
             job.update(shots=shots, generation_budget={'seconds': round(job.request.settings.duration, 2), 'with_retries': round(job.request.settings.duration, 2), 'final_seconds': round(job.request.settings.duration, 2)})
-            if job.request.settings.review_plan:
+            from .api_cost import plan_cost, shot_frames_of
+            cost = plan_cost(job.request, shot_frames_of(shots), {})  # the same estimate as the real runner (without the price badges of a ComfyUI)
+            job.update(api_cost=cost)
+            if job.request.settings.review_plan or (cost and cost['over_budget']):
                 job.update(status='review')
                 return
             await self._generate(job)

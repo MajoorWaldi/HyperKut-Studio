@@ -23,6 +23,9 @@
     ref_video: ['REF', 'file'], voice: ['VOICE ·', 'audio'],
     ratio: ['FORMAT AND QUALITY', 'aspect_ratio'], megapixels_creative: ['FORMAT AND QUALITY', 'megapixels'], megapixels: ['QUALITY (megapixels', 'value'],
     source: ['VIDEO TO REMIX', 'file'], music: ['YOUR MUSIC', 'audio'],
+    // the video model of Text and Music: the Generator Select of the graph, and the API branch of every shot block (its own aspect ratio and resolution)
+    video_model: ['VIDEO MODEL', 'generator'], api_budget_seconds: ['VIDEO MODEL', 'max_api_seconds'], api_budget_usd: ['VIDEO MODEL', 'max_api_usd'],
+    api_resolution: ['API ·', 'resolution'], api_ratio: ['API ·', 'aspect_ratio'],
     ref1: ['REF 1', 'image'], ref2: ['REF 2', 'image'], ref3: ['REF 3', 'image'], ref4: ['REF 4', 'image'], ref5: ['REF 5', 'image'],
   }
 

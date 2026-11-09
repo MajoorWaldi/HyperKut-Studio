@@ -88,6 +88,16 @@ def prepare_candidate(project, manifest, shot_id, request):
             'prompt': request.prompt, 'seed': request.seed, 'error': None, 'revision_id': None}
 
 
+def _h3_side(graph, link):
+    """The H3 side of a take: its Create Video reads the model that is chosen through lazy switches (Generator Is), and an AI candidate is an H3 chain whatever the model of the project."""
+    while isinstance(link, list) and graph[str(link[0])]['class_type'] == 'ComfySwitchNode':
+        switch = graph[str(link[0])]['inputs'].get('switch')
+        if not (isinstance(switch, list) and graph[str(switch[0])]['class_type'] == 'MajoorGeneratorIs'):
+            break
+        link = graph[str(link[0])]['inputs']['on_true']
+    return link
+
+
 def candidate_template(template, candidate, reference_count):
     """Keep only one configured H3 chain; no planner, plate, judge or Apply node."""
     graph = copy.deepcopy(template.prompt)
@@ -98,6 +108,11 @@ def candidate_template(template, candidate, reference_count):
     if not videos:
         raise TemplateError('The configured template has no H3 video output')
     video_id, video = videos[0]
+    for field in ('images', 'audio'):
+        if isinstance(video['inputs'].get(field), list):
+            video['inputs'][field] = _h3_side(graph, video['inputs'][field])
+    if isinstance(video['inputs'].get('fps'), list):
+        video['inputs']['fps'] = 24.0  # the H3 side runs at 24 fps
     decode = graph[str(video['inputs']['images'][0])]
     sampler_id = str(decode['inputs']['samples'][0])
     sampler = graph[sampler_id]

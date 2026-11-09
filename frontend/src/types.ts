@@ -48,6 +48,10 @@ export interface Settings {
   pose_only: boolean
   quality_check: boolean
   review_plan: boolean
+  video_model: string  // 'minimax_h3' runs here; an API model of the generators folder of the pack is paid per take (Text and Music)
+  api_resolution: '480p' | '720p' | '1080p'
+  api_budget_seconds: number  // the most seconds of video one run may ask from an API model, retries included; 0: no limit
+  api_budget_usd: number  // the same in dollars (the price badges of the API nodes); 0: no limit
   music_energy?: 'peak' | 'calm' | 'balanced' | 'intense'
   music_start: number
   style: string
@@ -87,10 +91,14 @@ export interface JobState {
   pinned: boolean
   operation?: number
   generation_budget?: { seconds: number; with_retries: number; final_seconds: number }
+  api_cost?: ApiCost | null
   energy?: EnergyReport | null
   warnings?: string[]
   manual_export?: { duration: number; clips: number; etag: string } | null
 }
+
+export interface ApiCost { generator: string; title: string; seconds: number; usd_low: number | null; usd_high: number | null; budget_seconds: number; budget_usd: number; over_budget: boolean; stops_at: number | null; text: string; approved: boolean }
+export interface VideoModel { id: string; title: string; source: 'local' | 'api' }
 
 export interface EnergyReport { status: string; reference: Record<string,number> | null; result: Record<string,number> | null; ratios: Record<string,number|null>; audio?: {true_peak_dbtp?: number|null;within_ceiling?: boolean;silent?: boolean;status?:string} }
 export interface ReviewReport { frames: {seconds:number;url:string}[]; energy?: EnergyReport | null; warnings?:string[]; checks:Record<string,string> }
