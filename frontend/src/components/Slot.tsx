@@ -3,6 +3,12 @@ import type { Upload } from '../types'
 import { Icon, type IconName } from './Icon'
 import { useI18n } from '../i18n'
 
+/** Whether a dropped file is of the kind this slot takes (`video/*`, `image/*`, `audio/*`, extensions, exact types). */
+export function accepts(accept: string, file: { name: string; type: string }): boolean {
+  return accept.split(',').map(part => part.trim().toLowerCase()).filter(Boolean).some(part =>
+    part.startsWith('.') ? file.name.toLowerCase().endsWith(part) : part.endsWith('/*') ? file.type.toLowerCase().startsWith(part.slice(0, -1)) : file.type.toLowerCase() === part)
+}
+
 export type SlotIcon = 'video' | 'person' | 'music' | 'voice' | 'plus'
 
 /** The audio being previewed: a second preview stops the first. */
@@ -28,6 +34,14 @@ interface Props {
 export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, compact, busy, onFile, onClear }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const { t } = useI18n()
+  const [over, setOver] = useState(false)
+  const drop = (event: React.DragEvent) => {
+    event.preventDefault()
+    setOver(false)
+    if (busy) return
+    const file = Array.from(event.dataTransfer.files).find(candidate => accepts(accept, candidate))
+    if (file) onFile(file)
+  }
   const [wave, setWave] = useState<{ id: string; peaks?: number[]; error?: boolean } | null>(null)
   const audioId = value?.kind === 'audio' ? value.id : null
   useEffect(() => {
@@ -71,7 +85,8 @@ export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, comp
   const peaks = wave?.id === audioId ? wave.peaks : undefined
   const waveError = wave?.id === audioId && wave.error
   return (
-    <div className="slot-wrap">
+    <div className={`slot-wrap ${over ? 'drag-over' : ''}`} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setOver(true) } }}
+      onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false) }} onDrop={drop}>
       <button type="button" className={`upload ${compact ? 'compact' : ''}`} onClick={() => input.current?.click()} aria-label={label || tip} title={tip} disabled={busy}>
         {value?.kind === 'image' && <img src={value.url} alt={value.name} />}
         {value?.kind === 'video' && <video src={value.url} muted preload="metadata" />}

@@ -621,8 +621,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if root and root.is_dir():
             found += [path for path in (root / 'hyperframes').iterdir() if path.is_dir()] if (root / 'hyperframes').is_dir() else []
             for project in root.glob('p_*'):
-                cache = project / 'cache'
-                found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline', 'memory')] + list(cache.glob('sfx_*.wav'))
+                for cache in (project / '.cache', project / 'cache'):  # the hidden folder, and the visible one of a project made before
+                    found += [cache / name for name in ('clips', 'text', 'render_sources', 'timeline', 'memory')] + list(cache.glob('sfx_*.wav'))
         return [path for path in found if path.is_dir() and not path.is_symlink() or path.is_file()]
 
     def unused_uploads(keep: set[str]) -> list[str]:
