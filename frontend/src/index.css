@@ -52,6 +52,7 @@ input[type=range] { accent-color: var(--soft); cursor: pointer; }
 .upload-wave { width: calc(100% - 32px); height: 34px; margin: 6px 16px 21px; color: var(--lime); }
 .upload { border: 1px dashed #776780; background: #292230; border-radius: 11px; min-height: 88px; width: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; color: #d6ccd9; position: relative; overflow: hidden; }
 .upload:hover:not(:disabled) { border-color: var(--lime); background: #32293a; }
+.slot-wrap.drag-over .upload { border-color: var(--lime); border-style: solid; background: #3a2f44; }
 .upload.compact { min-height: 66px; border-radius: 8px; }
 .upload strong { font-size: 12px; }
 .upload small { font-size: 10px; color: var(--muted); }

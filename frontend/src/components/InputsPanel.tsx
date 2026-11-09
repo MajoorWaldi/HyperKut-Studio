@@ -65,8 +65,8 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
       </details>
       <section className="section">
         <h3 className="section-head">{t.stepPrompt}</h3>
-        <textarea className="prompt" title={t.tip.prompt} maxLength={1000} value={settings.prompt} placeholder={mode === 'remix' ? t.promptRemix : t.promptPlaceholder} onChange={e => onSettings({ prompt: e.target.value })} disabled={busy} />
-        <p className="tiny-label">{settings.prompt.length} / 1000</p>
+        <textarea className="prompt" title={t.tip.prompt} maxLength={8000} value={settings.prompt} placeholder={mode === 'remix' ? t.promptRemix : t.promptPlaceholder} onChange={e => onSettings({ prompt: e.target.value })} disabled={busy} />
+        <p className="tiny-label">{settings.prompt.length} / 8000</p>
       </section>
       <ArtDirection mode={mode} inputs={inputs} settings={settings} busy={busy} onSettings={onSettings} onPreparing={onPreparing} />
       {mode === 'music' && (
