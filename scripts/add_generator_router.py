@@ -6,7 +6,7 @@ again, so nothing they hold is lost. What is added, as in scripts/add_generator_
   shot             per take (the first and the retry): a Generate Shot (API) node beside the H3 nodes, and three lazy switches (images, audio, fps) that give the Create Video
                    of the take the H3 output or the API one, so only the model that is chosen runs and is paid for; the prompt writer of the shot reads the model;
   slots.json       video_model, api_budget_seconds, api_budget_usd (stage1 and shot), api_resolution, api_ratio (shot), and the seeds of the API takes.
-Remix keeps H3 only. Run it from the root of the Studio:
+Remix gets the router in edit mode: the Generate Shot nodes change the source shot (Seedance 2.5), the pictures say who replaces whom. Run it from the root of the Studio:
 
     python scripts/add_generator_router.py
 
@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MODES = ("text", "music")
+MODES = ("text", "music", "remix")
 H3 = "MiniMaxH3ReferenceToVideo"
 GS, IS, FPS = "GS", "GIS", "H3FPS"
 IMAGES = 9
@@ -39,7 +39,16 @@ def select() -> dict:
     return node("MajoorGeneratorSelect", "VIDEO MODEL (H3 local, or an API model)", generator="minimax_h3", max_api_seconds=120, max_api_usd=0.0)
 
 
-def patch_shot(shot: dict, slots: dict, rng: random.Random) -> None:
+def source_video_of(shot: dict, prefix: str):
+    """The link to the video of the shot (Select Shot) that the H3 sub-graph of a take reads for its pose map."""
+    for node_id, n in shot.items():
+        video = n["inputs"].get("video")
+        if node_id.startswith(prefix + ":") and isinstance(video, list) and shot[str(video[0])]["class_type"] == "MajoorSelectShot":
+            return video
+    raise SystemExit(f"no source video for {prefix}")
+
+
+def patch_shot(shot: dict, slots: dict, rng: random.Random, remix: bool = False) -> None:
     h3s = sorted((i for i, n in shot.items() if n["class_type"] == H3), key=lambda i: (len(i), i))
     if len(h3s) != 2:
         raise SystemExit(f"expected two H3 nodes (the take and the retry), found {h3s}")
@@ -51,14 +60,19 @@ def patch_shot(shot: dict, slots: dict, rng: random.Random) -> None:
         prefix = h3_id.rsplit(":", 1)[0]  # the sub-graph instance of the take: 109 for the first, 127 for the retry
         h3 = shot[h3_id]["inputs"]
         take = next(n for n in shot.values() if n["class_type"] == "CreateVideo" and isinstance(n["inputs"].get("images"), list) and str(n["inputs"]["images"][0]).startswith(prefix + ":"))
-        wiring = {"generator": [GS, 0], "prompt": shot[f"{prefix}:165"]["inputs"]["value"], "seconds": shot[f"{prefix}:160"]["inputs"]["value"],
+        prompt_node = next(n for i, n in shot.items() if i.startswith(prefix + ":") and n["class_type"] == "PrimitiveStringMultiline")  # Input Text (Prompt)
+        seconds_node = next(n for i, n in shot.items() if i.startswith(prefix + ":") and n["class_type"] == "PrimitiveFloat" and n.get("_meta", {}).get("title", "").startswith("Float (Duration)"))
+        wiring = {"generator": [GS, 0], "prompt": prompt_node["inputs"]["value"], "seconds": seconds_node["inputs"]["value"],
                   "aspect_ratio": "9:16", "resolution": "720p", "generate_audio": True, "seed": rng.randrange(1, 2**31), "reference_fps": 24.0}
+        if remix:  # the video that is changed is the shot of the source
+            wiring["task"] = "edit"
+            wiring["source_video"] = source_video_of(shot, prefix)
         for i in range(IMAGES):
             if h3.get(f"ref_images.ref_image_{i}") is not None:
                 wiring[f"image_{i + 1}"] = h3[f"ref_images.ref_image_{i}"]
         if isinstance(wiring["prompt"], str):
             raise SystemExit("the prompt of the take is not wired")
-        for mine, theirs in (("reference_frames", "ref_videos.ref_video_0"), ("reference_audio", "ref_audios.ref_audio_0")):
+        for mine, theirs in (() if remix else (("reference_frames", "ref_videos.ref_video_0"), ("reference_audio", "ref_audios.ref_audio_0"))):
             if h3.get(theirs) is not None:
                 wiring[mine] = h3[theirs]
         api_id = f"AG{k}"
@@ -71,7 +85,7 @@ def patch_shot(shot: dict, slots: dict, rng: random.Random) -> None:
             shot[sid] = node("ComfySwitchNode", f"{label.split(' · ')[1].upper()} · {name}", switch=[IS, 0], on_false=[api_id, slot], on_true=h3_side)
             take["inputs"][field] = [sid, 0]
     for n in shot.values():  # the prompt writer of the shot follows the model
-        if n["class_type"] == "MajoorEditSkills" and n["inputs"].get("skill") == "h3_shot_prompt_from_plan":
+        if n["class_type"] == "MajoorEditSkills" and n["inputs"].get("skill") in ("h3_shot_prompt_from_plan", "remix_shot_prompt"):
             n["inputs"]["generator"] = [GS, 0]
     s = slots["shot"]
     s["video_model"], s["api_budget_seconds"], s["api_budget_usd"] = [[GS, "generator"]], [[GS, "max_api_seconds"]], [[GS, "max_api_usd"]]
@@ -97,9 +111,10 @@ def patch(mode: str) -> bool:
     shot, stage1, slots = load(folder / "shot.api.json"), load(folder / "stage1.api.json"), load(folder / "slots.json")
     if any(n["class_type"] == "MajoorGenerateShot" for n in shot.values()):
         return False
-    patch_shot(shot, slots, random.Random(7))
-    patch_stage1(stage1, slots)
-    for name, data in (("shot.api.json", shot), ("stage1.api.json", stage1), ("slots.json", slots)):
+    patch_shot(shot, slots, random.Random(7), remix=mode == "remix")
+    if mode != "remix":  # a remix has no plan to make for a model: its shots are cut from the source
+        patch_stage1(stage1, slots)
+    for name, data in (("shot.api.json", shot), *((("stage1.api.json", stage1),) if mode != "remix" else ()), ("slots.json", slots)):
         save(folder / name, data)
     return True
 

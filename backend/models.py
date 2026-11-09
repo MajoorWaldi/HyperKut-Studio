@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from .direction import validate_direction
 
 Mode = Literal["remix", "text", "music"]
@@ -94,6 +94,14 @@ class Settings(BaseModel):
 class JobRequest(BaseModel):
     mode: Mode
     settings: Settings = Settings()
+
+    @model_validator(mode='after')
+    def check_remix_model(self):
+        from .api_cost import can_remix
+        if self.mode == 'remix' and not can_remix(self.settings.video_model):
+            raise ValueError(f'The video model {self.settings.video_model!r} cannot replace the subject of a source video: a Remix uses H3 or Seedance 2.5')
+        return self
+
     source: str | None = None  # id of an upload
     refs: list[str] = Field(default_factory=list, max_length=5)
     ref_video: str | None = None

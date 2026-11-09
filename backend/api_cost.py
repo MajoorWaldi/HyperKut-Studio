@@ -36,14 +36,22 @@ def is_api(model: str) -> bool:
         return model != LOCAL_MODEL
 
 
-def describe_models() -> list[dict]:
-    """For the interface: id, title, local or API."""
+def can_remix(model: str) -> bool:
+    """Can the model replace the subject of a source video? H3 does with its pose map, Seedance in edit mode."""
+    try:
+        return bool(_module('generators').load_generator(model).remix)
+    except Exception:
+        return model in ('minimax_h3', 'seedance_2_5')
+
+
+def describe_models(mode: str | None = None) -> list[dict]:
+    """For the interface: id, title, local or API. A Remix is offered only the models that can edit a source video."""
     try:
         generators = _module('generators')
-        rows = [{'id': g, 'title': generators.load_generator(g).title, 'source': generators.load_generator(g).source} for g in video_models()]
+        rows = [{'id': g, 'title': generators.load_generator(g).title, 'source': generators.load_generator(g).source} for g in video_models() if mode != 'remix' or can_remix(g)]
         return sorted(rows, key=lambda row: (row['source'] != 'local', row['title']))  # the model that runs here first
     except Exception:
-        return [{'id': g, 'title': g, 'source': 'local' if g == LOCAL_MODEL else 'api'} for g in video_models()]
+        return [{'id': g, 'title': g, 'source': 'local' if g == LOCAL_MODEL else 'api'} for g in video_models() if mode != 'remix' or can_remix(g)]
 
 
 def plan_cost(request, shot_frames: list[int], schemas: dict, fps: float = 24.0) -> dict | None:
@@ -52,9 +60,10 @@ def plan_cost(request, shot_frames: list[int], schemas: dict, fps: float = 24.0)
     if not is_api(s.video_model) or not shot_frames:
         return None
     guard = _module('cost_guard')
+    remix = request.mode == 'remix'  # a remix changes the source shot: one video, the pictures, no audio reference
     settings = guard.Settings(
-        aspect=s.ratio, resolution=s.api_resolution, audio=True,
-        images=min(len(request.refs), 5) + (1 if s.places else 0), videos=1 if request.ref_video else 0, audios=1 if (s.music_sync or s.audio == 'voice') else 0)
+        aspect=s.ratio, resolution=s.api_resolution, audio=True, images=min(len(request.refs), 5) + (1 if s.places else 0),
+        videos=1 if (remix or request.ref_video) else 0, audios=0 if remix else (1 if (s.music_sync or s.audio == 'voice') else 0), task='edit' if remix else 'reference')
     found = guard.estimate(s.video_model, shot_frames, fps, s.api_budget_seconds, s.api_budget_usd, settings,
                            badges=lambda class_type: (schemas.get(class_type) or {}).get('price_badge'))
     return {'generator': found.generator, 'title': found.title, 'seconds': round(found.seconds, 2), 'usd_low': None if found.price is None else round(found.price.low, 2),

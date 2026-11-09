@@ -142,3 +142,37 @@ async def test_the_real_runner_stops_after_the_plan_when_the_api_cost_is_over_th
     job.update(status='running')
     await runner.run(job)
     assert job.state.status == 'succeeded', job.state.error and job.state.api_cost['approved']
+
+
+def test_a_remix_is_offered_only_the_models_that_can_edit_a_source_video():
+    assert {m['id'] for m in api_cost.describe_models('remix')} == {'minimax_h3', 'seedance_2_5'}
+    assert {'wan_3_0', 'ltx_2_5_pro'} <= {m['id'] for m in api_cost.describe_models()}  # Text and Music have them all
+    assert api_cost.can_remix('seedance_2_5') and not api_cost.can_remix('wan_3_0')
+
+
+def test_a_remix_request_with_a_model_that_cannot_edit_is_refused():
+    assert JobRequest(mode='remix', settings={'prompt': 'x', 'video_model': 'seedance_2_5'}).settings.video_model == 'seedance_2_5'
+    for model in ('wan_3_0', 'ltx_2_5_fast'):
+        with pytest.raises(ValueError, match='cannot replace the subject'):
+            JobRequest(mode='remix', settings={'prompt': 'x', 'video_model': model})
+    assert JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'wan_3_0'}).settings.video_model == 'wan_3_0'  # a creation can use them
+
+
+def test_the_remix_template_has_the_choice_and_edits_the_source_shot(tmp_path):
+    templates = load_templates(ROOT / 'workflows', 'remix')
+    assert {'video_model', 'api_budget_seconds', 'api_budget_usd', 'api_resolution'} <= set(templates['shot'].slots)
+    assert 'video_model' not in templates['stage1'].slots  # nothing to plan for a model: the shots are cut from the source
+    shot = templates['shot'].prompt
+    takes = [n['inputs'] for n in shot.values() if n['class_type'] == 'MajoorGenerateShot']
+    assert len(takes) == 2 and all(t['task'] == 'edit' and shot[str(t['source_video'][0])]['class_type'] == 'MajoorSelectShot' for t in takes)
+    assert not any('reference_frames' in t for t in takes)
+    writer = next(n for n in shot.values() if n['class_type'] == 'MajoorEditSkills' and n['inputs'].get('skill') == 'remix_shot_prompt')
+    assert writer['inputs']['generator'] == ['GS', 0]
+    for take in (n for n in shot.values() if n['class_type'] == 'CreateVideo'):
+        assert all(shot[str(take['inputs'][f][0])]['inputs']['switch'] == ['GIS', 0] for f in ('images', 'audio', 'fps'))
+
+
+def test_the_cost_of_a_remix_is_the_cost_of_editing_the_source():
+    request = JobRequest(mode='remix', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 10})
+    cost = api_cost.plan_cost(request, [72, 130, 48], {})
+    assert cost['generator'] == 'seedance_2_5' and cost['over_budget'] and cost['stops_at'] == 3

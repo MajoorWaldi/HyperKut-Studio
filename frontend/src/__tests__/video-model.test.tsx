@@ -4,7 +4,7 @@ import * as api from '../api'
 import { PlanReview } from '../components/PlanReview'
 import { VideoModel } from '../components/VideoModel'
 import { DEFAULTS } from '../settings'
-import type { ApiCost, JobState, Settings } from '../types'
+import type { ApiCost, JobState, Mode, Settings } from '../types'
 
 vi.mock('../api')
 const MODELS = [
@@ -18,8 +18,8 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-const view = (settings: Partial<Settings> = {}, onSettings = vi.fn()) => {
-  render(<VideoModel settings={{ ...DEFAULTS, ...settings }} busy={false} onSettings={onSettings} />)
+const view = (settings: Partial<Settings> = {}, onSettings = vi.fn(), mode: Mode = 'text') => {
+  render(<VideoModel mode={mode} settings={{ ...DEFAULTS, ...settings }} busy={false} onSettings={onSettings} />)
   return onSettings
 }
 
@@ -85,4 +85,19 @@ test('a plan over the budget says that approving lifts the cap', () => {
 test('a plan made here shows no cost', () => {
   review(null)
   expect(screen.queryByRole('note')).toBeNull()
+})
+
+test('a remix asks for the models that can edit a source video, and says what an edit does', async () => {
+  vi.mocked(api.videoModels).mockClear()
+  view({ video_model: 'seedance_2_5' }, vi.fn(), 'remix')
+  await screen.findByRole('combobox', { name: /Video model/ })
+  expect(api.videoModels).toHaveBeenCalledWith('remix')
+  expect(screen.getByText(/Seedance edits the shot of the source video/)).toBeTruthy()
+})
+
+test('Text and Music ask for the whole list', async () => {
+  vi.mocked(api.videoModels).mockClear()
+  view({}, vi.fn(), 'music')
+  await screen.findByRole('combobox', { name: /Video model/ })
+  expect(api.videoModels).toHaveBeenCalledWith('music')
 })

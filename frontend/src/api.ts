@@ -41,7 +41,7 @@ export const jobInputs = (id: string) => fetch(`/api/jobs/${id}/inputs`).then(js
 
 export const recentJobs = () => fetch('/api/jobs').then(json<JobState[]>)
 
-export const videoModels = () => fetch('/api/video-models').then(json<{ models: VideoModel[] }>).then(body => body.models)
+export const videoModels = (mode?: Mode) => fetch(`/api/video-models${mode ? `?mode=${mode}` : ''}`).then(json<{ models: VideoModel[] }>).then(body => body.models)
 
 export const presets = () => fetch('/api/presets').then(json<Preset[]>)
 
