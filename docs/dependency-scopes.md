@@ -24,7 +24,7 @@ Optional, in ComfyUI's Python and not in the Studio's: `faster-whisper` with the
 |---|---|---|
 | `faster-whisper` and the `large-v3` folder | The words of a voice or a song. | No words: the prompts have no lyrics, the cuts do not follow phrases, no kinetic lyrics. The edit goes on. |
 | Pika H3 Flex LoRA | The Flex option (six steps). | The turbo LoRA is used; the user is told when the option was on. |
-| FLUX files (`flux-2-klein-4b-fp8`, `qwen_3_4b`, `flux2-vae`) | Images of the places of the shots. | The shots are made without them; the user is told when the option was on. |
+| MiniMax H3 Image files (`minimax_h3_image_pruned_int8_convrot`, `minimax_h3_image_vae_fp16`; the text encoder is the one of H3) | Images of the places of the shots. | The shots are made without them; the user is told when the option was on. |
 | YuE2 music model | Music generated for a Text edit. | The edit is cut on a steady grid and has no generated music; the user is told. Music mode (your own track) never needs it. |
 | `comfyui_controlnet_aux`, DWPose and YOLOX files, the H3 pose patch, the Marigold node | Pose control. | Not needed by Text and Music shots: they are made without it. Only a Remix that asks for pose only needs them. |
 | HyperFrames (Node.js 22+, a browser) | Text, graphics, kinetic lyrics, effects. | The video is kept as assembled, with a warning. |

@@ -9,7 +9,7 @@ import { Icon } from './Icon'
 import { Slot } from './Slot'
 import { VideoModel } from './VideoModel'
 
-export type SlotName = 'source' | 'refVideo' | 'music' | 'voice' | { ref: number }
+export type SlotName = 'source' | 'refVideo' | 'music' | 'voice' | 'place' | { ref: number }
 
 interface Props {
   mode: Mode
@@ -80,6 +80,13 @@ export function InputsPanel({ mode, inputs, settings, busy, onUpload, onClear, o
         <summary>{t.stepRefVideo}<CountBadge count={inputs.refVideo ? 1 : 0} label={fr ? 'actif(s)' : 'active'} /> <small>{inputs.refVideo?.name ?? t.stepOptional}</small></summary>
         <div className="secondary-settings-body">
           <Slot value={inputs.refVideo} accept="video/*" icon="video" label={t.addVideo} tip={t.tip.refVideo} compact busy={busy} onFile={f => onUpload('refVideo', f)} onRejected={onRejected} onClear={() => onClear('refVideo')} />
+        </div>
+      </details>
+      <details className="secondary-settings" key={`place-${mode}`}>
+        <summary>{t.stepPlace}<CountBadge count={inputs.place ? 1 : 0} label={fr ? 'actif(s)' : 'active'} /> <small>{inputs.place?.name ?? t.stepOptional}</small></summary>
+        <div className="secondary-settings-body">
+          <Slot value={inputs.place ?? null} accept="image/*" icon="globe" label={t.addPlace} tip={t.tip.place} compact busy={busy} onFile={f => onUpload('place', f)} onRejected={onRejected} onClear={() => onClear('place')} />
+          <p className="tiny-label">{t.placeHint}</p>
         </div>
       </details>
       <section className="section">

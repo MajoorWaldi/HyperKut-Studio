@@ -107,6 +107,7 @@ class JobRequest(BaseModel):
     ref_video: str | None = None
     music: str | None = None
     voice: str | None = None
+    place: str | None = None  # a picture of the place: it replaces the generated places in every shot
 
 
 class JobInputs(BaseModel):
@@ -119,6 +120,7 @@ class JobInputs(BaseModel):
     ref_video: Upload | None = None
     music: Upload | None = None
     voice: Upload | None = None
+    place: Upload | None = None
 
 
 class Shot(BaseModel):
@@ -214,6 +216,7 @@ class PresetInputs(BaseModel):
     refVideo: Upload | None = None
     music: Upload | None = None
     voice: Upload | None = None
+    place: Upload | None = None
 
 
 class PresetIn(BaseModel):

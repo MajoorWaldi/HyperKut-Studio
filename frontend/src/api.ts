@@ -42,7 +42,7 @@ export async function createJob(mode: Mode, settings: Settings, inputs: Inputs):
       throw new Error('Restart Studio after current jobs finish to enable the music rhythm modes. No generation has been submitted.')
     }
   }
-  const body = { mode, settings: { ...settings, seed: settings.seed ?? Math.floor(Math.random() * 2 ** 31) }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((r): r is Upload => r !== null).map(r => r.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }
+  const body = { mode, settings: { ...settings, seed: settings.seed ?? Math.floor(Math.random() * 2 ** 31) }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((r): r is Upload => r !== null).map(r => r.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }
   return fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(json<JobState>)
 }
 
@@ -184,16 +184,16 @@ export function follow(id: string, onState: (state: JobState) => void, onLost: (
 export const artDirectionCatalog = () => fetch('/api/art-direction').then(json<{ fields: import('./types').DirectionField[] }>)
 export const approveBrief = (mode: Mode, settings: Settings, inputs: Inputs, brief: string) => fetch('/api/brief-approve', {
   method:'POST', headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({mode,settings:{...settings,seed:settings.seed ?? 42,approved_brief:brief,approved_brief_context:''},source:inputs.source?.id ?? null,refs:inputs.refs.filter((v):v is Upload=>v!==null).map(v=>v.id),ref_video:inputs.refVideo?.id ?? null,music:inputs.music?.id ?? null,voice:inputs.voice?.id ?? null}),
+  body:JSON.stringify({mode,settings:{...settings,seed:settings.seed ?? 42,approved_brief:brief,approved_brief_context:''},source:inputs.source?.id ?? null,refs:inputs.refs.filter((v):v is Upload=>v!==null).map(v=>v.id),ref_video:inputs.refVideo?.id ?? null,music:inputs.music?.id ?? null,voice:inputs.voice?.id ?? null,place:inputs.place?.id ?? null}),
 }).then(json<{context:string}>)
 export const prepareBrief = (mode: Mode, settings: Settings, inputs: Inputs, language = 'en') => fetch(`/api/brief-preview?lang=${language}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
+  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }),
 }).then(json<import('./types').PreparedBrief>)
 
 export const prepareTreatments = (mode: Mode, settings: Settings, inputs: Inputs, language = 'en') => fetch(`/api/brief-treatments?lang=${language}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
+  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }),
 }).then(json<{ treatments: (import('./types').PreparedBrief & { name: string })[] }>)
 
 export const restartStudio = () => fetch('/api/studio/restart', { method: 'POST' }).then(json<{ restarting: boolean; instance_id: string }>)

@@ -32,7 +32,7 @@ function initialZoom(): number {
 }
 const MODE_ICON: Record<Mode, IconName> = { remix: 'sparkles', text: 'type', music: 'music' }
 
-const EMPTY: Inputs = { source: null, refs: [null, null, null, null, null], refVideo: null, music: null, voice: null }
+const EMPTY: Inputs = { source: null, refs: [null, null, null, null, null], refVideo: null, music: null, voice: null, place: null }
 
 export default function App() {
   const [lang, setLangState] = useState<Lang>(initialLang)
@@ -283,7 +283,7 @@ export default function App() {
       const made = await api.jobInputs(id)
       setMode(made.mode)
       setSettings(restoreSettings(made.settings))
-      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice })
+      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice, place: made.place ?? null })
       watch(opened)
     } catch (error) { setActionError((error as Error).message) }
   }
@@ -325,7 +325,7 @@ export default function App() {
       setJob(null)
       setMode(made.mode)
       setSettings(restoreSettings(made.settings))
-      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice })
+      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice, place: made.place ?? null })
       setLibrary(false)
       setMessage(t.duplicated)
     } catch (error) { fail(error) }
@@ -359,14 +359,14 @@ export default function App() {
 
   const cleanCaches = async () => {
     try {
-      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
+      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, inputs.place ?? null, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
       const { freed, in_use, uploads } = await api.cleanCaches(placed)
       setMessage(`${megabytes(freed)} ${t.freed}${uploads ? ` · ${uploads} ${t.uploadsRemoved}` : ''}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
     } catch (error) { fail(error) }
   }
 
   const savePreset = async (name: string, description: string) => {
-    if ((inputs.source || inputs.refs.some(Boolean) || inputs.refVideo || inputs.music || inputs.voice) && !health?.preset_inputs) {
+    if ((inputs.source || inputs.refs.some(Boolean) || inputs.refVideo || inputs.music || inputs.voice || inputs.place) && !health?.preset_inputs) {
       setActionError(lang === 'fr' ? 'Le serveur du Studio doit être redémarré après les générations en cours pour enregistrer les médias des presets.' : 'Restart the Studio server after active generations finish to save preset media.')
       return
     }

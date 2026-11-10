@@ -1,12 +1,12 @@
-// Export the API templates of a mode from its SECATOR graph. Run it in the page of ComfyUI (a console, or any tool that evaluates JavaScript in the page), with the graph in
-// ComfyUI/user/default/workflows/: it defines window.secatorExport(mode) -> { stage1, shot, final, slots }.
+// Export the API templates of a mode from its HyperKut graph (the pack's workflows/HyperKut *.json, called SECATOR before). Run it in the page of ComfyUI (a console, or any tool that evaluates JavaScript in the page), with the graph in
+// ComfyUI/user/default/workflows/: it defines window.hyperkutExport(mode) (window.secatorExport is the same function) -> { stage1, shot, final, slots }.
 // The three prompts of a mode are cut from the graph with graphToPrompt, the way the interface needs them to be run one after the other:
 //   stage1  the plan: everything up to the shot list (Scene Detect for a remix, Create Timeline for a creation), then Save Project Info (the server reads it)
 //   shot    one shot: the block of SHOT_001 up to Apply Shot Metadata, then Save Project Info (it makes ComfyUI run Apply, which registers the take)
 //   final   the edit: everything up to the saved video, but with the shot list read back from the project (Load Shot List) instead of the chain of the shots
 // slots: name -> [[node id, input], ...] where the interface puts a value. A prompt only carries the slots of the nodes it has.
 (() => {
-  const GRAPHS = { remix: 'SECATOR Remix', text: 'SECATOR Creative Text', music: 'SECATOR Creative Music' }
+  const GRAPHS = { remix: 'HyperKut Remix', text: 'HyperKut Creative Text', music: 'HyperKut Creative Music' }
   const PLAN = { remix: 'MajoorSceneDetectSplit', text: 'MajoorCreateTimeline', music: 'MajoorCreateTimeline' }
   // slot name -> [title prefix of the node, its input]
   const CONTROLS = {
@@ -15,7 +15,7 @@
     replace_sound: ['REPLACE THE SOUND', 'value'], voice_on: ['VOICE ON', 'value'], dialogue: ['DIALOGUE', 'value'],
     effects: ['EFFECTS', 'value'], text: ['TEXT (', 'value'], motion_on: ['MOTION GRAPHICS ON', 'value'], motion_layers: ['MOTION GRAPHICS (layers', 'value'], extra_layers: ['EXTRA MOTION GRAPHICS (layers', 'value'],
     sound_design: ['SOUND DESIGN', 'value'], sd_volume: ['SOUND OF THE SHOTS VOLUME', 'value'], sound_effects: ['SOUND EFFECTS', 'value'], music_sync: ['MUSIC SYNC', 'value'], retry_bad: ['RETRY BAD TAKES', 'value'],
-    turbo: ['TURBO', 'value'], plates: ['PLACES', 'value'], camera: ['CAMERA LOOK', 'value'], pose_strength: ['POSE STRENGTH', 'value'], force_pose: ['POSE ONLY', 'value'],
+    turbo: ['TURBO', 'value'], plates: ['PLACES', 'value'], place_on: ['USE THE PLACE IMAGE', 'value'], place_image: ['PLACE IMAGE', 'image'], camera: ['CAMERA LOOK', 'value'], pose_strength: ['POSE STRENGTH', 'value'], force_pose: ['POSE ONLY', 'value'],
     redraw_text: ['REDRAW THE TEXT', 'value'], subject_mask: ['SUBJECT MASK (for', 'value'], mask_n: ['SUBJECT MASK FRAMES', 'value'], quality_check: ['QUALITY CHECK', 'value'],
     reference_fidelity: ['Skill · timeline_planner', 'reference_fidelity'], creative_freedom: ['Skill · timeline_planner', 'creative_freedom'],
     style: ['Skill · timeline_planner', 'profile'], cut_density: ['Skill · timeline_planner', 'cut_density'], transition_intensity: ['Skill · timeline_planner', 'transition_intensity'], narrative_coherence: ['Skill · timeline_planner', 'narrative_coherence'], text_allowed: ['Skill · timeline_planner', 'text_allowed'],
@@ -137,7 +137,7 @@ function upgradeMusicToYuE2(graph, slots) {
     reference.inputs.on_true = ['short_reference_switch', 0]
   }
 
-  window.secatorExport = async mode => {
+  window.hyperkutExport = window.secatorExport = async mode => {
     const wf = await (await fetch('/api/userdata/' + encodeURIComponent(`workflows/${GRAPHS[mode]}.json`))).json()
     await app.loadGraphData(wf)
     await new Promise(r => setTimeout(r, 3000))
@@ -299,7 +299,7 @@ function upgradeMusicToYuE2(graph, slots) {
       slots.stage1.music_context = [['music_story_context', 'string_a']]
     }
     for (const [name, data] of Object.entries(files)) {
-      await fetch('/api/userdata/' + encodeURIComponent(`secator_${mode}_${name}.json`) + '?overwrite=true', { method: 'POST', body: JSON.stringify(data) })
+      await fetch('/api/userdata/' + encodeURIComponent(`hyperkut_${mode}_${name}.json`) + '?overwrite=true', { method: 'POST', body: JSON.stringify(data) })
     }
     return { nodes: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, Object.keys(v).length])), slots: Object.fromEntries(Object.entries(slots).map(([k, v]) => [k, Object.keys(v)])) }
   }

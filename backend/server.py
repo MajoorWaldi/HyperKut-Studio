@@ -102,7 +102,7 @@ def seed_preset_inputs(presets: Path, uploads: dict[str, Path], names: dict) -> 
             saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
         except (OSError, ValueError, AttributeError):
             continue
-        items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+        items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice', 'place')] + list(saved.get('refs') or [])
         named.update({item['id']: item for item in items if isinstance(item, dict) and isinstance(item.get('id'), str)})
     seeded = set()
     for source in (presets / 'inputs').glob('*'):
@@ -270,7 +270,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     raise ValueError("Invalid object_info response")
                 templates = load_templates(settings.templates_dir, mode)
                 absent = (*(f"ref{i + 1}" for i in range(refs, 5)),
-                          *(name for name, given in (("ref_video", ref_video), ("voice", voice), ("energy_reference", False)) if not given))
+                          *(name for name, given in (("ref_video", ref_video), ("voice", voice), ("energy_reference", False), ("place_image", False)) if not given))
                 # Optional finishing is best-effort at execution time. Check a
                 # conservative baseline without requiring its mask/model branch.
                 defaults = {"subject_mask": False, "motion_design": False, "unified_layers": "[]"}
@@ -396,7 +396,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return upload_waves[upload_id]
 
     def validate_request(request):
-        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, *request.refs) if u and (u not in uploads or not owned_here(u))]
+        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, request.place, *request.refs) if u and (u not in uploads or not owned_here(u))]
         if unknown:
             raise HTTPException(422, f"Unknown uploads: {unknown}")
         if PRESET_PLACEHOLDER in (request.source, request.ref_video):
@@ -407,7 +407,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(422,'Music mode needs an audio track')
         if request.settings.audio == 'voice' and not (request.voice and (request.settings.dialogue.strip() or request.mode == 'text')):  # Text reads the lines from the voice itself
             raise HTTPException(422,'Voice mode needs a voice sample and dialogue')
-        roles = [(request.source,'video'),(request.ref_video,'video'),(request.music,'audio'),(request.voice,'audio'),*((ref,'image') for ref in request.refs)]
+        roles = [(request.source,'video'),(request.ref_video,'video'),(request.music,'audio'),(request.voice,'audio'),(request.place,'image'),*((ref,'image') for ref in request.refs)]
         for upload_id, expected in roles:
             if upload_id and describe(upload_id).kind != expected:
                 raise HTTPException(422,f'Expected {expected} for {upload_id}')
@@ -682,14 +682,14 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         used = set(keep)
         for job in store.jobs.values():
             r = job.request
-            used.update(u for u in (r.source, r.ref_video, r.music, r.voice, *r.refs) if u)
+            used.update(u for u in (r.source, r.ref_video, r.music, r.voice, r.place, *r.refs) if u)
         for folder in (ROOT / 'presets', mine):
             for path in folder.glob('*.json'):
                 try:
                     saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
                 except (OSError, ValueError, AttributeError):
                     continue
-                items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+                items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice', 'place')] + list(saved.get('refs') or [])
                 used.update(item['id'] for item in items if isinstance(item, dict) and isinstance(item.get('id'), str))
         recent = time.time() - 3600
         return [upload_id for upload_id, path in uploads.items()
@@ -858,7 +858,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def job_inputs(job_id: str):
         request = _job(job_id).request
         return JobInputs(mode=request.mode, settings=request.settings, source=describe(request.source), refs=[u for u in map(describe, request.refs) if u], ref_video=describe(request.ref_video),
-                         music=describe(request.music), voice=describe(request.voice))
+                         music=describe(request.music), voice=describe(request.voice), place=describe(request.place))
 
     @app.get("/api/jobs/{job_id}/preview")
     async def job_preview(job_id: str):
@@ -1485,7 +1485,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     media_files.append((target, target.relative_to(project).as_posix()))
                 request_files = {}
                 given = job.request
-                ids = {u for u in (given.source, given.ref_video, given.music, given.voice, *given.refs) if u}
+                ids = {u for u in (given.source, given.ref_video, given.music, given.voice, given.place, *given.refs) if u}
                 for upload_id in sorted(ids):
                     if upload_id not in uploads or not uploads[upload_id].is_file():
                         raise ValueError(f'An input file is missing: {upload_id}')
@@ -1579,7 +1579,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     role_kinds = {}
                     for upload_id, kind in (
                         (request.source, 'video'), (request.ref_video, 'video'),
-                        (request.music, 'audio'), (request.voice, 'audio'),
+                        (request.music, 'audio'), (request.voice, 'audio'), (request.place, 'image'),
                         *((upload_id, 'image') for upload_id in request.refs),
                     ):
                         if upload_id:
@@ -1618,7 +1618,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
                     replacements = {field: copied_uploads[value][0] for field, value in (
                         ('source', request.source), ('ref_video', request.ref_video),
-                        ('music', request.music), ('voice', request.voice),
+                        ('music', request.music), ('voice', request.voice), ('place', request.place),
                     ) if value}
                     replacements['refs'] = [copied_uploads[value][0] for value in request.refs]
                     request = request.model_copy(update=replacements)
@@ -1781,7 +1781,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 return None
             return known.model_dump()
         restored = {key: resolve(saved.get(key), key, kind) for key, kind in
-                    [('source','video'),('refVideo','video'),('music','audio'),('voice','audio')]}
+                    [('source','video'),('refVideo','video'),('music','audio'),('voice','audio'),('place','image')]}
         restored['refs'] = [resolve(item, f'reference {i+1}', 'image') for i,item in enumerate(saved.get('refs', [])[:5])]
         if strict and missing:
             raise HTTPException(422, 'Preset media missing or incompatible: ' + ', '.join(missing))

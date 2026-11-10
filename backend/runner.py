@@ -161,7 +161,7 @@ class ComfyRunner:
         layers = s.motion_layers.strip()
         values = {"brief": brief, "idea": brief, "idea_creative": brief, "length": s.duration, "ratio": RATIOS[s.ratio], "megapixels": megapixels, "megapixels_creative": megapixels, "bpm": s.bpm,
                   "mood": s.mood, "seed": s.seed, "effects": s.effects, "text": s.text, "edit_sub_cuts": s.sub_cuts, "sound_design": s.sound_design, "sound_effects": s.sound_effects, "music_sync": s.music_sync, "retry_bad": s.retry_bad_takes, "judge": s.best_of_two, "kinetic_lyrics": s.kinetic_lyrics, "flex": s.flex,
-                  "replace_sound": s.audio == "new", "voice_on": s.audio == "voice", "voice_lines": s.audio == "voice" and not s.dialogue.strip(), "idea_seed": s.idea_seed, "camera_moves": s.art_direction.get("camera") != "steady", "job_name": job.id, "dialogue": s.dialogue, "plates": s.places, "camera": s.camera,
+                  "replace_sound": s.audio == "new", "voice_on": s.audio == "voice", "voice_lines": s.audio == "voice" and not s.dialogue.strip(), "idea_seed": s.idea_seed, "plate_seed": s.seed, "place_on": bool(r.place), "camera_moves": s.art_direction.get("camera") != "steady", "job_name": job.id, "dialogue": s.dialogue, "plates": s.places, "camera": s.camera,
                   "edit_music_volume": s.music_volume, "motion_design": s.motion_design, "motion_direction": s.motion_direction, "motion_title": s.motion_title, "motion_cues": s.motion_cues,
                   "motion_layers": layers or "[]", "extra_layers": layers or "[]", "motion_on": layers not in ("", "[]"), "subject_mask": s.subject_mask,
                   "redraw_text": s.redraw_text, "force_pose": s.pose_only, "quality_check": s.quality_check, "music_start": s.music_start, "music_energy": s.music_energy,
@@ -169,7 +169,7 @@ class ComfyRunner:
                   "reference_fidelity": _level(s.structure, ("loose", "balanced", "strict")), "creative_freedom": _level(s.creativity, ("faithful", "balanced", "free")),
                   "style": s.style, "cut_density": s.cut_density, "transition_intensity": s.transition_intensity, "narrative_coherence": "auto", "cut_every": s.cut_every, "music_shots": 0,  # candidate musical grid; the planner chooses takes from the brief
                    "text_allowed": s.text_allowed, **strategy_values(s)}
-        files = {"source": r.source, "music": r.music, "ref_video": r.ref_video, "voice": r.voice, **{f"ref{i + 1}": u for i, u in enumerate(r.refs)}}
+        files = {"source": r.source, "music": r.music, "ref_video": r.ref_video, "voice": r.voice, "place_image": r.place, **{f"ref{i + 1}": u for i, u in enumerate(r.refs)}}
         files['energy_reference']=r.ref_video if s.reference_style=='montage' else None
         values.update(music_mood=s.mood,music_bpm=s.bpm,music_seed=s.seed,
                       music_context=json.dumps({'creative_brief':brief,'user_music_preference':s.mood,'duration_seconds':s.duration,'mode':r.mode,'editing_style':s.style},ensure_ascii=False))
@@ -228,9 +228,9 @@ class ComfyRunner:
 
     @staticmethod
     def _absent(job: Job) -> tuple[str, ...]:
-        """What was not given: the pictures, the reference video, the voice. Their nodes are taken out of the prompt, with the nodes that only they fed."""
+        """What was not given: the pictures, the reference video, the voice, the picture of the place. Their nodes are taken out of the prompt, with the nodes that only they fed."""
         r = job.request
-        return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None),('casting',r.settings.casting or None)) if not given))
+        return (*(f"ref{i + 1}" for i in range(len(r.refs), 5)), *(name for name, given in (("ref_video", r.ref_video), ("voice", r.voice), ("place_image", r.place),('energy_reference',r.ref_video if r.settings.reference_style=='montage' else None),('casting',r.settings.casting or None)) if not given))
 
     async def _deployment_schemas(self) -> dict:
         """The node schemas of the deployment: one job the first time, then the copy on disk."""

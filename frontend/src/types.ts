@@ -105,7 +105,7 @@ export interface VideoEstimate extends VideoModel { seconds: number | null; seco
 export interface EnergyReport { status: string; reference: Record<string,number> | null; result: Record<string,number> | null; ratios: Record<string,number|null>; audio?: {true_peak_dbtp?: number|null;within_ceiling?: boolean;silent?: boolean;status?:string} }
 export interface ReviewReport { frames: {seconds:number;url:string}[]; energy?: EnergyReport | null; warnings?:string[]; checks:Record<string,string> }
 
-export interface JobInputs { mode: Mode; settings: Settings; source: Upload | null; refs: Upload[]; ref_video: Upload | null; music: Upload | null; voice: Upload | null }
+export interface JobInputs { mode: Mode; settings: Settings; source: Upload | null; refs: Upload[]; ref_video: Upload | null; music: Upload | null; voice: Upload | null; place?: Upload | null }
 
 export interface Take { id: string; active: boolean; url: string; thumb?: string | null; generation_prompt?: string; duration?: number; start?: number; window?: number; max_start?: number; step?: number }
 
@@ -161,7 +161,7 @@ export interface TimelineInfo { bpm: number | null; beat_times?: number[]; shots
 
 export interface Health { mode?: Mode; instance_id?: string; preset_inputs?: boolean; music_rhythm_modes?: boolean; adaptive_editing_modes?: boolean; mock: boolean; comfyui: boolean; proxy: boolean; videotools: boolean; output_dir: string | null; missing_nodes?: string[]; missing_models?: string[]; load_errors?: string[] }
 
-export interface Inputs { source: Upload | null; refs: (Upload | null)[]; refVideo: Upload | null; music: Upload | null; voice: Upload | null }
+export interface Inputs { source: Upload | null; refs: (Upload | null)[]; refVideo: Upload | null; music: Upload | null; voice: Upload | null; place?: Upload | null }  // place: a picture of the place, used instead of the generated places
 
 export interface PresetTranslation { name: string; description: string; prompt: string; settings?: Partial<Settings> }
 export interface Preset { inputs?: Inputs | null; missing_inputs?: string[]; translations?: Partial<Record<'en' | 'fr', PresetTranslation>>; id: string; name: string; mode: Mode; description: string; prompt: string; settings?: Partial<Settings>; user?: boolean; preview?: string; reference?: string; featured?: number }
