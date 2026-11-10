@@ -77,12 +77,12 @@ def test_without_the_pose_tools_the_shots_are_made_without_the_control_that_has_
 
 
 @pytest.mark.parametrize('mode', ['music', 'text'])
-def test_without_the_flux_files_the_shots_go_on_without_location_images(tmp_path, mode):
+def test_without_the_h3_image_files_the_shots_go_on_without_location_images(tmp_path, mode):
     graph = _shot_graph(tmp_path, mode, places=True)
-    notes = prune_unavailable(graph, _schemas(graph, absent_files={'flux-2-klein-4b-fp8.safetensors'}), places=True)
-    assert notes and 'flux-2-klein-4b-fp8.safetensors' in notes[0]
+    notes = prune_unavailable(graph, _schemas(graph, absent_files={'minimax_h3_image_pruned_int8_convrot.safetensors'}), places=True)
+    assert notes and 'minimax_h3_image_pruned_int8_convrot.safetensors' in notes[0]
     graph = reachable_graph(graph, {})
-    assert 'MajoorCheckPlate' not in _classes(graph) and not any(n['inputs'].get('unet_name', '').startswith('flux') for n in graph.values())
+    assert 'MajoorCheckPlate' not in _classes(graph) and not any(n['inputs'].get('unet_name', '').startswith('minimax_h3_image') for n in graph.values())
     assert prune_unavailable(_shot_graph(tmp_path, mode), _schemas(graph), places=False) == []
 
 

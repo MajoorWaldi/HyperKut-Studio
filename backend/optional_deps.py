@@ -1,7 +1,7 @@
 """Optional models and nodes must never stop a generation.
 
 ComfyUI refuses a whole prompt when one node of it names a file it does not have or a node it does not know, even in a branch that a switch never takes. The Studio graphs
-carry three such branches (the Pika H3 Flex LoRA, the pose control of H3, the location plates of FLUX). When the schemas of ComfyUI say that something one of them needs is
+carry three such branches (the Pika H3 Flex LoRA, the pose control of H3, the location plates of MiniMax H3 Image). When the schemas of ComfyUI say that something one of them needs is
 missing, the branch is cut out of the prompt before it is sent; the shots then come out the way they do without the option. A branch is never cut when everything it needs is there,
 so an installation that has all the files gets the graph as it is."""
 import copy
@@ -95,7 +95,7 @@ def prune_unavailable(prompt: dict, schemas: dict, *, flex: bool = False, places
                 _reroute(prompt, key, node["inputs"]["model"])
                 del prompt[key]
 
-    # Location plates (FLUX): the images of the places are a help, not a need.
+    # Location plates (MiniMax H3 Image): the images of the places are a help, not a need.
     for key, node in list(prompt.items()):
         if node["class_type"] != "MajoorCheckPlate":
             continue
@@ -111,7 +111,7 @@ def prune_unavailable(prompt: dict, schemas: dict, *, flex: bool = False, places
                 for field in [f for f, v in other["inputs"].items() if isinstance(v, list) and str(v[0]) == key]:
                     del other["inputs"][field]
         if places:
-            notes.append("The location images need FLUX files that are not installed (" + ", ".join(sorted(set(gone))) + "): the shots were made without them.")
+            notes.append("The location images need MiniMax H3 Image files that are not installed (" + ", ".join(sorted(set(gone))) + "): the shots were made without them.")
 
     # The plan of a remix needs a pack loaded after it was added: an older ComfyUI keeps the shots as detected.
     for key, node in list(prompt.items()):

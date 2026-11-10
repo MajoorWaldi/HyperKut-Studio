@@ -1,11 +1,20 @@
-import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload } from './types'
+import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload, VideoEstimate, VideoModel } from './types'
+
+/** fetch, with a sentence a person can act on when the Studio cannot be reached at all (instead of "TypeError: Failed to fetch"). */
+const fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+  globalThis.fetch(input, init).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new Error('The Studio server could not be reached: check that it is running and the network is up, then try again.')
+  })
 
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.detail ? (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)) : `${response.status} ${response.statusText}`)
   }
-  return response.json() as Promise<T>
+  if (response.status === 204) return undefined as T
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T  // an empty answer is no value, not an error
 }
 
 export const health = (mode: Mode = 'remix', inputs: { refs?: number; ref_video?: boolean; voice?: boolean } = {}) => {
@@ -33,13 +42,17 @@ export async function createJob(mode: Mode, settings: Settings, inputs: Inputs):
       throw new Error('Restart Studio after current jobs finish to enable the music rhythm modes. No generation has been submitted.')
     }
   }
-  const body = { mode, settings: { ...settings, seed: settings.seed ?? Math.floor(Math.random() * 2 ** 31) }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((r): r is Upload => r !== null).map(r => r.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }
+  const body = { mode, settings: { ...settings, seed: settings.seed ?? Math.floor(Math.random() * 2 ** 31) }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((r): r is Upload => r !== null).map(r => r.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }
   return fetch('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(json<JobState>)
 }
 
 export const jobInputs = (id: string) => fetch(`/api/jobs/${id}/inputs`).then(json<JobInputs>)
 
 export const recentJobs = () => fetch('/api/jobs').then(json<JobState[]>)
+
+export const videoEstimate = (query: { mode: Mode; seconds: number; ratio: string; resolution: string; refs: number; refVideo: boolean; music: boolean }) =>
+  fetch(`/api/video-models/estimate?${new URLSearchParams({ mode: query.mode, seconds: String(query.seconds), ratio: query.ratio, resolution: query.resolution, refs: String(query.refs), ref_video: String(query.refVideo), music: String(query.music) })}`).then(json<{ models: VideoEstimate[] }>).then(body => body.models)
+export const videoModels = (mode?: Mode) => fetch(`/api/video-models${mode ? `?mode=${mode}` : ''}`).then(json<{ models: VideoModel[] }>).then(body => body.models)
 
 export const presets = () => fetch('/api/presets').then(json<Preset[]>)
 
@@ -171,16 +184,16 @@ export function follow(id: string, onState: (state: JobState) => void, onLost: (
 export const artDirectionCatalog = () => fetch('/api/art-direction').then(json<{ fields: import('./types').DirectionField[] }>)
 export const approveBrief = (mode: Mode, settings: Settings, inputs: Inputs, brief: string) => fetch('/api/brief-approve', {
   method:'POST', headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({mode,settings:{...settings,seed:settings.seed ?? 42,approved_brief:brief,approved_brief_context:''},source:inputs.source?.id ?? null,refs:inputs.refs.filter((v):v is Upload=>v!==null).map(v=>v.id),ref_video:inputs.refVideo?.id ?? null,music:inputs.music?.id ?? null,voice:inputs.voice?.id ?? null}),
+  body:JSON.stringify({mode,settings:{...settings,seed:settings.seed ?? 42,approved_brief:brief,approved_brief_context:''},source:inputs.source?.id ?? null,refs:inputs.refs.filter((v):v is Upload=>v!==null).map(v=>v.id),ref_video:inputs.refVideo?.id ?? null,music:inputs.music?.id ?? null,voice:inputs.voice?.id ?? null,place:inputs.place?.id ?? null}),
 }).then(json<{context:string}>)
 export const prepareBrief = (mode: Mode, settings: Settings, inputs: Inputs, language = 'en') => fetch(`/api/brief-preview?lang=${language}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
+  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }),
 }).then(json<import('./types').PreparedBrief>)
 
 export const prepareTreatments = (mode: Mode, settings: Settings, inputs: Inputs, language = 'en') => fetch(`/api/brief-treatments?lang=${language}`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null }),
+  body: JSON.stringify({ mode, settings: { ...settings, seed: settings.seed ?? 42, approved_brief: '', approved_brief_context: '' }, source: inputs.source?.id ?? null, refs: inputs.refs.filter((v): v is Upload => v !== null).map(v => v.id), ref_video: inputs.refVideo?.id ?? null, music: inputs.music?.id ?? null, voice: inputs.voice?.id ?? null, place: inputs.place?.id ?? null }),
 }).then(json<{ treatments: (import('./types').PreparedBrief & { name: string })[] }>)
 
 export const restartStudio = () => fetch('/api/studio/restart', { method: 'POST' }).then(json<{ restarting: boolean; instance_id: string }>)

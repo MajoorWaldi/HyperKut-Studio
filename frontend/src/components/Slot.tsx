@@ -27,20 +27,41 @@ interface Props {
   compact?: boolean
   busy?: boolean
   onFile: (file: File) => void
+  onFiles?: (files: File[]) => void  // several files of its kind dropped at once (pictures): the slot takes the first, the others go to the free slots
+  onRejected?: (files: File[]) => void  // files dropped here that are not of its kind
   onClear?: () => void
 }
 
-/** An upload slot: shows the thumbnail of what was added, or invites to add something. */
-export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, compact, busy, onFile, onClear }: Props) {
+/** Whether what is being dragged can land here: the types of the dragged items are known before the drop (not their names); none known, it may. */
+function dragFits(accept: string, items: DataTransferItemList | undefined): boolean {
+  const types = Array.from(items ?? []).filter(item => item.kind === 'file').map(item => item.type).filter(Boolean)
+  return !types.length || types.some(type => accepts(accept, { name: '', type }))
+}
+
+/** An upload slot: shows the thumbnail of what was added, or invites to add something. A file can be dropped on it. */
+export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, compact, busy, onFile, onFiles, onRejected, onClear }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const { t } = useI18n()
-  const [over, setOver] = useState(false)
+  const [over, setOver] = useState<false | 'fits' | 'refused'>(false)
   const drop = (event: React.DragEvent) => {
     event.preventDefault()
+    event.stopPropagation()  // the panel does not route it again
     setOver(false)
     if (busy) return
-    const file = Array.from(event.dataTransfer.files).find(candidate => accepts(accept, candidate))
-    if (file) onFile(file)
+    const files = Array.from(event.dataTransfer.files)
+    const fitting = files.filter(candidate => accepts(accept, candidate))
+    if (!fitting.length) { if (files.length) onRejected?.(files); return }
+    if (fitting.length > 1 && onFiles) onFiles(fitting)
+    else onFile(fitting[0])
+    if (fitting.length < files.length) onRejected?.(files.filter(file => !fitting.includes(file)))
+  }
+  const dragOver = (event: React.DragEvent) => {
+    if (!event.dataTransfer.types.includes('Files')) return
+    event.preventDefault()
+    event.stopPropagation()
+    const fits = !busy && dragFits(accept, event.dataTransfer.items)
+    event.dataTransfer.dropEffect = fits ? 'copy' : 'none'
+    setOver(fits ? 'fits' : 'refused')
   }
   const [wave, setWave] = useState<{ id: string; peaks?: number[]; error?: boolean } | null>(null)
   const audioId = value?.kind === 'audio' ? value.id : null
@@ -85,7 +106,7 @@ export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, comp
   const peaks = wave?.id === audioId ? wave.peaks : undefined
   const waveError = wave?.id === audioId && wave.error
   return (
-    <div className={`slot-wrap ${over ? 'drag-over' : ''}`} onDragOver={event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setOver(true) } }}
+    <div className={`slot-wrap ${over === 'fits' ? 'drag-over' : over === 'refused' ? 'drag-refused' : ''}`} onDragOver={dragOver}
       onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false) }} onDrop={drop}>
       <button type="button" className={`upload ${compact ? 'compact' : ''}`} onClick={() => input.current?.click()} aria-label={label || tip} title={tip} disabled={busy}>
         {value?.kind === 'image' && <img src={value.url} alt={value.name} />}
@@ -99,7 +120,12 @@ export function Slot({ icon = 'plus', sub, value, accept, label, hint, tip, comp
       </button>
       {audioId && <button type="button" className="slot-play" onClick={listen} aria-label={preview.on ? t.listenPause : t.listen} title={preview.on ? t.listenPause : t.listen}><Icon name={preview.on ? 'pause' : 'play'} size={12} fill={!preview.on} /></button>}
       {value && onClear && <button type="button" className="slot-clear" onClick={onClear} aria-label="clear" title={tip ? `${value?.name ?? ''}` : undefined}><Icon name="x" size={12} /></button>}
-      <input ref={input} type="file" accept={accept} hidden onChange={event => { const file = event.target.files?.[0]; if (file) onFile(file); event.target.value = '' }} />
+      <input ref={input} type="file" accept={accept} multiple={!!onFiles} hidden onChange={event => {
+        const files = Array.from(event.target.files ?? [])
+        if (files.length > 1 && onFiles) onFiles(files)
+        else if (files[0]) onFile(files[0])
+        event.target.value = ''
+      }} />
     </div>
   )
 }

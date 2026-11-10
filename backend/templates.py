@@ -1,4 +1,4 @@
-"""The workflows of the app: API-format prompts exported from the SECATOR graphs, with named slots.
+"""The workflows of the app: API-format prompts exported from the HyperKut graphs of the pack (called SECATOR before), with named slots.
 
 A mode has three templates (workflows/<mode>/): `stage1` (the plan, the music, the rhythm), `shot` (one shot, with its shot id as a slot) and `final` (the edit, the sound, the
 effects, the save). `slots.json` names the places that the interface fills: {"stage1": {"idea": [["12", "value"]], ...}, "shot": {...}, "final": {...}}; a slot is a list of

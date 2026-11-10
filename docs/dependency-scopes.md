@@ -10,7 +10,7 @@ ComfyUI uses its own environment for PyTorch, node packs and model loaders. Do n
 
 React/React DOM are bundled by the TypeScript/Vite build. Node.js 22+ and npm build the frontend; an existing `frontend/dist` is served by FastAPI without a separate Node web server. `requirements-dev.txt` adds backend test tools. `requirements-tested.txt` and `constraints-release.txt` record a particular dependency resolution, not a universal engine environment.
 
-Studio's tests also use VideoTools' shared core schema, timeline editor and motion templates. Keep the Studio checkout directly inside a VideoTools checkout (for example `videotools/HyperKut Studio`); run Python tests from the Studio root and frontend tests from its `frontend` folder. Both CI jobs reproduce this layout with VideoTools pinned to commit `714249e3d20112ace7a108c3d8143b7fac190de2`, which includes `core/motion_library.py`. Update both pins together when qualifying a newer shared runtime. The backend import check expands and validates a motion template to exercise the lazy-loaded shared modules before running the suite.
+Studio's tests also use VideoTools' shared core schema, timeline editor and motion templates. Keep the Studio checkout directly inside a VideoTools checkout (for example `videotools/HyperKut Studio`); run Python tests from the Studio root and frontend tests from its `frontend` folder. Both CI jobs reproduce this layout with VideoTools pinned to commit `5badde870056894128198189cde88bc96adf2779`, which includes `core/motion_library.py` and the video model registry (`generators/`, `core/cost_guard.py`) that the Studio reads. Update both pins together when qualifying a newer shared runtime. The backend import check expands and validates a motion template to exercise the lazy-loaded shared modules before running the suite.
 
 ## Generation
 
@@ -24,7 +24,7 @@ Optional, in ComfyUI's Python and not in the Studio's: `faster-whisper` with the
 |---|---|---|
 | `faster-whisper` and the `large-v3` folder | The words of a voice or a song. | No words: the prompts have no lyrics, the cuts do not follow phrases, no kinetic lyrics. The edit goes on. |
 | Pika H3 Flex LoRA | The Flex option (six steps). | The turbo LoRA is used; the user is told when the option was on. |
-| FLUX files (`flux-2-klein-4b-fp8`, `qwen_3_4b`, `flux2-vae`) | Images of the places of the shots. | The shots are made without them; the user is told when the option was on. |
+| MiniMax H3 Image files (`minimax_h3_image_pruned_int8_convrot`, `minimax_h3_image_vae_fp16`; the text encoder is the one of H3) | Images of the places of the shots. | The shots are made without them; the user is told when the option was on. |
 | YuE2 music model | Music generated for a Text edit. | The edit is cut on a steady grid and has no generated music; the user is told. Music mode (your own track) never needs it. |
 | `comfyui_controlnet_aux`, DWPose and YOLOX files, the H3 pose patch, the Marigold node | Pose control. | Not needed by Text and Music shots: they are made without it. Only a Remix that asks for pose only needs them. |
 | HyperFrames (Node.js 22+, a browser) | Text, graphics, kinetic lyrics, effects. | The video is kept as assembled, with a warning. |

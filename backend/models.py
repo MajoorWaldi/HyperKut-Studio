@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from .direction import validate_direction
 
 Mode = Literal["remix", "text", "music"]
@@ -77,16 +77,37 @@ class Settings(BaseModel):
     efficient_sources: bool = False
     reference_style: Literal['camera','montage'] = 'camera'
     sfx_library: str = ''
+    video_model: str = 'minimax_h3'  # the model that makes the shots (Text and Music): H3 here, or an API model of the generators folder of the pack (paid per take)
+    api_resolution: Literal['480p', '720p', '1080p'] = '720p'  # what an API model is asked for: a higher one costs more
+    api_budget_seconds: int = Field(120, ge=0, le=36000)  # the most seconds of video one run may ask from an API model, retries included; 0: no limit
+    api_budget_usd: float = Field(0.0, ge=0, le=100000)  # the same in dollars, from the price badges of the API nodes; 0: no limit
+
+    @field_validator('video_model')
+    @classmethod
+    def check_video_model(cls, value):
+        from .api_cost import video_models
+        if value not in video_models():
+            raise ValueError(f'Unknown video model {value!r}. Available: {list(video_models())}')
+        return value
 
 
 class JobRequest(BaseModel):
     mode: Mode
     settings: Settings = Settings()
+
+    @model_validator(mode='after')
+    def check_remix_model(self):
+        from .api_cost import can_remix
+        if self.mode == 'remix' and not can_remix(self.settings.video_model):
+            raise ValueError(f'The video model {self.settings.video_model!r} cannot replace the subject of a source video: a Remix uses H3 or Seedance 2.5')
+        return self
+
     source: str | None = None  # id of an upload
     refs: list[str] = Field(default_factory=list, max_length=5)
     ref_video: str | None = None
     music: str | None = None
     voice: str | None = None
+    place: str | None = None  # a picture of the place: it replaces the generated places in every shot
 
 
 class JobInputs(BaseModel):
@@ -99,6 +120,7 @@ class JobInputs(BaseModel):
     ref_video: Upload | None = None
     music: Upload | None = None
     voice: Upload | None = None
+    place: Upload | None = None
 
 
 class Shot(BaseModel):
@@ -154,6 +176,7 @@ class JobState(BaseModel):
     pinned: bool = False
     operation: int = 0
     generation_budget: dict[str, float] = {}
+    api_cost: dict | None = None  # what the plan costs with an API video model (see api_cost.py): the estimate, and whether the user approved it
     energy: dict | None = None
     warnings: list[str] = []
     manual_export: dict | None = None
@@ -193,6 +216,7 @@ class PresetInputs(BaseModel):
     refVideo: Upload | None = None
     music: Upload | None = None
     voice: Upload | None = None
+    place: Upload | None = None
 
 
 class PresetIn(BaseModel):

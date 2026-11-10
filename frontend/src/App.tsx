@@ -32,7 +32,7 @@ function initialZoom(): number {
 }
 const MODE_ICON: Record<Mode, IconName> = { remix: 'sparkles', text: 'type', music: 'music' }
 
-const EMPTY: Inputs = { source: null, refs: [null, null, null, null, null], refVideo: null, music: null, voice: null }
+const EMPTY: Inputs = { source: null, refs: [null, null, null, null, null], refVideo: null, music: null, voice: null, place: null }
 
 export default function App() {
   const [lang, setLangState] = useState<Lang>(initialLang)
@@ -131,7 +131,15 @@ export default function App() {
     return () => { current = false }
   }, [job?.status])
   useEffect(() => { api.presets().then(setPresets).catch(() => setPresets([])) }, [])
-  useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, recent])
+  useEffect(() => {  // a file dropped beside the panel would make the browser open it and leave the Studio
+    const keep = (event: DragEvent) => { if (event.dataTransfer?.types.includes('Files')) event.preventDefault() }
+    window.addEventListener('dragover', keep)
+    window.addEventListener('drop', keep)
+    return () => { window.removeEventListener('dragover', keep); window.removeEventListener('drop', keep) }
+  }, [])
+  // the sizes change when a job ends, appears or goes, not at every progress step: they are asked again only then
+  const settled = recent.filter(j => j.status !== 'running' && j.status !== 'queued').map(j => `${j.id}:${j.status}`).join(',')
+  useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, settled])
   useEffect(() => {
     if (!undo) return
     const timer = window.setTimeout(() => setUndo(null), 8000)
@@ -275,7 +283,7 @@ export default function App() {
       const made = await api.jobInputs(id)
       setMode(made.mode)
       setSettings(restoreSettings(made.settings))
-      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice })
+      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice, place: made.place ?? null })
       watch(opened)
     } catch (error) { setActionError((error as Error).message) }
   }
@@ -317,7 +325,7 @@ export default function App() {
       setJob(null)
       setMode(made.mode)
       setSettings(restoreSettings(made.settings))
-      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice })
+      setInputs({ source: made.source, refs: Array.from({ length: 5 }, (_, i) => made.refs[i] ?? null), refVideo: made.ref_video, music: made.music, voice: made.voice, place: made.place ?? null })
       setLibrary(false)
       setMessage(t.duplicated)
     } catch (error) { fail(error) }
@@ -351,14 +359,14 @@ export default function App() {
 
   const cleanCaches = async () => {
     try {
-      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
+      const placed = [inputs.source, inputs.refVideo, inputs.music, inputs.voice, inputs.place ?? null, ...inputs.refs].filter((u): u is Upload => u !== null).map(u => u.id)
       const { freed, in_use, uploads } = await api.cleanCaches(placed)
       setMessage(`${megabytes(freed)} ${t.freed}${uploads ? ` · ${uploads} ${t.uploadsRemoved}` : ''}${in_use ? ` · ${in_use} ${t.cachesInUse}` : ''}`)
     } catch (error) { fail(error) }
   }
 
   const savePreset = async (name: string, description: string) => {
-    if ((inputs.source || inputs.refs.some(Boolean) || inputs.refVideo || inputs.music || inputs.voice) && !health?.preset_inputs) {
+    if ((inputs.source || inputs.refs.some(Boolean) || inputs.refVideo || inputs.music || inputs.voice || inputs.place) && !health?.preset_inputs) {
       setActionError(lang === 'fr' ? 'Le serveur du Studio doit être redémarré après les générations en cours pour enregistrer les médias des presets.' : 'Restart the Studio server after active generations finish to save preset media.')
       return
     }
@@ -491,7 +499,7 @@ export default function App() {
           </button>
           <Toolbar mode={mode} settings={settings} busy={running || preparing} hasReferences={inputs.refs.some(Boolean) || !!inputs.refVideo} onSettings={changeSettings} />
           <div className="left">
-          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
+          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onRejected={files => setActionError(`${t.dropRefused} ${files.map(file => file.name).join(', ')}`)} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
           <Library open={library} onClose={() => setLibrary(false)} jobs={recent} sizes={sizes} presets={presets} mode={mode} currentJob={job?.id ?? null} onOpenJob={openFromLibrary} onDuplicateJob={duplicate} onPatchJob={patchJob}
             onDeleteJob={deleteJob} onFree={freeSpace} onCleanCaches={cleanCaches} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
           </div>

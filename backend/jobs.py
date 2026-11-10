@@ -130,10 +130,17 @@ class Job:
         queue: asyncio.Queue[JobState] = asyncio.Queue(maxsize=1)
         self._listeners.append(queue)
         try:
-            yield self.state
+            last = self.state
+            yield last
             while self.state.status in ("queued", "running"):
-                state = await queue.get()
-                yield state
+                last = await queue.get()
+                yield last
+            if not queue.empty():  # the last update came while the one before was being sent: it is the end of the job, send it too
+                final = queue.get_nowait()
+                if final is not last:
+                    yield final
+            elif last.status != self.state.status:
+                yield self.state
         finally:
             self._listeners.remove(queue)
 

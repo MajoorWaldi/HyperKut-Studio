@@ -30,7 +30,8 @@ from PIL import Image
 
 from .config import ROOT, Settings
 from .brand import NAME as APP_NAME, EXPORT_PREFIX
-from .capacity import CapacityBusy, CapacityError, capacity_held, capacity_lock, ensure_capacity, reservation_bytes, write_reservation
+from .capacity import (CapacityBusy, CapacityError, capacity_held, capacity_lock, ensure_capacity, release_upload_reservation, reservation_bytes,
+                       write_reservation, write_upload_reservation)
 from .jobs import JobStore
 from .models import AICandidateRequest, ActiveTake, CacheClean, EditStyle, JobInputs, JobPatch, JobRequest, JobState, PlanApproval, PresetIn, Regenerate, Shot, ShotPatch, ShotSourceChoice, Take, TakeEdit, TimelineInfo, TimelineShot, TrimTake, Upload
 from .ai_edits import accept_candidate, candidate_file, prepare_candidate, read_candidate
@@ -101,7 +102,7 @@ def seed_preset_inputs(presets: Path, uploads: dict[str, Path], names: dict) -> 
             saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
         except (OSError, ValueError, AttributeError):
             continue
-        items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+        items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice', 'place')] + list(saved.get('refs') or [])
         named.update({item['id']: item for item in items if isinstance(item, dict) and isinstance(item.get('id'), str)})
     seeded = set()
     for source in (presets / 'inputs').glob('*'):
@@ -213,6 +214,10 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             names = {}
     except (OSError, ValueError):
         names = {}
+    for partial in (settings.workspace / "uploads").glob("*.part"):  # an upload cut by a stop of the server: never finished, never offered
+        partial.unlink(missing_ok=True)
+    for stale in (settings.workspace / ".upload-reservations").glob("*.json"):
+        stale.unlink(missing_ok=True)
     uploads: dict[str, Path] = {p.stem: p for p in (settings.workspace / "uploads").glob("*")}  # what was added before the server stopped is still there for the jobs that were kept
     shared_uploads = seed_preset_inputs(ROOT / "presets", uploads, names)  # the files of the app's presets, on every machine and for every visitor
 
@@ -241,6 +246,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                'load_errors': store.load_errors, 'missing_nodes': [], 'missing_models': [], 'preset_inputs': True, 'music_rhythm_modes': True, 'adaptive_editing_modes': True}
         out['instance_id'] = app.state.boot_id
         out['mode'] = mode
+        from .manual_timeline import pack_changed
+        out['pack_changed'] = pack_changed()  # the VideoTools pack was updated after Studio loaded it: restart Studio for its models and prices
         if owners is not None:  # public instance: no host path, no file names from the host's project store
             out['output_dir'] = 'hidden' if settings.output_dir else None
             out['load_errors'] = ['Some saved projects could not be loaded.'] if store.load_errors else []
@@ -263,7 +270,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     raise ValueError("Invalid object_info response")
                 templates = load_templates(settings.templates_dir, mode)
                 absent = (*(f"ref{i + 1}" for i in range(refs, 5)),
-                          *(name for name, given in (("ref_video", ref_video), ("voice", voice), ("energy_reference", False)) if not given))
+                          *(name for name, given in (("ref_video", ref_video), ("voice", voice), ("energy_reference", False), ("place_image", False)) if not given))
                 # Optional finishing is best-effort at execution time. Check a
                 # conservative baseline without requiring its mask/model branch.
                 defaults = {"subject_mask": False, "motion_design": False, "unified_layers": "[]"}
@@ -297,27 +304,28 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if kind not in KINDS:
             raise HTTPException(415, f"Not a video, an image or a sound: {file.content_type}")
         upload_id = uuid.uuid4().hex[:12]
-        path = settings.workspace / "uploads" / f"{upload_id}{Path(file.filename or '').suffix.lower()}"
+        path = settings.workspace / "uploads" / f"{upload_id}.part"  # the name of the client is never part of the path (an NTFS stream such as x.mp4:data)
         size = 0
         quota_lock = capacity_lock(settings)
+        reserved = file.size if isinstance(file.size, int) and file.size >= 0 else settings.max_upload_bytes  # the body is already received: its size is known
         try:
+            if reserved > settings.max_upload_bytes:
+                raise HTTPException(413, 'The upload exceeds the configured size limit')
             await acquire_upload_quota(quota_lock)
+            try:  # only the reservation of its room holds the lock: the jobs and the other uploads do not wait for the copy
+                await asyncio.to_thread(ensure_capacity, settings, store, reserved)
+                write_upload_reservation(settings, upload_id, reserved)
+            except CapacityError as error:
+                raise HTTPException(507, str(error)) from error
+            finally:
+                quota_lock.release()
             with path.open('wb') as stream:
-                room = None  # the storage is scanned for the first chunk only; the next ones count down from what was left
                 while chunk := await file.read(1024*1024):
                     size += len(chunk)
-                    if size > settings.max_upload_bytes:
-                        raise HTTPException(413,'The upload exceeds the configured size limit')
-                    try:
-                        if room is None:
-                            room = await asyncio.to_thread(ensure_capacity, settings, store, len(chunk))
-                        elif len(chunk) > room:
-                            raise CapacityError('The configured workspace storage budget would be exceeded. Remove unused uploads or projects, or increase MAX_WORKSPACE_MB.')
-                        room -= len(chunk)
-                    except CapacityError as error:
-                        raise HTTPException(507, str(error)) from error
-                    stream.write(chunk)
-            quota_lock.release()  # the file is written and counted: its decoding check must not hold the other uploads and the jobs
+                    if size > min(settings.max_upload_bytes, reserved):
+                        raise HTTPException(413 if size > settings.max_upload_bytes else 507,
+                                            'The upload exceeds the configured size limit' if size > settings.max_upload_bytes else 'The upload is larger than the room reserved for it')
+                    await asyncio.to_thread(stream.write, chunk)
             if not settings.mock:
                 try:
                     await asyncio.to_thread(validate_media, path, kind, settings.max_media_seconds, settings.max_media_pixels)
@@ -340,6 +348,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             path.unlink(missing_ok=True)
             raise
         finally:
+            release_upload_reservation(settings, upload_id)  # written, the file counts itself; failed, it is gone
             if quota_lock.is_locked:
                 quota_lock.release()
             await file.close()
@@ -387,7 +396,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         return upload_waves[upload_id]
 
     def validate_request(request):
-        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, *request.refs) if u and (u not in uploads or not owned_here(u))]
+        unknown = [u for u in (request.source, request.ref_video, request.music, request.voice, request.place, *request.refs) if u and (u not in uploads or not owned_here(u))]
         if unknown:
             raise HTTPException(422, f"Unknown uploads: {unknown}")
         if PRESET_PLACEHOLDER in (request.source, request.ref_video):
@@ -398,7 +407,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(422,'Music mode needs an audio track')
         if request.settings.audio == 'voice' and not (request.voice and (request.settings.dialogue.strip() or request.mode == 'text')):  # Text reads the lines from the voice itself
             raise HTTPException(422,'Voice mode needs a voice sample and dialogue')
-        roles = [(request.source,'video'),(request.ref_video,'video'),(request.music,'audio'),(request.voice,'audio'),*((ref,'image') for ref in request.refs)]
+        roles = [(request.source,'video'),(request.ref_video,'video'),(request.music,'audio'),(request.voice,'audio'),(request.place,'image'),*((ref,'image') for ref in request.refs)]
         for upload_id, expected in roles:
             if upload_id and describe(upload_id).kind != expected:
                 raise HTTPException(422,f'Expected {expected} for {upload_id}')
@@ -414,7 +423,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             async with capacity_held(settings):
                 if sum(j.state.status in ('queued', 'running') for j in store.jobs.values()) >= settings.max_active_jobs:
                     raise HTTPException(429, 'The GPU job limit is full; wait for a job to finish')
-                ensure_capacity(settings, store, estimate)
+                await asyncio.to_thread(ensure_capacity, settings, store, estimate)  # a walk of the whole storage: not on the event loop
                 write_reservation(settings, job.id, estimate)
                 try:
                     job.begin(stage)
@@ -427,6 +436,24 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
             raise HTTPException(503, str(error)) from error
 
     preview_lock = asyncio.Lock()
+
+    @app.get('/api/video-models')
+    async def video_models_catalog(mode: str | None = None):
+        """The video models of the pack (H3 here, API models that are paid per take); a Remix is offered the ones that can edit a source video."""
+        from .api_cost import describe_models
+        return {'models': describe_models(mode)}
+
+    @app.get('/api/video-models/estimate')
+    async def video_models_estimate(mode: str = 'text', seconds: float = 15, ratio: str = '9:16', resolution: str = '720p', refs: int = 1, ref_video: bool = False, music: bool = False):
+        """What an edit of that length costs with each model, from the price badges of the ComfyUI of the Studio when it can be read: the figures of the model picker."""
+        from .api_cost import estimate_models
+        if mode not in ('text', 'music', 'remix') or not 0 < seconds <= 600 or resolution not in ('480p', '720p', '1080p'):
+            raise HTTPException(422, 'mode, seconds (1 to 600) or resolution is not valid')
+        schemas = await runner._schemas() if isinstance(runner, ComfyRunner) else {}
+        try:
+            return {'models': estimate_models(mode, seconds, schemas, ratio=ratio, resolution=resolution, refs=min(max(refs, 0), 5), ref_video=ref_video, music=music)}
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
 
     @app.get('/api/art-direction')
     async def art_direction_catalog():
@@ -497,7 +524,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 if sum(j.state.status in ('queued','running') for j in store.jobs.values()) >= settings.max_active_jobs:
                     raise HTTPException(429,'The GPU job limit is full; wait for a job to finish')
                 estimate = reservation_bytes(request)
-                ensure_capacity(settings, store, estimate)
+                await asyncio.to_thread(ensure_capacity, settings, store, estimate)
                 job = store.create(request)
                 try:
                     write_reservation(settings, job.id, estimate)
@@ -592,11 +619,33 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     def _size(path: Path) -> int:
         return sum(f.stat().st_size for f in path.rglob("*") if f.is_file()) if path.is_dir() else (path.stat().st_size if path.is_file() else 0)
 
+    size_cache: dict[str, tuple] = {}  # job id -> (what its size depends on, bytes): the library asks often, a walk of every project is long
+
     @app.get("/api/jobs/sizes", response_model=dict[str, int])
     async def sizes():
         """What every job takes on the disk: its project and its result video."""
+        def stamp(path):
+            try:
+                return path.stat().st_mtime_ns
+            except (OSError, TypeError, AttributeError):
+                return None
+
         def measure():
-            return {job.id: (_size(_project_dir(job)) if _project_dir(job) else 0) + _size(settings.workspace / "jobs" / f"{job.id}.mp4") for job in list(store.jobs.values()) if owned_here(job.id)}
+            out = {}
+            for job in list(store.jobs.values()):
+                if not owned_here(job.id):
+                    continue
+                project = _project_dir(job)
+                video = settings.workspace / "jobs" / f"{job.id}.mp4"
+                key = (job.state.status, stamp(project / 'manifest.json') if project else None, stamp(video))  # a take, an edit or a new state changes it
+                cached = size_cache.get(job.id)
+                if cached is None or cached[0] != key or job.state.status in ('queued', 'running'):
+                    cached = (key, (_size(project) if project else 0) + _size(video))
+                    size_cache[job.id] = cached
+                out[job.id] = cached[1]
+            for gone in set(size_cache) - set(store.jobs):
+                size_cache.pop(gone, None)
+            return out
         return await asyncio.to_thread(measure)
 
     def cache_idle():
@@ -633,14 +682,14 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         used = set(keep)
         for job in store.jobs.values():
             r = job.request
-            used.update(u for u in (r.source, r.ref_video, r.music, r.voice, *r.refs) if u)
+            used.update(u for u in (r.source, r.ref_video, r.music, r.voice, r.place, *r.refs) if u)
         for folder in (ROOT / 'presets', mine):
             for path in folder.glob('*.json'):
                 try:
                     saved = json.loads(path.read_text(encoding='utf-8')).get('inputs') or {}
                 except (OSError, ValueError, AttributeError):
                     continue
-                items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice')] + list(saved.get('refs') or [])
+                items = [saved.get(key) for key in ('source', 'refVideo', 'music', 'voice', 'place')] + list(saved.get('refs') or [])
                 used.update(item['id'] for item in items if isinstance(item, dict) and isinstance(item.get('id'), str))
         recent = time.time() - 3600
         return [upload_id for upload_id, path in uploads.items()
@@ -809,7 +858,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
     async def job_inputs(job_id: str):
         request = _job(job_id).request
         return JobInputs(mode=request.mode, settings=request.settings, source=describe(request.source), refs=[u for u in map(describe, request.refs) if u], ref_video=describe(request.ref_video),
-                         music=describe(request.music), voice=describe(request.voice))
+                         music=describe(request.music), voice=describe(request.voice), place=describe(request.place))
 
     @app.get("/api/jobs/{job_id}/preview")
     async def job_preview(job_id: str):
@@ -852,15 +901,21 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         if job.state.status != 'review':
             raise HTTPException(409, 'This job has no plan waiting for approval')
         try:
-            await asyncio.to_thread(runner.approve_prompts, job, body.prompts)
+            changed = await asyncio.to_thread(runner.approve_prompts, job, body.prompts)  # the manifest is written in a thread
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
-        return await resume_job(job_id)
+        runner.approved(job, changed)  # the state and its events on the event loop
+        return await _resume(job, from_review=True)
 
     @app.post('/api/jobs/{job_id}/resume', response_model=JobState)
     async def resume_job(job_id: str):
-        job = _job(job_id)
+        """Go on with a failed or cancelled project. A plan waiting for its approval leaves review by /approve only: its cost was not accepted."""
+        return await _resume(_job(job_id))
+
+    async def _resume(job, from_review: bool = False):
         await recover_pending(job)
+        if job.state.status == 'review' and not from_review:
+            raise HTTPException(409, 'This plan waits for its approval: approve it (its cost is shown) to generate the shots')
         if job.state.status not in ('failed', 'cancelled', 'review'):
             raise HTTPException(409, 'Only a failed or cancelled project can be resumed')
         if job.pending_handle or job.submission_key or job.pending_result:
@@ -899,6 +954,8 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
         _exclusive(job)
         if job.state.status in ("queued", "running"):
             raise HTTPException(409, "The job is still running")
+        if job.state.status == "review":
+            raise HTTPException(409, "This plan waits for its approval: approve it before making shots again")
         known = {s.id: s for s in job.state.shots}
         if not body.shots or any(shot not in known for shot in body.shots):
             raise HTTPException(422, "Unknown shots")
@@ -1428,7 +1485,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     media_files.append((target, target.relative_to(project).as_posix()))
                 request_files = {}
                 given = job.request
-                ids = {u for u in (given.source, given.ref_video, given.music, given.voice, *given.refs) if u}
+                ids = {u for u in (given.source, given.ref_video, given.music, given.voice, given.place, *given.refs) if u}
                 for upload_id in sorted(ids):
                     if upload_id not in uploads or not uploads[upload_id].is_file():
                         raise ValueError(f'An input file is missing: {upload_id}')
@@ -1522,7 +1579,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                     role_kinds = {}
                     for upload_id, kind in (
                         (request.source, 'video'), (request.ref_video, 'video'),
-                        (request.music, 'audio'), (request.voice, 'audio'),
+                        (request.music, 'audio'), (request.voice, 'audio'), (request.place, 'image'),
                         *((upload_id, 'image') for upload_id in request.refs),
                     ):
                         if upload_id:
@@ -1561,7 +1618,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
 
                     replacements = {field: copied_uploads[value][0] for field, value in (
                         ('source', request.source), ('ref_video', request.ref_video),
-                        ('music', request.music), ('voice', request.voice),
+                        ('music', request.music), ('voice', request.voice), ('place', request.place),
                     ) if value}
                     replacements['refs'] = [copied_uploads[value][0] for value in request.refs]
                     request = request.model_copy(update=replacements)
@@ -1724,7 +1781,7 @@ def create_app(settings: Settings | None = None, runner: Runner | None = None) -
                 return None
             return known.model_dump()
         restored = {key: resolve(saved.get(key), key, kind) for key, kind in
-                    [('source','video'),('refVideo','video'),('music','audio'),('voice','audio')]}
+                    [('source','video'),('refVideo','video'),('music','audio'),('voice','audio'),('place','image')]}
         restored['refs'] = [resolve(item, f'reference {i+1}', 'image') for i,item in enumerate(saved.get('refs', [])[:5])]
         if strict and missing:
             raise HTTPException(422, 'Preset media missing or incompatible: ' + ', '.join(missing))

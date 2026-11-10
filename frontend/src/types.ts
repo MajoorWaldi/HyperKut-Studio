@@ -48,6 +48,10 @@ export interface Settings {
   pose_only: boolean
   quality_check: boolean
   review_plan: boolean
+  video_model: string  // 'minimax_h3' runs here; an API model of the generators folder of the pack is paid per take (Text and Music)
+  api_resolution: '480p' | '720p' | '1080p'
+  api_budget_seconds: number  // the most seconds of video one run may ask from an API model, retries included; 0: no limit
+  api_budget_usd: number  // the same in dollars (the price badges of the API nodes); 0: no limit
   music_energy?: 'peak' | 'calm' | 'balanced' | 'intense'
   music_start: number
   style: string
@@ -87,15 +91,21 @@ export interface JobState {
   pinned: boolean
   operation?: number
   generation_budget?: { seconds: number; with_retries: number; final_seconds: number }
+  api_cost?: ApiCost | null
   energy?: EnergyReport | null
   warnings?: string[]
   manual_export?: { duration: number; clips: number; etag: string } | null
 }
 
+export interface ApiCost { generator: string; title: string; seconds: number; usd_low: number | null; usd_high: number | null; budget_seconds: number; budget_usd: number; over_budget: boolean; stops_at: number | null; text: string; approved: boolean }
+export interface VideoModel { id: string; title: string; source: 'local' | 'api' }
+/** A model with what an edit of the length asked costs with it: seconds the API is asked for and dollars, null when it runs here or the price is not known. */
+export interface VideoEstimate extends VideoModel { seconds: number | null; seconds_high?: number | null; usd_low: number | null; usd_high: number | null; text: string }
+
 export interface EnergyReport { status: string; reference: Record<string,number> | null; result: Record<string,number> | null; ratios: Record<string,number|null>; audio?: {true_peak_dbtp?: number|null;within_ceiling?: boolean;silent?: boolean;status?:string} }
 export interface ReviewReport { frames: {seconds:number;url:string}[]; energy?: EnergyReport | null; warnings?:string[]; checks:Record<string,string> }
 
-export interface JobInputs { mode: Mode; settings: Settings; source: Upload | null; refs: Upload[]; ref_video: Upload | null; music: Upload | null; voice: Upload | null }
+export interface JobInputs { mode: Mode; settings: Settings; source: Upload | null; refs: Upload[]; ref_video: Upload | null; music: Upload | null; voice: Upload | null; place?: Upload | null }
 
 export interface Take { id: string; active: boolean; url: string; thumb?: string | null; generation_prompt?: string; duration?: number; start?: number; window?: number; max_start?: number; step?: number }
 
@@ -151,7 +161,7 @@ export interface TimelineInfo { bpm: number | null; beat_times?: number[]; shots
 
 export interface Health { mode?: Mode; instance_id?: string; preset_inputs?: boolean; music_rhythm_modes?: boolean; adaptive_editing_modes?: boolean; mock: boolean; comfyui: boolean; proxy: boolean; videotools: boolean; output_dir: string | null; missing_nodes?: string[]; missing_models?: string[]; load_errors?: string[] }
 
-export interface Inputs { source: Upload | null; refs: (Upload | null)[]; refVideo: Upload | null; music: Upload | null; voice: Upload | null }
+export interface Inputs { source: Upload | null; refs: (Upload | null)[]; refVideo: Upload | null; music: Upload | null; voice: Upload | null; place?: Upload | null }  // place: a picture of the place, used instead of the generated places
 
 export interface PresetTranslation { name: string; description: string; prompt: string; settings?: Partial<Settings> }
 export interface Preset { inputs?: Inputs | null; missing_inputs?: string[]; translations?: Partial<Record<'en' | 'fr', PresetTranslation>>; id: string; name: string; mode: Mode; description: string; prompt: string; settings?: Partial<Settings>; user?: boolean; preview?: string; reference?: string; featured?: number }

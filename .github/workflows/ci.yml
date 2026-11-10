@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
-          ref: 714249e3d20112ace7a108c3d8143b7fac190de2
+          ref: 5badde870056894128198189cde88bc96adf2779
           path: videotools
           persist-credentials: false
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MajoorWaldi/ComfyUI-Majoor-VideoTools
-          ref: 714249e3d20112ace7a108c3d8143b7fac190de2
+          ref: 5badde870056894128198189cde88bc96adf2779
           path: videotools
           persist-credentials: false
       - uses: actions/checkout@v4

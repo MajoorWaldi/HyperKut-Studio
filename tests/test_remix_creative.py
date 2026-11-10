@@ -64,7 +64,9 @@ def test_the_control_frames_play_at_the_24_fps_of_the_take_and_an_older_pack_pas
     for take in ('91', '108'):
         assert graph[f'{take}:RT']['inputs'] == {'images': [f'{take}:151', 0], 'fps_in': ['87', 2], 'fps_out': 24.0}
         assert graph[f'{take}:160']['inputs']['image'] == graph[f'{take}:1229']['inputs']['image'] == [f'{take}:RT', 0]
-    assert graph['107']['inputs']['fps'] == graph['109']['inputs']['fps'] == 24  # the take is written at the rate the frames were retimed to
+    for take in ('107', '109'):  # the take is written at the rate the frames were retimed to: 24 fps on the H3 side of the model switch (an API take brings its own fps)
+        switch = graph[str(graph[take]['inputs']['fps'][0])]
+        assert switch['inputs']['switch'] == ['GIS', 0] and graph[str(switch['inputs']['on_true'][0])]['inputs']['value'] == 24
     assert graph['short_reference_switch']['inputs']['on_false'] == ['RV', 0] and graph['RV']['inputs']['fps_out'] == 24.0  # H3 reads its reference video at 24 fps
     assert graph['119']['inputs']['skip_copied_lead'] is True  # a take opening on a copy of the source starts after it
     # the judge sees, and Source Copy measures, the part of each take the edit keeps

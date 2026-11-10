@@ -21,6 +21,23 @@ EDIT_FILE = 'editor/timeline.json'
 EDITOR_MODULES = {'timeline_edit_panel.js', 'timeline_edit_logic.js'}
 
 
+def core_signature() -> tuple:
+    """When the files of the pack that Studio reads last changed (its core and its generators): another value than at load time means a restart is due."""
+    files = [*(PACK / 'core').glob('*.py'), *(PACK / 'generators').glob('*.json')]
+    return tuple(sorted((f.name, f.stat().st_mtime_ns) for f in files if f.is_file()))
+
+
+LOADED_SIGNATURE: list[tuple] = []
+
+
+def pack_changed() -> bool:
+    """True when the pack was updated after Studio loaded its core: the models and prices on screen are the old ones until Studio restarts."""
+    try:
+        return bool(LOADED_SIGNATURE) and core_signature() != LOADED_SIGNATURE[0]
+    except OSError:
+        return False
+
+
 @lru_cache(maxsize=1)
 def core():
     # Load only the pure core package, never the Comfy node pack entrypoint.
@@ -35,6 +52,7 @@ def core():
     package = importlib.util.module_from_spec(spec)
     sys.modules[name] = package
     spec.loader.exec_module(package)
+    LOADED_SIGNATURE[:] = [core_signature()]
     return (importlib.import_module(f'{name}.models'),
             importlib.import_module(f'{name}.timeline_edit'),
             importlib.import_module(f'{name}.errors'))

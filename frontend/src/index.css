@@ -53,6 +53,9 @@ input[type=range] { accent-color: var(--soft); cursor: pointer; }
 .upload { border: 1px dashed #776780; background: #292230; border-radius: 11px; min-height: 88px; width: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; color: #d6ccd9; position: relative; overflow: hidden; }
 .upload:hover:not(:disabled) { border-color: var(--lime); background: #32293a; }
 .slot-wrap.drag-over .upload { border-color: var(--lime); border-style: solid; background: #3a2f44; }
+.slot-wrap.drag-refused .upload { border-color: #c4574f; border-style: solid; cursor: not-allowed; opacity: .7; }
+.side.drop-ready { outline: 2px dashed var(--lime); outline-offset: -4px; }
+.side.drop-ready::before { content: attr(data-drop-hint); position: sticky; top: 0; z-index: 3; display: block; padding: 8px 10px; border-radius: 9px; background: #2f2638; color: var(--lime); font-size: 12px; text-align: center; pointer-events: none; }
 .upload.compact { min-height: 66px; border-radius: 8px; }
 .upload strong { font-size: 12px; }
 .upload small { font-size: 10px; color: var(--muted); }
@@ -900,6 +903,24 @@ html[data-w~="sm"] .transport-seek { min-width: 80px; }
 .plan-cut { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--soft); }
 .plan-shot { display: grid; gap: 6px; }
 .plan-facts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.plan-cost { padding: 8px 10px; border: 1px solid var(--soft-line); border-radius: 9px; background: var(--soft-bg); font-size: 12px; line-height: 1.4; }
+.plan-cost.over { border-color: var(--lime); }
+.plan-cost.over strong { color: var(--lime); font-weight: 600; }
+.model-picker { display: grid; gap: 8px; }
+.model-cards { display: grid; gap: 6px; }
+.model-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 9px 11px; text-align: left; color: var(--text); background: #30283a; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+.model-card:hover:not(:disabled) { border-color: #6b5b78; }
+.model-card.on { border-color: var(--lime); background: #2c3a2f; }
+.model-card:disabled { opacity: .6; cursor: default; }
+.model-name { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; }
+.model-badge { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--soft-line); color: var(--soft); }
+.model-badge.api { border-color: var(--lime); color: var(--lime); }
+.model-price { flex: none; font-size: 12px; font-weight: 600; text-align: right; }
+.model-card.local .model-price { color: var(--lime); }
+.model-spend { display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.model-estimate { padding: 8px 10px; border: 1px solid var(--soft-line); border-radius: 9px; background: var(--soft-bg); font-size: 12px; line-height: 1.4; }
+.model-estimate.over { border-color: var(--lime); }
+.video-model-note { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .plan-chip { padding: 2px 8px; border: 1px solid var(--soft-line); border-radius: 8px; background: var(--soft-bg); color: var(--soft); font-size: 11px; }
 .plan-chip.text { border-color: var(--lime); color: var(--text); }
 .plan-shot textarea { width: 100%; min-height: 100px; resize: vertical; padding: 9px 10px; color: var(--text); background: #1a1520; border: 1px solid #4a3f55; border-radius: 9px; font-size: 12px; line-height: 1.45; outline: 0; transition: border-color .15s; }
