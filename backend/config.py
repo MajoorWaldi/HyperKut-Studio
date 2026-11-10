@@ -62,6 +62,15 @@ def _output_directory(comfyui_url: str) -> Path | None:
     return Path(argv[argv.index("--output-directory") + 1]) if "--output-directory" in argv[:-1] else None
 
 
+def key_travels_safely(url: str) -> bool:
+    """An API key may be sent to `url`: HTTPS, or plain HTTP to this computer only (a key sent in clear to another host can be read on the way)."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if parts.scheme == 'https':
+        return True
+    return parts.scheme == 'http' and (parts.hostname or '') in ('127.0.0.1', 'localhost', '::1')
+
+
 @dataclass(frozen=True)
 class Settings:
     comfyui_url: str
@@ -121,6 +130,8 @@ class Settings:
             raise ValueError('A Comfy API deployment needs STORAGE_BACKEND=remote_artifacts')
         if comfy_api and not os.environ.get('COMFY_API_KEY', '').strip():
             raise ValueError('A Comfy API deployment needs COMFY_API_KEY')
+        if comfy_api and not key_travels_safely(os.environ.get('COMFY_BASE_URL', 'http://127.0.0.1:8189')):
+            raise ValueError('COMFY_BASE_URL must use HTTPS when it is not this computer: COMFY_API_KEY is sent to it')
         output = _studio_env('OUTPUT_DIR')
         if backend == 'remote_artifacts':
             output = str(workspace / 'remote-output')

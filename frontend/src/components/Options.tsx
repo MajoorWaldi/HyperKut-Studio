@@ -3,7 +3,6 @@ import { useI18n } from '../i18n'
 import { Icon } from './Icon'
 import { CountBadge } from './CountBadge'
 import { MotionGallery } from './MotionGallery'
-import { VideoModel } from './VideoModel'
 import { parseRows, RECIPE_TIPS } from '../motionLayers'
 import { DEFAULTS, optionDefaults, QUICK, STYLES, type Option } from '../settings'
 import type { Mode, Settings } from '../types'
@@ -35,7 +34,7 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
   const others: Record<Group, string[]> = {
     look: ['efficient_sources', 'reference_style', 'motion_layers', 'motion_design', 'motion_direction', 'motion_title', ...(remix ? [] : ['style', 'transition_intensity', 'text_allowed'])],
     sound: ['bpm', 'mood', 'music_start', ...(musicalEditing ? ['cut_density', 'cut_every', 'music_edit_mode', 'music_cut_variation', 'music_cut_sync'] : [])],
-    expert: ['sfx_library', 'camera', 'seed', 'video_model', 'api_resolution', 'api_budget_seconds', 'api_budget_usd'],
+    expert: ['sfx_library', 'camera', 'seed'],
   }
   const groupChanged = Object.fromEntries((['look', 'sound', 'expert'] as const).map(g => [g, [...toggles[g], ...others[g]].filter(key => dirty(settings, key as keyof Settings)).length])) as Record<Group, number>
   const changed = groupChanged.look + groupChanged.sound + groupChanged.expert
@@ -83,7 +82,6 @@ export function Options({ mode, settings, busy, onSettings }: Props) {
               {group === g && (
                 <div className="group-body">
                   <div className="adv-toggles">{toggles[g].map(toggle)}</div>
-                  {g === 'expert' && <VideoModel mode={mode} settings={settings} busy={busy} onSettings={onSettings} />}
                   {g === 'look' && !remix && <>
                     {select('style', t.style, t.tip.style, [['none', t.auto], ...STYLES.map(id => [id, t.styles[id]] as [string, string])])}
                     {RECIPE_TIPS[settings.style] && <small className="recipe-tip">{RECIPE_TIPS[settings.style][lang === 'fr' ? 1 : 0]}</small>}

@@ -99,6 +99,8 @@ export interface JobState {
 
 export interface ApiCost { generator: string; title: string; seconds: number; usd_low: number | null; usd_high: number | null; budget_seconds: number; budget_usd: number; over_budget: boolean; stops_at: number | null; text: string; approved: boolean }
 export interface VideoModel { id: string; title: string; source: 'local' | 'api' }
+/** A model with what an edit of the length asked costs with it: seconds the API is asked for and dollars, null when it runs here or the price is not known. */
+export interface VideoEstimate extends VideoModel { seconds: number | null; seconds_high?: number | null; usd_low: number | null; usd_high: number | null; text: string }
 
 export interface EnergyReport { status: string; reference: Record<string,number> | null; result: Record<string,number> | null; ratios: Record<string,number|null>; audio?: {true_peak_dbtp?: number|null;within_ceiling?: boolean;silent?: boolean;status?:string} }
 export interface ReviewReport { frames: {seconds:number;url:string}[]; energy?: EnergyReport | null; warnings?:string[]; checks:Record<string,string> }

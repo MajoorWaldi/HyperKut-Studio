@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import time
 
 from comfy_sdk import ComfyError
 
@@ -15,16 +16,29 @@ MAX_SCHEMA_BYTES = 64 * 1024**2
 JOB_TIMEOUT = 1800  # the first job of a deployment also waits for a cold start
 
 
+SCHEMA_MAX_AGE = 24 * 3600  # seconds: a deployment redeployed at the same address gets its new schemas (and price badges) the next day at the latest
+
+
 def _cache_path(settings):
-    # A new release is a new deployment with a new address, so the address identifies the schemas.
+    # The address identifies the deployment; a release at the same address is caught by the age of the copy.
     key = hashlib.sha256(settings.proxy_url.encode('utf-8')).hexdigest()[:16]
     return settings.workspace/f'deployment-schemas-{key}.json'
 
 
 def cached_schemas(settings):
-    """The schemas already read from this deployment, or None. Never starts a GPU worker."""
+    """The schemas already read from this deployment, or None (none, too old or damaged: the copy is removed). Never starts a GPU worker."""
     path = _cache_path(settings)
-    return json.loads(path.read_text(encoding='utf-8')) if path.is_file() else None
+    if not path.is_file():
+        return None
+    try:
+        if time.time() - path.stat().st_mtime > SCHEMA_MAX_AGE:
+            path.unlink(missing_ok=True)
+            return None
+        schemas = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        path.unlink(missing_ok=True)
+        return None
+    return schemas if isinstance(schemas, dict) and schemas else None
 
 
 async def fetch_schemas(client, settings):
@@ -47,8 +61,10 @@ async def fetch_schemas(client, settings):
 
 async def reachable(settings, client):
     """Whether the deployment answers this key. A worker scaled to zero still counts as reachable."""
+    from .config import key_travels_safely
+    headers = {'Authorization': f"Bearer {os.environ.get('COMFY_API_KEY', '')}"} if key_travels_safely(settings.proxy_url) else {}  # never the key in clear to another host
     try:
-        response = await client.get(f'{settings.proxy_url}/api/v2/health', headers={'Authorization': f"Bearer {os.environ.get('COMFY_API_KEY', '')}"})
+        response = await client.get(f'{settings.proxy_url}/api/v2/health', headers=headers)
     except OSError:
         return False
     except Exception as error:

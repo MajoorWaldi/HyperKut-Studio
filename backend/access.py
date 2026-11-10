@@ -2,6 +2,7 @@
 import base64
 import asyncio
 import binascii
+import copy
 import contextvars
 import hashlib
 import hmac
@@ -79,12 +80,12 @@ class JuryQuota:
                 return f'The jury demonstration reached its limit of {self.total} generations.'
             if self.used['visitors'].get(visitor, 0) >= self.per_visitor:
                 return f'You have used your {self.per_visitor} generations of the jury demonstration.'
-            self._add(visitor, 1)
+            await self._add(visitor, 1)
         return None
 
     async def refund(self, visitor: str) -> None:
         async with self.lock:
-            self._add(visitor, -1)
+            await self._add(visitor, -1)
 
     async def act(self, visitor: str) -> str | None:
         """The same for a lighter use of the GPU: an analysis, a direction preview or a new edit."""
@@ -92,12 +93,12 @@ class JuryQuota:
         async with self.lock:
             if actions['total'] >= self.total * ACTIONS_PER_GENERATION or actions['visitors'].get(visitor, 0) >= self.per_visitor * ACTIONS_PER_GENERATION:
                 return 'The jury demonstration reached its limit of previews and new edits.'
-            self._add_action(visitor, 1)
+            await self._add_action(visitor, 1)
         return None
 
     async def refund_action(self, visitor: str) -> None:
         async with self.lock:
-            self._add_action(visitor, -1)
+            await self._add_action(visitor, -1)
 
     async def trade(self, visitor: str) -> str | None:
         """Pay with an action instead of the generation this visitor holds."""
@@ -106,16 +107,20 @@ class JuryQuota:
             await self.refund(visitor)
         return reason
 
-    def _add(self, visitor: str, step: int) -> None:
+    async def _save(self) -> None:
+        """The counts on disk, written in a thread (under the lock of the caller, so the writes keep their order)."""
+        await asyncio.to_thread(write_json, self.path, copy.deepcopy(self.used))
+
+    async def _add(self, visitor: str, step: int) -> None:
         self.used['total'] = max(0, self.used['total'] + step)
         self.used['visitors'][visitor] = max(0, self.used['visitors'].get(visitor, 0) + step)
-        write_json(self.path, self.used)
+        await self._save()
 
-    def _add_action(self, visitor: str, step: int) -> None:
+    async def _add_action(self, visitor: str, step: int) -> None:
         actions = self.used['actions']
         actions['total'] = max(0, actions['total'] + step)
         actions['visitors'][visitor] = max(0, actions['visitors'].get(visitor, 0) + step)
-        write_json(self.path, self.used)
+        await self._save()
 
 
 class JuryOwners:

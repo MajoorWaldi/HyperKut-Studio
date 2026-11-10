@@ -131,7 +131,15 @@ export default function App() {
     return () => { current = false }
   }, [job?.status])
   useEffect(() => { api.presets().then(setPresets).catch(() => setPresets([])) }, [])
-  useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, recent])
+  useEffect(() => {  // a file dropped beside the panel would make the browser open it and leave the Studio
+    const keep = (event: DragEvent) => { if (event.dataTransfer?.types.includes('Files')) event.preventDefault() }
+    window.addEventListener('dragover', keep)
+    window.addEventListener('drop', keep)
+    return () => { window.removeEventListener('dragover', keep); window.removeEventListener('drop', keep) }
+  }, [])
+  // the sizes change when a job ends, appears or goes, not at every progress step: they are asked again only then
+  const settled = recent.filter(j => j.status !== 'running' && j.status !== 'queued').map(j => `${j.id}:${j.status}`).join(',')
+  useEffect(() => { if (library) api.sizes().then(setSizes).catch(() => setSizes({})) }, [library, settled])
   useEffect(() => {
     if (!undo) return
     const timer = window.setTimeout(() => setUndo(null), 8000)
@@ -491,7 +499,7 @@ export default function App() {
           </button>
           <Toolbar mode={mode} settings={settings} busy={running || preparing} hasReferences={inputs.refs.some(Boolean) || !!inputs.refVideo} onSettings={changeSettings} />
           <div className="left">
-          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
+          <InputsPanel mode={mode} inputs={inputs} settings={settings} busy={running || preparing} onPreparing={setPreparing} onUpload={onUpload} onRejected={files => setActionError(`${t.dropRefused} ${files.map(file => file.name).join(', ')}`)} onClear={slot => place(slot, null)} onSettings={changeSettings} onReviewPlan={() => generate(true)} />
           <Library open={library} onClose={() => setLibrary(false)} jobs={recent} sizes={sizes} presets={presets} mode={mode} currentJob={job?.id ?? null} onOpenJob={openFromLibrary} onDuplicateJob={duplicate} onPatchJob={patchJob}
             onDeleteJob={deleteJob} onFree={freeSpace} onCleanCaches={cleanCaches} onApplyPreset={applyPreset} onSavePreset={savePreset} onDeletePreset={deletePreset} onImportPreset={importPreset} onImportProject={importProject} />
           </div>

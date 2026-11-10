@@ -87,10 +87,39 @@ def _tree_bytes(root: Path) -> int:
     return total
 
 
+UPLOAD_RESERVATION_SECONDS = 6 * 3600  # an upload whose request died without its cleanup frees its room after this
+
+
+def write_upload_reservation(settings, upload_id: str, amount: int) -> None:
+    """The room of an upload being written, counted while the file grows outside the lock."""
+    write_json(settings.workspace / '.upload-reservations' / f'{upload_id}.json', {'bytes': int(amount)})
+
+
+def release_upload_reservation(settings, upload_id: str) -> None:
+    (settings.workspace / '.upload-reservations' / f'{upload_id}.json').unlink(missing_ok=True)
+
+
+def _upload_reservations(settings) -> int:
+    total, now = 0, time.time()
+    for path in (settings.workspace / '.upload-reservations').glob('*.json'):
+        try:
+            if now - path.stat().st_mtime > UPLOAD_RESERVATION_SECONDS:
+                path.unlink(missing_ok=True)
+                continue
+            amount = json.loads(path.read_text(encoding='utf-8')).get('bytes')
+        except (OSError, ValueError):
+            continue
+        part = settings.workspace / 'uploads' / f'{path.stem}.part'
+        written = part.stat().st_size if part.is_file() else 0  # the part already on disk is counted by the walk
+        if type(amount) is int and amount > written:
+            total += amount - written
+    return total
+
+
 def _active_reservations(settings, store) -> int:
     directory = settings.workspace / '.job-reservations'
     active = {job.id for job in store.jobs.values() if job.state.status in ('queued', 'running')}
-    total = 0
+    total = _upload_reservations(settings)
     for path in directory.glob('*.json'):
         if path.stem not in active:
             path.unlink()

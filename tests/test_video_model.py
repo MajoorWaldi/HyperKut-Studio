@@ -48,7 +48,7 @@ def test_the_values_of_a_job_reach_the_nodes_of_the_model(tmp_path, mode):
     assert (values['video_model'], values['api_resolution'], values['api_ratio'], values['api_budget_seconds'], values['api_budget_usd']) == ('wan_3_0', '1080p', '16:9', 30, 5.0)
     templates = load_templates(ROOT / 'workflows', mode)
     shot = templates['shot'].fill({k: v for k, v in values.items() if k in templates['shot'].slots and not isinstance(v, Path)}, ())
-    assert shot['GS']['inputs'] == {'generator': 'wan_3_0', 'max_api_seconds': 30, 'max_api_usd': 5.0}
+    assert shot['GS']['inputs'] == {'generator': 'wan_3_0', 'max_api_seconds': 30, 'max_api_usd': 5.0, 'budget_key': job.id}  # one budget for every shot prompt of the job
     takes = [n['inputs'] for n in shot.values() if n['class_type'] == 'MajoorGenerateShot']
     assert len(takes) == 2 and all((t['resolution'], t['aspect_ratio']) == ('1080p', '16:9') for t in takes)
     plan = templates['stage1'].fill({k: v for k, v in values.items() if k in templates['stage1'].slots and not isinstance(v, Path)}, ())
@@ -74,12 +74,44 @@ def test_h3_is_still_the_default_path_of_every_take(mode):
     assert writer['inputs']['generator'] == ['GS', 0]  # the prompt is written in the style of the model
 
 
-def test_an_approved_plan_runs_without_the_cap(tmp_path):
+def test_an_approved_plan_runs_with_the_approved_amounts_as_its_cap(tmp_path):
     runner = ComfyRunner(_settings(tmp_path), {})
     job = _job(video_model='seedance_2_5', api_budget_seconds=10, api_budget_usd=2.0)
     assert (runner._values(job)['api_budget_seconds'], runner._values(job)['api_budget_usd']) == (10, 2.0)
-    job.update(api_cost={'over_budget': True, 'approved': True})
-    assert (runner._values(job)['api_budget_seconds'], runner._values(job)['api_budget_usd']) == (0, 0.0)
+    job.update(api_cost=api_cost.approve({'over_budget': True, 'seconds_high': 40, 'usd_high': 12.0}))
+    assert (runner._values(job)['api_budget_seconds'], runner._values(job)['api_budget_usd']) == (43, 12.6)  # never 0 (no limit): what was approved, and 5 % for rounding
+    job.update(api_cost=api_cost.approve({'over_budget': True, 'seconds_high': 4, 'usd_high': 0.5}))
+    assert (runner._values(job)['api_budget_seconds'], runner._values(job)['api_budget_usd']) == (10, 2.0)  # never below the settings
+    job.update(api_cost=api_cost.approve({'over_budget': True, 'seconds_high': 40, 'usd_high': None}))
+    assert (runner._values(job)['api_budget_seconds'], runner._values(job)['api_budget_usd']) == (43, 0.0)  # no price was known: the seconds hold the cap
+    free = _job(video_model='seedance_2_5', api_budget_seconds=0, api_budget_usd=0.0)
+    free.update(api_cost=api_cost.approve({'over_budget': True, 'seconds_high': 40, 'usd_high': 12.0}))
+    assert (runner._values(free)['api_budget_seconds'], runner._values(free)['api_budget_usd']) == (0, 0.0)  # no limit was the choice of the user
+
+
+def test_a_plan_made_again_keeps_its_approval_only_when_it_costs_no_more():
+    approved = api_cost.approve({'seconds_high': 40, 'usd_high': 12.0})
+    assert api_cost.still_approved(approved, {'seconds_high': 40, 'usd_high': 11.0})
+    assert not api_cost.still_approved(approved, {'seconds_high': 120, 'usd_high': 11.0})  # three times the shots
+    assert not api_cost.still_approved(approved, {'seconds_high': 40, 'usd_high': 30.0})
+    assert not api_cost.still_approved({'seconds_high': 40}, {'seconds_high': 10})  # never approved
+    assert api_cost.still_approved(api_cost.approve({'unknown': True, 'seconds_high': None}), {'unknown': True})  # still no estimate: approved knowing it
+
+
+def test_the_estimate_counts_the_second_take_and_the_retry():
+    base = {'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 20}
+    one = api_cost.plan_cost(JobRequest(mode='text', settings={**base, 'retry_bad_takes': False}), [72, 130, 48], {})
+    retry = api_cost.plan_cost(JobRequest(mode='text', settings=base), [72, 130, 48], {})  # a bad take is made again: up to 2 a shot
+    assert (one['takes'], one['seconds_high'], one['over_budget']) == (1, 14, False)
+    assert (retry['takes'], retry['seconds_high'], retry['stops_at']) == (2, 28, 3)
+    assert api_cost.takes_of(JobRequest(mode='text', settings={**base, 'best_of_two': True})) == (2, 2)
+    assert api_cost.takes_of(JobRequest(mode='remix', settings={**base, 'quality_check': True})) == (1, 2)
+
+
+def test_a_plan_the_pack_cannot_price_waits_for_an_approval(monkeypatch):
+    monkeypatch.setattr(api_cost, '_module', lambda name: (_ for _ in ()).throw(ImportError('pack not found')))
+    cost = api_cost.plan_cost(JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'seedance_2_5'}), [72], {})
+    assert cost['unknown'] and cost['over_budget'] and not cost['approved'] and 'could not be estimated' in cost['text']
 
 
 def test_a_local_model_has_no_api_cost():
@@ -88,11 +120,11 @@ def test_a_local_model_has_no_api_cost():
 
 
 def test_the_cost_of_a_plan_counts_the_seconds_and_says_when_it_goes_over_the_budget():
-    request = JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 10})
+    request = JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 10, 'retry_bad_takes': False})
     cost = api_cost.plan_cost(request, [72, 130, 48], {})  # 3 s, 5.4 s, 2 s at 24 fps: Seedance asks for 4 + 6 + 4 s
     assert cost['generator'] == 'seedance_2_5' and cost['seconds'] == 14 and cost['over_budget'] and cost['stops_at'] == 3
     assert 'stops before shot 3' in cost['text'] and cost['approved'] is False
-    within = api_cost.plan_cost(JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 120}), [72, 130, 48], {})
+    within = api_cost.plan_cost(JobRequest(mode='text', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 120, 'retry_bad_takes': False}), [72, 130, 48], {})
     assert within['over_budget'] is False and within['stops_at'] is None
 
 
@@ -115,7 +147,7 @@ async def test_the_mock_runner_waits_for_a_plan_over_the_budget_then_runs_it():
     runner = MockRunner(pace=0, shots=7)
     await runner.run(job)
     assert job.state.status == 'review' and job.state.api_cost['over_budget'] and job.state.api_cost['approved'] is False  # 7 takes of at least 4 s: 28 s asked, 10 s allowed
-    runner.approve_prompts(job, {})
+    runner.approved(job, runner.approve_prompts(job, {}))
     assert job.state.api_cost['approved'] is True
     job.update(status='running')
     await runner.run(job)
@@ -138,10 +170,11 @@ async def test_the_real_runner_stops_after_the_plan_when_the_api_cost_is_over_th
     runner = ComfyRunner(settings, {'r1': picture}, lambda: client)
     await runner.run(job)
     assert job.state.status == 'review' and job.state.api_cost['over_budget'] and len(client.submitted) == 1  # the plan only: no shot was asked of the model
-    runner.approve_prompts(job, {})
+    runner.approved(job, runner.approve_prompts(job, {}))
     job.update(status='running')
     await runner.run(job)
-    assert job.state.status == 'succeeded', job.state.error and job.state.api_cost['approved']
+    assert job.state.status == 'succeeded', job.state.error
+    assert job.state.api_cost['approved']
 
 
 def test_a_remix_is_offered_only_the_models_that_can_edit_a_source_video():
@@ -176,3 +209,36 @@ def test_the_cost_of_a_remix_is_the_cost_of_editing_the_source():
     request = JobRequest(mode='remix', settings={'prompt': 'x', 'video_model': 'seedance_2_5', 'api_budget_seconds': 10})
     cost = api_cost.plan_cost(request, [72, 130, 48], {})
     assert cost['generator'] == 'seedance_2_5' and cost['over_budget'] and cost['stops_at'] == 3
+
+
+def test_the_picker_prices_every_model_for_the_length_of_the_edit():
+    pytest.importorskip('jsonata')
+    import json
+    badges = json.loads((ROOT.parent / 'tests' / 'fixtures' / 'price_badges.json').read_text(encoding='utf-8'))
+    schemas = {name: {'price_badge': badge} for name, badge in badges.items()}
+    rows = {row['id']: row for row in api_cost.estimate_models('text', 15, schemas, refs=1)}
+    assert rows['minimax_h3']['source'] == 'local' and rows['minimax_h3']['usd_low'] is None and rows['minimax_h3']['seconds'] is None  # nothing to pay here
+    assert rows['seedance_2_5']['seconds'] >= 15 and rows['seedance_2_5']['usd_high'] >= rows['seedance_2_5']['usd_low'] > 0
+    longer = {row['id']: row for row in api_cost.estimate_models('text', 60, schemas, refs=1)}
+    assert longer['seedance_2_5']['usd_low'] > rows['seedance_2_5']['usd_low']  # a longer edit costs more
+
+
+def test_the_picker_without_price_badges_still_says_how_many_seconds_are_asked():
+    rows = {row['id']: row for row in api_cost.estimate_models('music', 12, {}, music=True)}
+    assert rows['wan_3_0']['seconds'] == 12 and rows['wan_3_0']['usd_low'] is None
+
+
+def test_a_remix_is_priced_for_the_models_that_edit():
+    assert {row['id'] for row in api_cost.estimate_models('remix', 15, {})} == {'minimax_h3', 'seedance_2_5'}
+
+
+def test_the_estimate_endpoint_answers_for_every_model_and_refuses_a_bad_question(tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.server import create_app
+    client = TestClient(create_app(_settings(tmp_path)))
+    body = client.get('/api/video-models/estimate', params={'mode': 'text', 'seconds': 15, 'ratio': '9:16', 'resolution': '720p', 'refs': 2}).json()
+    assert {'minimax_h3', 'seedance_2_5', 'wan_3_0'} <= {row['id'] for row in body['models']}
+    assert all({'source', 'seconds', 'usd_low', 'usd_high'} <= set(row) for row in body['models'])
+    assert client.get('/api/video-models/estimate', params={'seconds': 0}).status_code == 422
+    assert client.get('/api/video-models/estimate', params={'resolution': '8k'}).status_code == 422
+    assert client.get('/api/video-models/estimate', params={'mode': 'nope'}).status_code == 422

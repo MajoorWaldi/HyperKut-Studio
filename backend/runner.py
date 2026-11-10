@@ -6,6 +6,7 @@ import os
 import logging
 import tempfile
 import math
+import time
 import uuid
 import re
 from pathlib import Path
@@ -68,7 +69,9 @@ def _is_optional_music_failure(error: Exception) -> bool:
 class Runner(Protocol):
     async def run(self, job: Job) -> None: ...
 
-    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None: ...
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> dict[str, str]: ...
+
+    def approved(self, job: Job, changed: dict[str, str]) -> None: ...
 
     async def regenerate(self, job: Job, shots: list[str], prompts: dict[str, str]) -> None: ...
 
@@ -176,10 +179,10 @@ class ComfyRunner:
                               'Honor any musical genre requested in the brief; do not impose a default genre. '
                               + ('Video brief: ' + context if context else 'Use the source video mood and pacing.'))
         values['fork_project_id'] = f'p_{job.id}'
-        cost = job.state.api_cost or {}
-        approved = bool(cost.get('approved'))  # a plan approved with its cost on the screen runs without the cap
-        values.update(video_model=s.video_model, api_resolution=s.api_resolution, api_ratio=s.ratio, api_budget_seconds=0 if approved else s.api_budget_seconds,
-                      api_budget_usd=0.0 if approved else s.api_budget_usd)
+        from .api_cost import caps
+        budget_seconds, budget_usd = caps(s, job.state.api_cost)  # an approved plan runs with the approved amounts as its cap, never without one
+        values.update(video_model=s.video_model, api_resolution=s.api_resolution, api_ratio=s.ratio, api_budget_seconds=budget_seconds, api_budget_usd=budget_usd,
+                      api_budget_key=job.id)  # one budget for every shot prompt of the job: the pack counts them together
         directions=[f'Requested edit duration: {s.duration:g} seconds. Adapt the creative scope to this duration; do not invent exact musical timestamps.']
         if r.mode in ('text','music'):
             directions.append(creative_direction(s))
@@ -242,6 +245,8 @@ class ComfyRunner:
             finally:
                 await client.aclose()
 
+    SCHEMA_SECONDS = 60  # object_info weighs megabytes: read once a minute at most (the estimate of the form asks it at every change)
+
     async def _schemas(self) -> dict:
         """The object_info of ComfyUI, or {} when it cannot be read: not knowing what is installed is not a reason to cut anything."""
         import httpx
@@ -250,14 +255,23 @@ class ComfyRunner:
                 return await self._deployment_schemas()
             except (ComfyError, ValueError):
                 return {}
+        cached = getattr(self, '_object_info', None)
+        if cached and time.monotonic() - cached[0] < self.SCHEMA_SECONDS:
+            return cached[1]
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=0.5), trust_env=False) as probe:
                 response = await probe.get(f'{self.settings.comfyui_url}/object_info')
                 response.raise_for_status()
                 schemas = response.json()
         except (httpx.HTTPError, ValueError):
-            return {}
-        return schemas if isinstance(schemas, dict) else {}
+            return {}  # a failure is not kept: the next call asks again
+        schemas = schemas if isinstance(schemas, dict) else {}
+        self._object_info = (time.monotonic(), schemas)
+        return schemas
+
+    def forget_schemas(self) -> None:
+        """After a restart of ComfyUI its nodes may have changed."""
+        self._object_info = None
 
     async def _run(self, client, job: Job, template, values: dict, stage: str, base: float = 0.0, span: float = 1.0, *, result_context: dict | None = None):
         """Submit one prompt and follow it: the progress of the job moves with the nodes of the prompt."""
@@ -779,6 +793,9 @@ class ComfyRunner:
                 shots = job.state.shots
                 if not shots:
                     raise ValueError('The saved plan contains no shots')
+                if await self._needs_cost_review(job, shots):  # a resumed plan is checked like a new one: one over the budget waits for its approval
+                    return
+                values = self._values(job)
                 job.update(status='running', stage='shots', error=None)
             else:
                 if job.state.status != 'running':
@@ -803,14 +820,10 @@ class ComfyRunner:
                 seconds = sum(frames)/24
                 retry = (job.request.settings.quality_check if job.request.mode=='remix' else job.request.settings.retry_bad_takes) or job.request.settings.best_of_two
                 job.update(project_id=info['project_id'], shots=shots, generation_budget={'seconds':round(seconds,2),'with_retries':round(seconds*(2 if retry else 1),2),'final_seconds':round(sum(s.duration for s in shots),2)})
-                from .api_cost import plan_cost, shot_frames_of
-                cost = plan_cost(job.request, shot_frames_of(shots), await self._schemas())
-                if cost and (job.state.api_cost or {}).get('approved'):
-                    cost['approved'] = True  # the plan is made again (its project was lost): the estimate that was approved stays approved
-                job.update(api_cost=cost)
-                if job.request.settings.review_plan or (cost and cost['over_budget'] and not cost['approved']):  # a plan that goes over the budget of the API model waits for approval, whatever the setting
+                if await self._needs_cost_review(job, shots) or job.request.settings.review_plan:  # a plan over the budget of the API model waits for approval, whatever the setting
                     job.update(status='review', stage='analyze')
                     return
+                values = self._values(job)
             remaining = [shot for shot in shots if not shot.done]
             for i, shot in enumerate(remaining):
                 await self._run(client, job, templates['shot' if shot.render_source=='generated' else 'local'], {**values, 'shot_id': shot.id, 'shot_start':shot.start,'shot_duration':shot.duration,'project_id':info['project_id'],'job_name':f'{job.id}_shot'}, 'shots', i/len(remaining),1/len(remaining))
@@ -827,6 +840,20 @@ class ComfyRunner:
                 with contextlib.suppress(Exception):
                     await client.aclose()
 
+    async def _needs_cost_review(self, job: Job, shots) -> bool:
+        """Price the plan with the API model of the job and keep it in the state; True (the job is put in review) when it goes over the budget and
+        was not approved. A plan made again keeps an earlier approval only when it asks for no more than what was approved."""
+        from .api_cost import approve, plan_cost, shot_frames_of, still_approved
+        previous = job.state.api_cost
+        cost = plan_cost(job.request, shot_frames_of(shots), await self._schemas())
+        if cost and still_approved(previous, cost):
+            cost = approve({**cost, **{k: previous[k] for k in ('approved_seconds', 'approved_usd') if k in previous}})  # the cap stays what was approved
+        job.update(api_cost=cost)
+        if cost and cost['over_budget'] and not cost['approved']:
+            job.update(status='review', stage='analyze')
+            return True
+        return False
+
     async def regenerate(self, job: Job, shots: list[str], prompts: dict[str, str]) -> None:
         """Make the given shots again, with their own prompt if it was edited and another seed, then the edit: the other shots keep the take they have."""
         client = None
@@ -835,7 +862,7 @@ class ComfyRunner:
             if job.state.status != 'running':
                 job.begin('shots')
             templates = load_templates(self.settings.templates_dir, job.request.mode)
-            values = self._values(job)
+            values = {**self._values(job), 'api_budget_key': f'{job.id}-r{job.state.operation}'}  # a regeneration the user asked for has the budget of a run of its own
             job.update(status="running", stage="shots", progress=0.0, error=None)
             for i, shot_id in enumerate(shots):
                 shot = next(s for s in job.state.shots if s.id == shot_id)
@@ -923,17 +950,22 @@ class ComfyRunner:
             shot['plan'] = {**previous[0], 'prompt': text}
         return previous
 
-    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None:
-        """Write the prompts changed while the plan was reviewed into the project, then show them in the state."""
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> dict[str, str]:
+        """Write the prompts changed while the plan was reviewed into the project (in a thread: it writes the manifest); `approved` shows them."""
         known = {s.id: s for s in job.state.shots}
         if unknown := [shot for shot in prompts if shot not in known]:
             raise ValueError(f'Unknown shots: {unknown}')
         changed = {shot: text for shot, text in prompts.items() if text != known[shot].prompt}
         for shot, text in changed.items():
             self._set_prompt(job.state.project_id, shot, text)
+        return changed
+
+    def approved(self, job: Job, changed: dict[str, str]) -> None:
+        """The prompts and the cost the user approved, in the state (on the event loop: the events of a job are not thread-safe)."""
         job.update(shots=[s.model_copy(update={'prompt': changed[s.id]}) if s.id in changed else s for s in job.state.shots])
         if job.state.api_cost:
-            job.update(api_cost={**job.state.api_cost, 'approved': True})  # the user saw the estimate before pressing Generate
+            from .api_cost import approve
+            job.update(api_cost=approve(job.state.api_cost))  # the user saw the estimate before pressing Generate: it becomes the cap
 
     def _restore_prompt(self, project_id: str, shot_id: str, text: str, previous) -> None:
         with SharedProjectRepository(self.projects()).edit(project_id) as manifest:
@@ -948,12 +980,16 @@ class MockRunner:
     def __init__(self, pace: float = 0.4, shots: int = 7):
         self.pace, self.count = pace, shots
 
-    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> None:
+    def approve_prompts(self, job: Job, prompts: dict[str, str]) -> dict[str, str]:
         if unknown := [shot for shot in prompts if shot not in {s.id for s in job.state.shots}]:
             raise ValueError(f'Unknown shots: {unknown}')
-        job.update(shots=[s.model_copy(update={'prompt': prompts[s.id]}) if s.id in prompts else s for s in job.state.shots])
+        return dict(prompts)
+
+    def approved(self, job: Job, changed: dict[str, str]) -> None:
+        job.update(shots=[s.model_copy(update={'prompt': changed[s.id]}) if s.id in changed else s for s in job.state.shots])
         if job.state.api_cost:
-            job.update(api_cost={**job.state.api_cost, 'approved': True})
+            from .api_cost import approve
+            job.update(api_cost=approve(job.state.api_cost))
 
     async def run(self, job: Job) -> None:
         try:

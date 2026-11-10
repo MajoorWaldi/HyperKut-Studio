@@ -1,11 +1,20 @@
-import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload, VideoModel } from './types'
+import type { AICandidate, AIOperation, EditStyle, Health, Inputs, JobInputs, Take, TimelineInfo, JobState, ManualTimelinePayload, Mode, Preset, Settings, TimelineDocument, TimelineEditorModule, Upload, VideoEstimate, VideoModel } from './types'
+
+/** fetch, with a sentence a person can act on when the Studio cannot be reached at all (instead of "TypeError: Failed to fetch"). */
+const fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+  globalThis.fetch(input, init).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    throw new Error('The Studio server could not be reached: check that it is running and the network is up, then try again.')
+  })
 
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.detail ? (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)) : `${response.status} ${response.statusText}`)
   }
-  return response.json() as Promise<T>
+  if (response.status === 204) return undefined as T
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T  // an empty answer is no value, not an error
 }
 
 export const health = (mode: Mode = 'remix', inputs: { refs?: number; ref_video?: boolean; voice?: boolean } = {}) => {
@@ -41,6 +50,8 @@ export const jobInputs = (id: string) => fetch(`/api/jobs/${id}/inputs`).then(js
 
 export const recentJobs = () => fetch('/api/jobs').then(json<JobState[]>)
 
+export const videoEstimate = (query: { mode: Mode; seconds: number; ratio: string; resolution: string; refs: number; refVideo: boolean; music: boolean }) =>
+  fetch(`/api/video-models/estimate?${new URLSearchParams({ mode: query.mode, seconds: String(query.seconds), ratio: query.ratio, resolution: query.resolution, refs: String(query.refs), ref_video: String(query.refVideo), music: String(query.music) })}`).then(json<{ models: VideoEstimate[] }>).then(body => body.models)
 export const videoModels = (mode?: Mode) => fetch(`/api/video-models${mode ? `?mode=${mode}` : ''}`).then(json<{ models: VideoModel[] }>).then(body => body.models)
 
 export const presets = () => fetch('/api/presets').then(json<Preset[]>)
